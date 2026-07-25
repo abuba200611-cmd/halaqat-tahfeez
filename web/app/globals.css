@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+  الألوان والخطوط مأخوذة من مخرجات ui-ux-pro-max (تعليم/عربي/RTL).
+  عُدّلت درجتان: الخلفية خُفّف تشبّعها والحدود هُدّئت — الدرجات الأصلية
+  (#F0FDFA و #5EEAD4) صاخبة تحت جدول من ١٥٠ صفاً.
+*/
+@theme {
+  --color-primary: #0d9488;
+  --color-primary-hover: #0f766e;
+  --color-on-primary: #ffffff;
+  --color-secondary: #2dd4bf;
+  --color-accent: #d97706;
+
+  --color-surface: #ffffff;
+  --color-background: #f4faf9;
+  --color-foreground: #134e4a;
+  --color-muted: #eef4f4;
+  --color-muted-foreground: #5f807d;
+  --color-border: #d7e6e4;
+  --color-border-strong: #5eead4;
+  --color-destructive: #dc2626;
+  --color-success: #15803d;
+  --color-ring: #0d9488;
+
+  --font-sans: var(--font-arabic-sans), system-ui, sans-serif;
+  --font-naskh: var(--font-arabic-naskh), Georgia, serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* الأرقام العربية-الهندية تُربك القراءة السريعة في الجداول — نثبّت اللاتينية */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  /* بطاقة اليوم في جدول الشهر لا تنقسم بين صفحتين */
+  .print-block {
+    break-inside: avoid;
+  }
+}

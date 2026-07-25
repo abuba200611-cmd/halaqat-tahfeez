@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "halaqat-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "halaqat-48851",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev", "-p", "48851"],
+      "port": 48851
+    }
+  ]
+}
