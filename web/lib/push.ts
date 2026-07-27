@@ -19,12 +19,12 @@ const CONTACT = "mailto:halaqat@example.com";
 let configured = false;
 
 /** يضمن وجود مفاتيح VAPID وضبط المكتبة، ويرجع المفتاح العام (أو null عند التعذّر) */
-function ensureConfigured(): string | null {
+async function ensureConfigured(): Promise<string | null> {
   try {
-    let keys = vapidKeys();
+    let keys = await vapidKeys();
     if (!keys) {
       const generated = webpush.generateVAPIDKeys();
-      setVapidKeys(generated.publicKey, generated.privateKey);
+      await setVapidKeys(generated.publicKey, generated.privateKey);
       keys = generated;
     }
     if (!configured) {
@@ -37,7 +37,7 @@ function ensureConfigured(): string | null {
   }
 }
 
-export function getVapidPublicKey(): string | null {
+export async function getVapidPublicKey(): Promise<string | null> {
   return ensureConfigured();
 }
 
@@ -53,10 +53,10 @@ export type PushPayload = {
  * لا يرمي أبداً — فشل الإشعار يجب ألا يُفشل حفظ الورد.
  */
 export async function sendPushToTeacher(teacherId: number, payload: PushPayload): Promise<void> {
-  const publicKey = ensureConfigured();
+  const publicKey = await ensureConfigured();
   if (!publicKey) return;
 
-  const subs = listPushSubscriptions(teacherId);
+  const subs = await listPushSubscriptions(teacherId);
   await Promise.all(
     subs.map(async (sub) => {
       try {
@@ -66,7 +66,7 @@ export async function sendPushToTeacher(teacherId: number, payload: PushPayload)
         );
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) deletePushSubscription(sub.endpoint);
+        if (status === 404 || status === 410) await deletePushSubscription(sub.endpoint);
       }
     }),
   );

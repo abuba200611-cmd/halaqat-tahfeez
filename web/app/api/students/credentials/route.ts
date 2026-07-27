@@ -6,7 +6,7 @@ export async function GET() {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
-  return Response.json({ usernames: studentUsernames(teacher.id) });
+  return Response.json({ usernames: await studentUsernames(teacher.id) });
 }
 
 /**
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     if (username.length < 3) throw new Error("اسم المستخدم ٣ أحرف فأكثر");
     if (password.length < 6) throw new Error("كلمة المرور ٦ أحرف فأكثر");
 
-    setStudentCredentials(teacher.id, studentId, username, hashPassword(password));
+    await setStudentCredentials(teacher.id, studentId, username, hashPassword(password));
     return Response.json({ ok: true, username });
   } catch (error) {
     return Response.json(

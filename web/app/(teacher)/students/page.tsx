@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Empty } from "@/components/ui";
+import { LinkPanel } from "@/components/link-button";
 import { pageCount, studentJuzes } from "@/lib/pairing";
 import { juzLabel, juzToPages } from "@/lib/quran";
 import { useStudents } from "@/lib/store";
@@ -19,6 +20,9 @@ export default function StudentsPage() {
   const [showForm, setShowForm] = useState(false);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
   const [credentialFor, setCredentialFor] = useState<Student | null>(null);
+  const [links, setLinks] = useState<Record<string, string>>({});
+  const [linkSummaries, setLinkSummaries] = useState<Record<string, string>>({});
+  const [linkFor, setLinkFor] = useState<Student | null>(null);
 
   const loadUsernames = useCallback(() => {
     fetch("/api/students/credentials")
@@ -29,9 +33,20 @@ export default function StudentsPage() {
       .catch(() => {});
   }, []);
 
+  const loadLinks = useCallback(() => {
+    fetch("/api/students/link")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { links?: Record<string, string>; summaries?: Record<string, string> } | null) => {
+        if (data?.links) setLinks(data.links);
+        if (data?.summaries) setLinkSummaries(data.summaries);
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     loadUsernames();
-  }, [loadUsernames]);
+    loadLinks();
+  }, [loadUsernames, loadLinks]);
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -92,6 +107,21 @@ export default function StudentsPage() {
         />
       )}
 
+      {linkFor && (
+        <LinkPanel
+          student={linkFor}
+          linkUsername={links[linkFor.id]}
+          summaryLabel={linkSummaries[linkFor.id]}
+          onClose={() => setLinkFor(null)}
+          onLinked={(linkUsername, summaryLabel, updated) => {
+            setLinks((prev) => ({ ...prev, [linkFor.id]: linkUsername }));
+            setLinkSummaries((prev) => ({ ...prev, [linkFor.id]: summaryLabel }));
+            upsert(updated);
+            setLinkFor(null);
+          }}
+        />
+      )}
+
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[36rem] text-right text-sm">
           <thead className="border-b border-border bg-muted/50">
@@ -131,6 +161,12 @@ export default function StudentsPage() {
                       className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     >
                       {usernames[student.id] ? "الحساب" : "إنشاء حساب"}
+                    </button>
+                    <button
+                      onClick={() => setLinkFor(student)}
+                      className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      {links[student.id] ? "تحديث" : "ربط"}
                     </button>
                     <button
                       onClick={() => remove(student.id)}

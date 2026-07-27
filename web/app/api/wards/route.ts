@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       reviewTo: review?.to ?? null,
       note,
     };
-    createWardLog(student.teacherId, student.id, log);
+    await createWardLog(student.teacherId, student.id, log);
 
     // إشعار المعلّم — لا يُفشل الحفظ إن تعذّر
     const parts: string[] = [];
@@ -81,8 +81,8 @@ export async function GET(request: Request) {
 
   const onlyNew = new URL(request.url).searchParams.get("new") === "1";
   return Response.json({
-    wards: listWardLogs(teacher.id, onlyNew),
-    newCount: countNewWards(teacher.id),
+    wards: await listWardLogs(teacher.id, onlyNew),
+    newCount: await countNewWards(teacher.id),
   });
 }
 
@@ -99,8 +99,8 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "حالة غير صحيحة" }, { status: 400 });
   }
 
-  if (!setWardLogStatus(teacher.id, id, status)) {
+  if (!(await setWardLogStatus(teacher.id, id, status))) {
     return Response.json({ error: "الورد غير موجود" }, { status: 404 });
   }
-  return Response.json({ ok: true, newCount: countNewWards(teacher.id) });
+  return Response.json({ ok: true, newCount: await countNewWards(teacher.id) });
 }

@@ -6,5 +6,5 @@ export async function GET() {
   const student = await currentStudent();
   if (!student) return studentUnauthorized();
 
-  return Response.json({ wards: listWardLogsForStudent(student.teacherId, student.id) });
+  return Response.json({ wards: await listWardLogsForStudent(student.teacherId, student.id) });
 }

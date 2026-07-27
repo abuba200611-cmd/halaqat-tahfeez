@@ -7,7 +7,7 @@ export async function GET() {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
-  const publicKey = getVapidPublicKey();
+  const publicKey = await getVapidPublicKey();
   if (!publicKey) return Response.json({ error: "الإشعارات غير متاحة" }, { status: 503 });
   return Response.json({ publicKey });
 }
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const auth = String(sub?.keys?.auth ?? "").trim();
     if (!endpoint || !p256dh || !auth) throw new Error("بيانات الاشتراك ناقصة");
 
-    savePushSubscription(teacher.id, { endpoint, p256dh, auth });
+    await savePushSubscription(teacher.id, { endpoint, p256dh, auth });
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json(
@@ -45,6 +45,6 @@ export async function DELETE(request: Request) {
 
   const body = (await request.json().catch(() => ({}))) as { endpoint?: unknown };
   const endpoint = String(body.endpoint ?? "").trim();
-  if (endpoint) deletePushSubscription(endpoint);
+  if (endpoint) await deletePushSubscription(endpoint);
   return Response.json({ ok: true });
 }

@@ -25,21 +25,21 @@ export function verifyPassword(password: string, stored: string): boolean {
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
-function sign(payload: string): string {
-  return createHmac("sha256", sessionSecret()).update(payload).digest("hex");
+async function sign(payload: string): Promise<string> {
+  return createHmac("sha256", await sessionSecret()).update(payload).digest("hex");
 }
 
-export function createSessionToken(teacherId: number): string {
+export async function createSessionToken(teacherId: number): Promise<string> {
   const payload = `${teacherId}.${Date.now()}`;
-  return `${payload}.${sign(payload)}`;
+  return `${payload}.${await sign(payload)}`;
 }
 
 /** يتحقق من التوقيع والصلاحية، ويرجع معرّف المعلّم أو null */
-export function readSessionToken(token: string): number | null {
+export async function readSessionToken(token: string): Promise<number | null> {
   const [idPart, issuedPart, signature] = token.split(".");
   if (!idPart || !issuedPart || !signature) return null;
 
-  const expected = sign(`${idPart}.${issuedPart}`);
+  const expected = await sign(`${idPart}.${issuedPart}`);
   if (signature.length !== expected.length) return null;
   if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
 
@@ -53,7 +53,7 @@ export function readSessionToken(token: string): number | null {
 
 export async function setSessionCookie(teacherId: number): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, createSessionToken(teacherId), {
+  store.set(SESSION_COOKIE, await createSessionToken(teacherId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -73,7 +73,7 @@ export async function currentTeacher(): Promise<Teacher | null> {
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const teacherId = readSessionToken(token);
+  const teacherId = await readSessionToken(token);
   return teacherId === null ? null : findTeacherById(teacherId);
 }
 
@@ -91,21 +91,21 @@ function studentPayload(teacherId: number, studentId: string, issuedAt: number):
   return `student.${teacherId}.${encodedId}.${issuedAt}`;
 }
 
-export function createStudentSessionToken(teacherId: number, studentId: string): string {
+export async function createStudentSessionToken(teacherId: number, studentId: string): Promise<string> {
   const payload = studentPayload(teacherId, studentId, Date.now());
-  return `${payload}.${sign(payload)}`;
+  return `${payload}.${await sign(payload)}`;
 }
 
 /** يتحقق من التوقيع والصلاحية، ويرجع (المعلّم، الطالب) أو null */
-export function readStudentSessionToken(
+export async function readStudentSessionToken(
   token: string,
-): { teacherId: number; studentId: string } | null {
+): Promise<{ teacherId: number; studentId: string } | null> {
   const parts = token.split(".");
   if (parts.length !== 5) return null;
   const [tag, idPart, encodedId, issuedPart, signature] = parts;
   if (tag !== "student") return null;
 
-  const expected = sign(`${tag}.${idPart}.${encodedId}.${issuedPart}`);
+  const expected = await sign(`${tag}.${idPart}.${encodedId}.${issuedPart}`);
   if (signature.length !== expected.length) return null;
   if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
 
@@ -124,7 +124,7 @@ export async function setStudentSessionCookie(
   studentId: string,
 ): Promise<void> {
   const store = await cookies();
-  store.set(STUDENT_SESSION_COOKIE, createStudentSessionToken(teacherId, studentId), {
+  store.set(STUDENT_SESSION_COOKIE, await createStudentSessionToken(teacherId, studentId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -144,7 +144,7 @@ export async function currentStudent(): Promise<StudentAccount | null> {
   const token = store.get(STUDENT_SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const parsed = readStudentSessionToken(token);
+  const parsed = await readStudentSessionToken(token);
   return parsed === null ? null : findStudentAccount(parsed.teacherId, parsed.studentId);
 }
 

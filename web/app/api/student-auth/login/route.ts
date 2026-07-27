@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const username = String(body.username ?? "").trim();
   const password = String(body.password ?? "");
 
-  const student = findStudentByUsername(username);
+  const student = await findStudentByUsername(username);
   // رسالة واحدة للحالتين حتى لا تكشف أي أسماء المستخدمين موجودة
   if (!student || !verifyPassword(password, student.passwordHash)) {
     return Response.json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" }, { status: 401 });
