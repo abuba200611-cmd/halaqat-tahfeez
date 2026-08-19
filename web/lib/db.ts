@@ -80,6 +80,18 @@ export async function findTeacherByUsername(
   };
 }
 
+/**
+ * دخول جوجل: يجد معلّماً ببريده أو ينشئه فوراً بكلمة مرور عشوائية لن
+ * يستخدمها أبداً (دخوله دائماً عبر جوجل). البريد نفسه عمود username.
+ */
+export async function findOrCreateTeacherByEmail(email: string): Promise<number> {
+  const existing = await findTeacherByUsername(email);
+  if (existing) return existing.id;
+
+  const randomPasswordHash = randomBytes(32).toString("hex");
+  return createTeacher(email, randomPasswordHash, "");
+}
+
 export async function findTeacherById(id: number): Promise<Teacher | null> {
   const rows = await db().sql`
     SELECT id, username, halaqah_name FROM teachers WHERE id = ${id}
