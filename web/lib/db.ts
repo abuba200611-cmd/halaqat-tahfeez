@@ -110,12 +110,13 @@ function rowToStudent(row: Record<string, unknown>): Student {
     ranges: JSON.parse(row.ranges as string) as MemorizedRange[],
     mastery: JSON.parse(row.mastery as string) as Record<number, number>,
     active: row.active as boolean,
+    rating: (row.rating as number | null) ?? 0,
   };
 }
 
 export async function listStudents(teacherId: number): Promise<Student[]> {
   const rows = await db().sql`
-    SELECT id, name, group_name, ranges, mastery, active
+    SELECT id, name, group_name, ranges, mastery, active, rating
     FROM students WHERE teacher_id = ${teacherId} ORDER BY sort_order, name
   `;
   return rows.map(rowToStudent);
@@ -123,19 +124,30 @@ export async function listStudents(teacherId: number): Promise<Student[]> {
 
 export async function upsertStudent(teacherId: number, student: Student, sortOrder = 0): Promise<void> {
   await db().sql`
-    INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, sort_order)
+    INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
     VALUES (
       ${student.id}, ${teacherId}, ${student.name}, ${student.group ?? ""},
       ${JSON.stringify(student.ranges ?? [])}, ${JSON.stringify(student.mastery ?? {})},
-      ${!!student.active}, ${sortOrder}
+      ${!!student.active}, ${student.rating ?? 0}, ${sortOrder}
     )
     ON CONFLICT (teacher_id, id) DO UPDATE SET
       name = excluded.name,
       group_name = excluded.group_name,
       ranges = excluded.ranges,
       mastery = excluded.mastery,
-      active = excluded.active
+      active = excluded.active,
+      rating = excluded.rating
   `;
+}
+
+/** يحدّث تقييم النجوم فقط دون المساس بباقي بيانات الطالب */
+export async function setStudentRating(teacherId: number, studentId: string, rating: number): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE students SET rating = ${rating}
+    WHERE teacher_id = ${teacherId} AND id = ${studentId}
+    RETURNING id
+  `;
+  return rows.length > 0;
 }
 
 export async function deleteStudent(teacherId: number, id: string): Promise<boolean> {
@@ -154,8 +166,8 @@ export async function replaceStudents(teacherId: number, students: Student[]): P
     for (let i = 0; i < students.length; i++) {
       const s = students[i];
       await client.query(
-        `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           s.id,
           teacherId,
@@ -164,6 +176,7 @@ export async function replaceStudents(teacherId: number, students: Student[]): P
           JSON.stringify(s.ranges ?? []),
           JSON.stringify(s.mastery ?? {}),
           !!s.active,
+          s.rating ?? 0,
           i,
         ],
       );
@@ -460,7 +473,7 @@ export async function setVapidKeys(publicKey: string, privateKey: string): Promi
 
 export async function getStudentById(teacherId: number, id: string): Promise<Student | null> {
   const rows = await db().sql`
-    SELECT id, name, group_name, ranges, mastery, active
+    SELECT id, name, group_name, ranges, mastery, active, rating
     FROM students WHERE teacher_id = ${teacherId} AND id = ${id}
   `;
   const row = rows[0];

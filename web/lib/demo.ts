@@ -81,6 +81,7 @@ export function generateDemoStudents(count = 150, seed = 7): Student[] {
       ranges,
       mastery,
       active: true,
+      rating: 0,
     });
   }
 

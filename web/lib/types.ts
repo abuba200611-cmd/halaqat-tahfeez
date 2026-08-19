@@ -13,6 +13,8 @@ export type Student = {
   /** رقم الجزء ← درجة الإتقان 0..100 */
   mastery: Record<number, number>;
   active: boolean;
+  /** تقييم نجمي ٠..٥ يضعه المعلّم — خاص به، لا يظهر للطالب أبداً */
+  rating: number;
 };
 
 export type Pair = {

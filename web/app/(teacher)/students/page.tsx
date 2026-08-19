@@ -131,6 +131,7 @@ export default function StudentsPage() {
               <th className="px-3 py-2 font-medium">المحفوظ</th>
               <th className="px-3 py-2 font-medium">النطاق</th>
               <th className="px-3 py-2 font-medium">الإتقان</th>
+              <th className="no-print px-3 py-2 font-medium">تقييمك</th>
               <th className="no-print px-3 py-2" />
             </tr>
           </thead>
@@ -154,6 +155,9 @@ export default function StudentsPage() {
                     <Badge tone={mastery >= 75 ? "good" : mastery >= 55 ? "neutral" : "warn"}>
                       {mastery}٪
                     </Badge>
+                  </td>
+                  <td className="no-print px-3 py-2">
+                    <StarRating value={student.rating} onChange={(rating) => upsert({ ...student, rating })} />
                   </td>
                   <td className="no-print px-3 py-2 text-left">
                     <button
@@ -213,6 +217,7 @@ function AddStudentForm({ onAdd }: { onAdd: (student: Student) => void }) {
       ranges: [{ from, to, monthsAgo: 6 }],
       mastery: masteryMap,
       active: true,
+      rating: 0,
     });
     setName("");
   }
@@ -256,6 +261,28 @@ function AddStudentForm({ onAdd }: { onAdd: (student: Student) => void }) {
         </div>
       </form>
     </Card>
+  );
+}
+
+/**
+ * تقييم نجمي خاص بالمعلّم فقط — لا يظهر للطالب في أي واجهة (نظام تسجيل
+ * دخوله يستخدم StudentAccount وهو نوع منفصل لا يحمل هذا الحقل أصلاً).
+ */
+function StarRating({ value, onChange }: { value: number; onChange: (rating: number) => void }) {
+  return (
+    <div className="flex gap-0.5" title="تقييمك الخاص لهذا الطالب — لا يراه الطالب">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n === value ? 0 : n)}
+          aria-label={`تقييم ${n} من ٥`}
+          className="cursor-pointer text-base leading-none transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <span className={n <= value ? "text-accent" : "text-border"}>★</span>
+        </button>
+      ))}
+    </div>
   );
 }
 

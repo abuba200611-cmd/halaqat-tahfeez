@@ -37,6 +37,9 @@ function parseStudent(input: unknown): Student {
     mastery[juz] = Math.min(100, Math.max(0, score));
   }
 
+  const ratingNum = Number(raw.rating);
+  const rating = Number.isInteger(ratingNum) ? Math.min(5, Math.max(0, ratingNum)) : 0;
+
   return {
     id,
     name,
@@ -44,6 +47,7 @@ function parseStudent(input: unknown): Student {
     ranges,
     mastery,
     active: raw.active !== false,
+    rating,
   };
 }
 
