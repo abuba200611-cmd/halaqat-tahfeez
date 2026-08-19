@@ -43,3 +43,8 @@ next-env.d.ts
 # قاعدة بيانات SQLite المحلية — بيانات حلقة حقيقية، لا تُرفع
 /halaqa.db
 /halaqa.db-*
+
+# Local Netlify folder
+.netlify
+
+.vercel
