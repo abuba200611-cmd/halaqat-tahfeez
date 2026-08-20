@@ -195,6 +195,12 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
             />
           </label>
 
+          {mode === "login" && (
+            <Link href="/forgot-password" className="block text-left text-xs text-primary hover:underline">
+              نسيت كلمة المرور؟
+            </Link>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" disabled={busy} className="w-full">

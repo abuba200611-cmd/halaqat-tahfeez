@@ -87,6 +87,12 @@ export default function StudentsPage() {
             placeholder="ابحث بالاسم أو المجموعة"
             className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
+          <a
+            href="/api/students/export"
+            className="flex items-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            تصدير CSV
+          </a>
           <Button onClick={() => setShowForm((v) => !v)}>
             {showForm ? "إغلاق" : "إضافة طالب"}
           </Button>

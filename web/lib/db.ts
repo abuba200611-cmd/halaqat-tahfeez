@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getDatabase } from "@netlify/database";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { juzesOfRange } from "./quran";
 import type {
   MemorizedRange,
@@ -128,6 +128,36 @@ export async function listSuggestions(): Promise<Suggestion[]> {
     message: row.message as string,
     createdAt: row.created_at as string,
   }));
+}
+
+// ————— استرجاع كلمة المرور —————
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/** يولّد رمزاً عشوائياً صالحاً ساعة واحدة، ويرجعه خاماً (يُرسَل بالبريد فقط) */
+export async function createPasswordReset(teacherId: number): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  await db().sql`
+    INSERT INTO password_resets (teacher_id, token_hash, expires_at, created_at)
+    VALUES (${teacherId}, ${hashToken(token)}, now() + interval '1 hour', ${new Date().toISOString()})
+  `;
+  return token;
+}
+
+/** يتحقق من الرمز ويحذفه فوراً (استخدام مرة واحدة) — يرجع معرّف المعلّم أو null */
+export async function consumePasswordReset(token: string): Promise<number | null> {
+  const rows = await db().sql`
+    DELETE FROM password_resets
+    WHERE token_hash = ${hashToken(token)} AND expires_at > now()
+    RETURNING teacher_id
+  `;
+  return rows[0] ? Number(rows[0].teacher_id) : null;
+}
+
+export async function updateTeacherPassword(teacherId: number, passwordHash: string): Promise<void> {
+  await db().sql`UPDATE teachers SET password_hash = ${passwordHash} WHERE id = ${teacherId}`;
 }
 
 // ————— حماية التسجيل من الإساءة —————
@@ -562,6 +592,19 @@ export async function getStudentLink(
   return row
     ? { linkUsername: row.link_username, lastPulledAt: row.last_pulled_at, lastSummary: row.last_summary }
     : null;
+}
+
+/** يبحث عن الطالب المرتبط باسم مستخدم tasjeel-tullab هذا — لإشعار المعلّم عند ورد جديد */
+export async function findLinkByUsername(
+  linkUsername: string,
+): Promise<{ teacherId: number; studentId: string; studentName: string } | null> {
+  const rows = await db().sql`
+    SELECT sl.teacher_id, sl.student_id, s.name
+    FROM student_links sl JOIN students s ON s.teacher_id = sl.teacher_id AND s.id = sl.student_id
+    WHERE sl.link_username = ${linkUsername}
+  `;
+  const row = rows[0];
+  return row ? { teacherId: row.teacher_id, studentId: row.student_id, studentName: row.name } : null;
 }
 
 export async function saveStudentLink(
