@@ -100,6 +100,34 @@ export async function findTeacherById(id: number): Promise<Teacher | null> {
   return row ? { id: row.id, username: row.username, halaqahName: row.halaqah_name } : null;
 }
 
+// ————— اقتراحات تطوير من المعلّم (تصل للمطوّر فقط) —————
+
+export type Suggestion = {
+  id: number;
+  senderLabel: string;
+  message: string;
+  createdAt: string;
+};
+
+export async function addSuggestion(senderId: number, senderLabel: string, message: string): Promise<void> {
+  await db().sql`
+    INSERT INTO suggestions (sender_id, sender_label, message, created_at)
+    VALUES (${senderId}, ${senderLabel}, ${message}, ${new Date().toISOString()})
+  `;
+}
+
+export async function listSuggestions(): Promise<Suggestion[]> {
+  const rows = await db().sql`
+    SELECT id, sender_label, message, created_at FROM suggestions ORDER BY created_at DESC
+  `;
+  return rows.map((row) => ({
+    id: row.id as number,
+    senderLabel: row.sender_label as string,
+    message: row.message as string,
+    createdAt: row.created_at as string,
+  }));
+}
+
 // ————— الطلاب —————
 
 function rowToStudent(row: Record<string, unknown>): Student {

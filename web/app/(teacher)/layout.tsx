@@ -7,6 +7,7 @@ const NAV = [
   { href: "/pairing", label: "المطابقة" },
   { href: "/schedule", label: "جدول الشهر" },
   { href: "/inbox", label: "الوارد", badge: <NewWardBadge /> },
+  { href: "/suggest", label: "اقتراح تطوير" },
 ];
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {
