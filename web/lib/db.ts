@@ -130,6 +130,25 @@ export async function listSuggestions(): Promise<Suggestion[]> {
   }));
 }
 
+// ————— حماية التسجيل من الإساءة —————
+
+const REGISTER_LIMIT = 5;
+const REGISTER_WINDOW_MINUTES = 60;
+
+/**
+ * يسجّل محاولة تسجيل جديدة من هذا العنوان، ويرجع true لو مسموح إتمامها
+ * (أقل من REGISTER_LIMIT محاولة خلال الساعة الماضية من نفس العنوان).
+ */
+export async function checkRegisterRateLimit(ip: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM register_attempts
+    WHERE ip = ${ip} AND created_at > now() - (${REGISTER_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  const count = Number(rows[0]?.n ?? 0);
+  await db().sql`INSERT INTO register_attempts (ip) VALUES (${ip})`;
+  return count < REGISTER_LIMIT;
+}
+
 // ————— الطلاب —————
 
 function rowToStudent(row: Record<string, unknown>): Student {

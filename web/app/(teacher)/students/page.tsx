@@ -160,12 +160,14 @@ export default function StudentsPage() {
                     <StarRating value={student.rating} onChange={(rating) => upsert({ ...student, rating })} />
                   </td>
                   <td className="no-print px-3 py-2 text-left">
-                    <button
-                      onClick={() => setCredentialFor(student)}
-                      className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      {usernames[student.id] ? "الحساب" : "إنشاء حساب"}
-                    </button>
+                    {usernames[student.id] && (
+                      <button
+                        onClick={() => setCredentialFor(student)}
+                        className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      >
+                        الحساب
+                      </button>
+                    )}
                     <button
                       onClick={() => setLinkFor(student)}
                       className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

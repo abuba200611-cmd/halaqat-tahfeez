@@ -1,7 +1,19 @@
-import { createTeacher, findTeacherByUsername } from "@/lib/db";
+import { checkRegisterRateLimit, createTeacher, findTeacherByUsername } from "@/lib/db";
 import { hashPassword, setSessionCookie } from "@/lib/auth";
 
+/** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي */
+function clientIp(request: Request): string {
+  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
 export async function POST(request: Request) {
+  if (!(await checkRegisterRateLimit(clientIp(request)))) {
+    return Response.json(
+      { error: "محاولات كثيرة، حاول بعد شوي" },
+      { status: 429 },
+    );
+  }
+
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   // نخزّن البريد بعمود "username" القديم نفسه لتفادي ترحيل مخطط قاعدة البيانات —
   // هو فعلياً بريد إلكتروني الآن من واجهة المستخدم وطبقة التحقق فقط.
