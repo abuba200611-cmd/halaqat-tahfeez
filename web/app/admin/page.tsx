@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Button, Card, Empty } from "@/components/ui";
+import { Badge, Button, Card, Empty } from "@/components/ui";
 
-type Suggestion = { id: number; senderLabel: string; message: string; createdAt: string };
+type Suggestion = {
+  id: number;
+  senderLabel: string;
+  message: string;
+  createdAt: string;
+  source: "teacher" | "student";
+};
 
 export default function AdminPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
@@ -34,18 +40,25 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
-      <h1 className="mb-1 font-naskh text-2xl font-bold">اقتراحات المعلّمين</h1>
-      <p className="mb-6 text-sm text-muted-foreground">{suggestions.length} اقتراح — الأحدث أولاً</p>
+      <h1 className="mb-1 font-naskh text-2xl font-bold">اقتراحات المعلّمين والطلاب</h1>
+      <p className="mb-6 text-sm text-muted-foreground">
+        {suggestions.length} اقتراح من النظامين — الأحدث أولاً
+      </p>
 
       {suggestions.length === 0 ? (
         <Empty title="ما وصل اقتراح بعد." />
       ) : (
         <ul className="space-y-2">
           {suggestions.map((s) => (
-            <li key={s.id}>
+            <li key={`${s.source}-${s.id}`}>
               <Card className="p-4">
                 <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">{s.senderLabel}</span>
+                  <span className="flex items-center gap-2">
+                    <Badge tone={s.source === "teacher" ? "good" : "neutral"}>
+                      {s.source === "teacher" ? "معلّم" : "طالب"}
+                    </Badge>
+                    <span className="font-semibold text-foreground">{s.senderLabel}</span>
+                  </span>
                   <span className="tabular">{s.createdAt.slice(0, 16).replace("T", " ")}</span>
                 </div>
                 <p className="whitespace-pre-wrap text-sm">{s.message}</p>

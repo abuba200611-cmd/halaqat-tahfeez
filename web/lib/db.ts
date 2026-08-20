@@ -107,6 +107,8 @@ export type Suggestion = {
   senderLabel: string;
   message: string;
   createdAt: string;
+  /** من أرسله — يُضاف عند دمج اقتراحات النظامين بلوحة المطوّر، اختياري هنا */
+  source?: "teacher" | "student";
 };
 
 export async function addSuggestion(senderId: number, senderLabel: string, message: string): Promise<void> {
