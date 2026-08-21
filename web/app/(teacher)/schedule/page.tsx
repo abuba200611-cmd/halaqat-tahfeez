@@ -13,6 +13,23 @@ import {
 import { useStudents } from "@/lib/store";
 import type { SavedSchedule, SavedScheduleInfo } from "@/lib/schedule";
 
+/**
+ * "تنزيل PDF" الفعلي هو طباعة المتصفح باختيار "Save as PDF" كطابعة —
+ * أدق وأوضح لنصّ عربي RTL من أي مكتبة PDF تُصيّر الصفحة كصورة. الحيلة
+ * هنا فقط اسم ملف مقترح ذكي: نغيّر عنوان الصفحة مؤقتاً لاسم الجدول قبل
+ * الطباعة (أغلب المتصفحات تقترحه اسم ملف افتراضياً)، ونرجعه بعدها.
+ */
+function downloadSchedulePdf(year: number, month: number): void {
+  const originalTitle = document.title;
+  document.title = `جدول-${MONTH_NAMES[month - 1]}-${year}`;
+  const restore = () => {
+    document.title = originalTitle;
+    window.removeEventListener("afterprint", restore);
+  };
+  window.addEventListener("afterprint", restore);
+  window.print();
+}
+
 /** الجدول المعروض: مولّد الآن (غير محفوظ) أو مفتوح من المحفوظات */
 type View = {
   schedule: SavedSchedule;
@@ -162,8 +179,8 @@ export default function SchedulePage() {
             </Button>
           )}
           {schedule && (
-            <Button variant="ghost" onClick={() => window.print()}>
-              طباعة
+            <Button variant="ghost" onClick={() => downloadSchedulePdf(year, month)}>
+              تنزيل PDF
             </Button>
           )}
         </div>

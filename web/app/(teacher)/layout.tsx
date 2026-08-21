@@ -6,6 +6,7 @@ const NAV = [
   { href: "/students", label: "الطلاب" },
   { href: "/pairing", label: "المطابقة" },
   { href: "/schedule", label: "جدول الشهر" },
+  { href: "/reports", label: "تقرير الحلقة" },
   { href: "/inbox", label: "الوارد", badge: <NewWardBadge /> },
   { href: "/suggest", label: "اقتراح تطوير" },
 ];

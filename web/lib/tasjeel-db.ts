@@ -30,3 +30,30 @@ export async function listStudentSuggestions(): Promise<Suggestion[]> {
     createdAt: row.created_at as string,
   }));
 }
+
+export type LinkedWard = {
+  username: string;
+  date: string;
+  hifzPages: number | null;
+  reviewPages: number | null;
+};
+
+/**
+ * ورد كل الطلاب المرتبطين بأسماء المستخدمين هذي (اسم مستخدم tasjeel لكل
+ * طالب مرتبط بحلقات) — لتقرير أداء الحلقة الشهري. يرجع قائمة فارغة لو
+ * ما فيه أسماء أو تعذّر الاتصال، بدل ما يكسر الصفحة كاملة.
+ */
+export async function listWardsForUsernames(usernames: string[]): Promise<LinkedWard[]> {
+  if (usernames.length === 0) return [];
+  const rows = await db().sql`
+    SELECT s.username, w.date, w.hifz_pages, w.review_pages
+    FROM wards w JOIN students s ON s.id = w.student_id
+    WHERE s.username = ANY(${usernames})
+  `;
+  return rows.map((row) => ({
+    username: row.username as string,
+    date: row.date as string,
+    hifzPages: (row.hifz_pages as number | null) ?? null,
+    reviewPages: (row.review_pages as number | null) ?? null,
+  }));
+}
