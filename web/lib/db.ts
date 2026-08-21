@@ -23,6 +23,7 @@ export type Teacher = {
   id: number;
   username: string;
   halaqahName: string;
+  emailVerified: boolean;
 };
 
 /*
@@ -57,18 +58,23 @@ export async function createTeacher(
   username: string,
   passwordHash: string,
   halaqahName: string,
+  emailVerified = false,
 ): Promise<number> {
   const rows = await db().sql`
-    INSERT INTO teachers (username, password_hash, halaqah_name, created_at)
-    VALUES (${username}, ${passwordHash}, ${halaqahName || "حلقتي"}, ${new Date().toISOString()})
+    INSERT INTO teachers (username, password_hash, halaqah_name, email_verified, created_at)
+    VALUES (${username}, ${passwordHash}, ${halaqahName || "حلقتي"}, ${emailVerified}, ${new Date().toISOString()})
     RETURNING id
   `;
   return Number(rows[0].id);
 }
 
-export async function findTeacherByUsername(
-  username: string,
-): Promise<{ id: number; username: string; passwordHash: string; halaqahName: string } | null> {
+export async function findTeacherByUsername(username: string): Promise<{
+  id: number;
+  username: string;
+  passwordHash: string;
+  halaqahName: string;
+  emailVerified: boolean;
+} | null> {
   const rows = await db().sql`SELECT * FROM teachers WHERE username = ${username}`;
   const row = rows[0];
   if (!row) return null;
@@ -77,6 +83,7 @@ export async function findTeacherByUsername(
     username: row.username,
     passwordHash: row.password_hash,
     halaqahName: row.halaqah_name,
+    emailVerified: !!row.email_verified,
   };
 }
 
@@ -89,15 +96,18 @@ export async function findOrCreateTeacherByEmail(email: string): Promise<number>
   if (existing) return existing.id;
 
   const randomPasswordHash = randomBytes(32).toString("hex");
-  return createTeacher(email, randomPasswordHash, "");
+  // بريد جوجل موثّق من جوجل نفسها — نعتبره مؤكَّداً هنا فوراً
+  return createTeacher(email, randomPasswordHash, "", true);
 }
 
 export async function findTeacherById(id: number): Promise<Teacher | null> {
   const rows = await db().sql`
-    SELECT id, username, halaqah_name FROM teachers WHERE id = ${id}
+    SELECT id, username, halaqah_name, email_verified FROM teachers WHERE id = ${id}
   `;
   const row = rows[0];
-  return row ? { id: row.id, username: row.username, halaqahName: row.halaqah_name } : null;
+  return row
+    ? { id: row.id, username: row.username, halaqahName: row.halaqah_name, emailVerified: !!row.email_verified }
+    : null;
 }
 
 // ————— اقتراحات تطوير من المعلّم (تصل للمطوّر فقط) —————
@@ -160,6 +170,32 @@ export async function updateTeacherPassword(teacherId: number, passwordHash: str
   await db().sql`UPDATE teachers SET password_hash = ${passwordHash} WHERE id = ${teacherId}`;
 }
 
+// ————— تأكيد البريد الإلكتروني —————
+
+/** يولّد رمز تأكيد صالح ٢٤ ساعة، ويرجعه خاماً (يُرسَل بالبريد فقط) */
+export async function createEmailVerification(teacherId: number): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  await db().sql`
+    INSERT INTO email_verifications (teacher_id, token_hash, expires_at, created_at)
+    VALUES (${teacherId}, ${hashToken(token)}, now() + interval '24 hours', ${new Date().toISOString()})
+  `;
+  return token;
+}
+
+/** يتحقق من الرمز ويعلّم البريد مؤكَّداً — يرجع معرّف المعلّم أو null */
+export async function consumeEmailVerification(token: string): Promise<number | null> {
+  const rows = await db().sql`
+    DELETE FROM email_verifications
+    WHERE token_hash = ${hashToken(token)} AND expires_at > now()
+    RETURNING teacher_id
+  `;
+  const teacherId = rows[0] ? Number(rows[0].teacher_id) : null;
+  if (teacherId) {
+    await db().sql`UPDATE teachers SET email_verified = true WHERE id = ${teacherId}`;
+  }
+  return teacherId;
+}
+
 // ————— حماية التسجيل من الإساءة —————
 
 const REGISTER_LIMIT = 5;
@@ -196,7 +232,7 @@ function rowToStudent(row: Record<string, unknown>): Student {
 export async function listStudents(teacherId: number): Promise<Student[]> {
   const rows = await db().sql`
     SELECT id, name, group_name, ranges, mastery, active, rating
-    FROM students WHERE teacher_id = ${teacherId} ORDER BY sort_order, name
+    FROM students WHERE teacher_id = ${teacherId} AND deleted_at IS NULL ORDER BY sort_order, name
   `;
   return rows.map(rowToStudent);
 }
@@ -229,9 +265,35 @@ export async function setStudentRating(teacherId: number, studentId: string, rat
   return rows.length > 0;
 }
 
+/** حذف ناعم — يبقى السطر ٢٤ ساعة قابلاً للاسترجاع بدل حذفه فوراً */
 export async function deleteStudent(teacherId: number, id: string): Promise<boolean> {
   const rows = await db().sql`
-    DELETE FROM students WHERE teacher_id = ${teacherId} AND id = ${id} RETURNING id
+    UPDATE students SET deleted_at = now()
+    WHERE teacher_id = ${teacherId} AND id = ${id} AND deleted_at IS NULL
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+export type DeletedStudent = { id: string; name: string; deletedAt: string };
+
+/** الطلاب المحذوفون خلال آخر ٢٤ ساعة — لعرض شريط "تراجع" بصفحة الطلاب */
+export async function listRecentlyDeletedStudents(teacherId: number): Promise<DeletedStudent[]> {
+  const rows = await db().sql`
+    SELECT id, name, deleted_at FROM students
+    WHERE teacher_id = ${teacherId} AND deleted_at > now() - interval '24 hours'
+    ORDER BY deleted_at DESC
+  `;
+  return rows.map((r) => ({ id: r.id as string, name: r.name as string, deletedAt: r.deleted_at as string }));
+}
+
+/** يسترجع طالباً محذوفاً خلال آخر ٢٤ ساعة — بعدها ما يقدر (مهلة انتهت) */
+export async function restoreStudent(teacherId: number, id: string): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE students SET deleted_at = NULL
+    WHERE teacher_id = ${teacherId} AND id = ${id}
+      AND deleted_at IS NOT NULL AND deleted_at > now() - interval '24 hours'
+    RETURNING id
   `;
   return rows.length > 0;
 }
@@ -377,7 +439,8 @@ export async function findStudentByUsername(
   username: string,
 ): Promise<{ teacherId: number; id: string; name: string; passwordHash: string } | null> {
   const rows = await db().sql`
-    SELECT teacher_id, id, name, password_hash FROM students WHERE username = ${username}
+    SELECT teacher_id, id, name, password_hash FROM students
+    WHERE username = ${username} AND deleted_at IS NULL
   `;
   const row = rows[0];
   if (!row || !row.password_hash) return null;
@@ -392,7 +455,7 @@ export async function findStudentAccount(
   const rows = await db().sql`
     SELECT s.id, s.name, t.halaqah_name
     FROM students s JOIN teachers t ON t.id = s.teacher_id
-    WHERE s.teacher_id = ${teacherId} AND s.id = ${studentId}
+    WHERE s.teacher_id = ${teacherId} AND s.id = ${studentId} AND s.deleted_at IS NULL
   `;
   const row = rows[0];
   if (!row) return null;

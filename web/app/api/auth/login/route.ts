@@ -14,6 +14,11 @@ export async function POST(request: Request) {
 
   await setSessionCookie(teacher.id);
   return Response.json({
-    teacher: { id: teacher.id, username: teacher.username, halaqahName: teacher.halaqahName },
+    teacher: {
+      id: teacher.id,
+      username: teacher.username,
+      halaqahName: teacher.halaqahName,
+      emailVerified: teacher.emailVerified,
+    },
   });
 }

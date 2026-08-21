@@ -8,6 +8,8 @@ import { juzLabel, juzToPages } from "@/lib/quran";
 import { useStudents } from "@/lib/store";
 import type { Student } from "@/lib/types";
 
+type DeletedStudent = { id: string; name: string; deletedAt: string };
+
 function avgMastery(student: Student): number {
   const vals = Object.values(student.mastery);
   if (vals.length === 0) return 0;
@@ -23,6 +25,28 @@ export default function StudentsPage() {
   const [links, setLinks] = useState<Record<string, string>>({});
   const [linkSummaries, setLinkSummaries] = useState<Record<string, string>>({});
   const [linkFor, setLinkFor] = useState<Student | null>(null);
+  const [deleted, setDeleted] = useState<DeletedStudent[]>([]);
+
+  const loadDeleted = useCallback(() => {
+    fetch("/api/students/deleted")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { deleted?: DeletedStudent[] } | null) => {
+        if (data?.deleted) setDeleted(data.deleted);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function restoreStudent(id: string) {
+    const res = await fetch("/api/students/deleted", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (res.ok) {
+      loadDeleted();
+      window.location.reload(); // أبسط طريقة نضمن فيها ظهور الطالب المسترجَع بقائمة useStudents
+    }
+  }
 
   const loadUsernames = useCallback(() => {
     fetch("/api/students/credentials")
@@ -46,7 +70,8 @@ export default function StudentsPage() {
   useEffect(() => {
     loadUsernames();
     loadLinks();
-  }, [loadUsernames, loadLinks]);
+    loadDeleted();
+  }, [loadUsernames, loadLinks, loadDeleted]);
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -60,22 +85,26 @@ export default function StudentsPage() {
 
   if (students.length === 0 && !showForm) {
     return (
-      <Empty
-        title="القائمة فارغة."
-        action={
-          <div className="flex gap-2">
-            <Button onClick={() => loadDemo(150)}>تحميل حلقة تجريبية</Button>
-            <Button variant="ghost" onClick={() => setShowForm(true)}>
-              إضافة طالب
-            </Button>
-          </div>
-        }
-      />
+      <div className="space-y-4">
+        <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
+        <Empty
+          title="القائمة فارغة."
+          action={
+            <div className="flex gap-2">
+              <Button onClick={() => loadDemo(150)}>تحميل حلقة تجريبية</Button>
+              <Button variant="ghost" onClick={() => setShowForm(true)}>
+                إضافة طالب
+              </Button>
+            </div>
+          }
+        />
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-naskh text-2xl font-bold">
           الطلاب <span className="tabular text-base font-normal text-muted-foreground">({students.length})</span>
@@ -181,7 +210,10 @@ export default function StudentsPage() {
                       {links[student.id] ? "تحديث" : "ربط"}
                     </button>
                     <button
-                      onClick={() => remove(student.id)}
+                      onClick={() => {
+                        remove(student.id);
+                        setTimeout(loadDeleted, 500);
+                      }}
                       className="cursor-pointer rounded px-2 py-1 text-xs text-destructive transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     >
                       حذف
@@ -291,6 +323,31 @@ function StarRating({ value, onChange }: { value: number; onChange: (rating: num
         </button>
       ))}
     </div>
+  );
+}
+
+/** شريط تراجع عن الحذف — يظهر بس لو فيه طالب محذوف خلال آخر ٢٤ ساعة */
+function DeletedBanner({
+  deleted,
+  onRestore,
+}: {
+  deleted: DeletedStudent[];
+  onRestore: (id: string) => void;
+}) {
+  if (deleted.length === 0) return null;
+  return (
+    <Card className="no-print flex flex-wrap items-center gap-2 border-accent/30 bg-accent/5 p-3">
+      <span className="text-sm text-muted-foreground">
+        حُذف مؤخراً: {deleted.map((d) => d.name).join("، ")}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {deleted.map((d) => (
+          <Button key={d.id} variant="ghost" onClick={() => onRestore(d.id)} className="px-2 py-0.5 text-xs">
+            استرجاع {d.name}
+          </Button>
+        ))}
+      </div>
+    </Card>
   );
 }
 
