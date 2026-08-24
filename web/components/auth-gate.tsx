@@ -8,6 +8,20 @@ import { resetStore } from "@/lib/store";
 type Teacher = { id: number; username: string; halaqahName: string; emailVerified: boolean };
 type NavItem = { href: string; label: string; badge?: React.ReactNode };
 
+/*
+  أول زيارة، الجهاز ما عنده حساب بعد — عرض تبويب "تسجيل الدخول" مربك (يطلب
+  دخول لحساب مو موجود). نتذكّر بمتصفّح الجهاز إذا سبق أنشأ/سجّل دخول حساب،
+  ونعرض النمط المناسب افتراضياً بدل تبويبين متساويين من البداية.
+*/
+const KNOWN_ACCOUNT_KEY = "halaqat_known_account";
+function markAccountKnown() {
+  try {
+    window.localStorage.setItem(KNOWN_ACCOUNT_KEY, "1");
+  } catch {
+    // localStorage قد يكون معطّلاً (وضع خاص) — لا يوقف تسجيل الدخول
+  }
+}
+
 /**
  * يحرس التطبيق كله: لا يعرض المحتوى قبل التحقق من الجلسة.
  * الحماية الفعلية على الخادم في مسارات الـ API — هذي طبقة تجربة استخدام.
@@ -22,6 +36,7 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
       .then((res) => res.json())
       .then((data: { teacher: Teacher | null }) => {
         if (!cancelled) setTeacher(data.teacher);
+        if (data.teacher) markAccountKnown();
       })
       .catch(() => {
         if (!cancelled) setTeacher(null);
@@ -128,7 +143,14 @@ function VerifyEmailBanner() {
 }
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register">(() => {
+    if (typeof window === "undefined") return "register";
+    try {
+      return window.localStorage.getItem(KNOWN_ACCOUNT_KEY) ? "login" : "register";
+    } catch {
+      return "register";
+    }
+  });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [halaqahName, setHalaqahName] = useState("");
@@ -156,6 +178,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
         setError(data.error ?? "تعذّر إتمام العملية");
         return;
       }
+      markAccountKnown();
       onAuthenticated(data.teacher);
     } catch {
       setError("تعذّر الاتصال بالخادم");
@@ -175,25 +198,9 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
       </p>
 
       <Card className="p-5">
-        <div className="mb-4 flex gap-1 border-b border-border">
-          {(["login", "register"] as const).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                setMode(value);
-                setError(null);
-              }}
-              className={`-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors duration-200 ${
-                mode === value
-                  ? "border-primary font-semibold text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {value === "login" ? "تسجيل الدخول" : "حساب جديد"}
-            </button>
-          ))}
-        </div>
+        <h2 className="mb-4 text-center text-base font-semibold text-foreground">
+          {mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
+        </h2>
 
         <form onSubmit={submit} className="space-y-3">
           {mode === "register" && (
@@ -259,6 +266,38 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
           <GoogleIcon />
           الدخول بحساب جوجل
         </a>
+
+        <p className="mt-4 text-center text-xs text-muted-foreground">
+          {mode === "login" ? (
+            <>
+              ما عندك حساب؟{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("register");
+                  setError(null);
+                }}
+                className="cursor-pointer font-semibold text-primary hover:underline"
+              >
+                أنشئ حساب جديد
+              </button>
+            </>
+          ) : (
+            <>
+              عندك حساب مسبقاً؟{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError(null);
+                }}
+                className="cursor-pointer font-semibold text-primary hover:underline"
+              >
+                سجّل دخولك
+              </button>
+            </>
+          )}
+        </p>
       </Card>
     </main>
   );
