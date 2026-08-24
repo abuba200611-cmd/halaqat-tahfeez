@@ -27,9 +27,24 @@
   --font-naskh: var(--font-arabic-naskh), Georgia, serif;
 }
 
+html,
+body {
+  /* شريط التنقّل بعدد عناصره يكسر عرض الجوال أحياناً — نمنع سكرول أفقي
+     للصفحة كلها ونخلي العنصر المسبّب يتعامل مع فيضه بنفسه (سكرول محلي). */
+  overflow-x: hidden;
+}
+
 body {
   background: var(--color-background);
   color: var(--color-foreground);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* الأرقام العربية-الهندية تُربك القراءة السريعة في الجداول — نثبّت اللاتينية */

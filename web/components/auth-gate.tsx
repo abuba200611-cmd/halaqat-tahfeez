@@ -60,28 +60,32 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
   return (
     <>
       <header className="no-print border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3">
-          <Link href="/" className="font-naskh text-lg font-bold text-primary">
-            حلقات
-          </Link>
-          <nav className="flex gap-1">
+        <div className="mx-auto max-w-7xl px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Link href="/" className="shrink-0 font-naskh text-lg font-bold text-primary">
+              حلقات
+            </Link>
+            <div className="mr-auto flex min-w-0 items-center gap-3">
+              <span className="hidden truncate text-sm text-muted-foreground sm:inline">
+                {teacher.halaqahName}
+              </span>
+              <Button variant="ghost" onClick={logout} className="shrink-0">
+                خروج
+              </Button>
+            </div>
+          </div>
+          <nav className="no-scrollbar -mx-1 mt-2 flex gap-1 overflow-x-auto px-1">
             {nav.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 {item.label}
                 {item.badge}
               </Link>
             ))}
           </nav>
-          <div className="mr-auto flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{teacher.halaqahName}</span>
-            <Button variant="ghost" onClick={logout}>
-              خروج
-            </Button>
-          </div>
         </div>
       </header>
       {!teacher.emailVerified && <VerifyEmailBanner />}
