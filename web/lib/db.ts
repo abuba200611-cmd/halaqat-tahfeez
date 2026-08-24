@@ -706,6 +706,63 @@ export async function saveStudentLink(
   `;
 }
 
+// ————— رابط دعوة الحلقة (انضمام ذاتي للطلاب) —————
+
+/**
+ * رمز دعوة الحلقة — يُولَّد كسولاً (أول طلب فقط) ويبقى ثابتاً بعدها.
+ * الطالب يفتح رابطاً فيه هذا الرمز فينضم مباشرة لحلقة هذا المعلّم بلا
+ * أي تدخّل يدوي (لا إضافة الطالب يدوياً، ولا تبادل اسم مستخدم للربط).
+ */
+export async function teacherInviteCode(teacherId: number): Promise<string> {
+  const existing = await db().sql`SELECT invite_code FROM teachers WHERE id = ${teacherId}`;
+  const current = existing[0]?.invite_code as string | null | undefined;
+  if (current) return current;
+
+  const generated = randomBytes(5).toString("hex");
+  await db().sql`
+    UPDATE teachers SET invite_code = ${generated} WHERE id = ${teacherId} AND invite_code IS NULL
+  `;
+  const after = await db().sql`SELECT invite_code FROM teachers WHERE id = ${teacherId}`;
+  return (after[0]?.invite_code as string) ?? generated;
+}
+
+export async function findTeacherByInviteCode(
+  code: string,
+): Promise<{ id: number; teacherName: string; halaqahName: string } | null> {
+  const rows = await db().sql`
+    SELECT id, teacher_name, halaqah_name FROM teachers WHERE invite_code = ${code}
+  `;
+  const row = rows[0];
+  return row ? { id: row.id, teacherName: row.teacher_name ?? "", halaqahName: row.halaqah_name } : null;
+}
+
+/**
+ * ينشئ طالباً جديداً بحلقة المعلّم صاحب رمز الدعوة، ويربطه فوراً باسم
+ * مستخدمه بنظام تسجيل الورد — يغني عن خطوتي "إضافة طالب" و"ربط" اليدويتين.
+ * يرجع null لو الرمز غير صحيح، فلا يفشل تسجيل الطالب نفسه بأي حال.
+ */
+export async function joinHalaqahByInviteCode(
+  inviteCode: string,
+  studentName: string,
+  linkUsername: string,
+): Promise<{ teacherId: number; studentId: string } | null> {
+  const teacher = await findTeacherByInviteCode(inviteCode);
+  if (!teacher) return null;
+
+  const studentId = randomBytes(12).toString("hex");
+  await upsertStudent(teacher.id, {
+    id: studentId,
+    name: studentName,
+    group: "",
+    ranges: [],
+    mastery: {},
+    active: true,
+    rating: 0,
+  });
+  await saveStudentLink(teacher.id, studentId, linkUsername, null);
+  return { teacherId: teacher.id, studentId };
+}
+
 /** يدمج نطاقاً جديداً مع القائمة، مذيباً كل ما يتداخل أو يتلاصق معه بدل تكديسه */
 function mergeRangeIntoList(
   ranges: MemorizedRange[],

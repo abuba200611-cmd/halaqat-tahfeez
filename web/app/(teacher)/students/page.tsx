@@ -87,6 +87,7 @@ export default function StudentsPage() {
     return (
       <div className="space-y-4">
         <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
+        <InviteLinkCard />
         <Empty
           title="القائمة فارغة."
           action={
@@ -105,6 +106,7 @@ export default function StudentsPage() {
   return (
     <div className="space-y-4">
       <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
+      <InviteLinkCard />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-naskh text-2xl font-bold">
           الطلاب <span className="tabular text-base font-normal text-muted-foreground">({students.length})</span>
@@ -230,6 +232,59 @@ export default function StudentsPage() {
         <p className="py-6 text-center text-sm text-muted-foreground">لا نتائج مطابقة للبحث.</p>
       )}
     </div>
+  );
+}
+
+/**
+ * رابط دعوة ثابت لهذه الحلقة — يشاركه المعلّم مع طلابه (قروب واتساب
+ * مثلاً)، وكل من يفتحه وينشئ حسابه بنظام تسجيل الورد ينضم فوراً لهذه
+ * الحلقة بلا أي إدخال يدوي (لا إضافة طالب، ولا ربط اسم مستخدم).
+ */
+function InviteLinkCard() {
+  const [link, setLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/teacher/invite")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { link?: string } | null) => {
+        if (data?.link) setLink(data.link);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function copy() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // بعض المتصفحات تمنع الكتابة للحافظة بلا HTTPS — الرابط ظاهر بالحقل أصلاً
+    }
+  }
+
+  if (!link) return null;
+
+  return (
+    <Card className="no-print p-4">
+      <p className="mb-2 text-sm font-semibold">رابط دعوة الحلقة</p>
+      <p className="mb-3 text-xs text-muted-foreground">
+        شاركه مع طلابك (بقروب واتساب مثلاً) — كل من يفتحه وينشئ حسابه ينضم لحلقتك تلقائياً،
+        بلا ما تحتاج تضيفه أو تربطه يدوياً.
+      </p>
+      <div className="flex gap-2">
+        <input
+          readOnly
+          value={link}
+          onFocus={(e) => e.currentTarget.select()}
+          className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground"
+        />
+        <Button onClick={copy} className="shrink-0">
+          {copied ? "نُسخ ✓" : "نسخ"}
+        </Button>
+      </div>
+    </Card>
   );
 }
 
