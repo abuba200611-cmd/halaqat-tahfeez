@@ -21,13 +21,14 @@ function db() {
 
 export async function listStudentSuggestions(): Promise<Suggestion[]> {
   const rows = await db().sql`
-    SELECT id, sender_label, message, created_at FROM suggestions ORDER BY created_at DESC
+    SELECT id, sender_label, message, type, created_at FROM suggestions ORDER BY created_at DESC
   `;
   return rows.map((row) => ({
     id: row.id as number,
     senderLabel: row.sender_label as string,
     message: row.message as string,
     createdAt: row.created_at as string,
+    type: (row.type as Suggestion["type"]) ?? "suggestion",
   }));
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 
 type Suggestion = {
@@ -9,12 +9,16 @@ type Suggestion = {
   message: string;
   createdAt: string;
   source: "teacher" | "student";
+  type: "suggestion" | "problem";
 };
+
+type Filter = "all" | "problem" | "suggestion";
 
 export default function AdminPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<Filter>("all");
 
   const load = useCallback(async () => {
     try {
@@ -35,25 +39,61 @@ export default function AdminPage() {
     void load();
   }, [load]);
 
+  const filtered = useMemo(
+    () => (suggestions ?? []).filter((s) => filter === "all" || s.type === filter),
+    [suggestions, filter],
+  );
+  const problemCount = useMemo(
+    () => (suggestions ?? []).filter((s) => s.type === "problem").length,
+    [suggestions],
+  );
+
   if (needsLogin) return <AdminLogin onIn={load} />;
   if (loading || !suggestions) return <Empty title="جارٍ التحميل…" />;
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
-      <h1 className="mb-1 font-naskh text-2xl font-bold">اقتراحات المعلّمين والطلاب</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        {suggestions.length} اقتراح من النظامين — الأحدث أولاً
+      <h1 className="mb-1 font-naskh text-2xl font-bold">اقتراحات ومشاكل المعلّمين والطلاب</h1>
+      <p className="mb-4 text-sm text-muted-foreground">
+        {suggestions.length} رسالة من النظامين — الأحدث أولاً
+        {problemCount > 0 && ` · ${problemCount} مشكلة تحتاج حل`}
       </p>
 
-      {suggestions.length === 0 ? (
-        <Empty title="ما وصل اقتراح بعد." />
+      <div className="mb-4 flex gap-1 border-b border-border">
+        {(
+          [
+            ["all", `الكل (${suggestions.length})`],
+            ["problem", `المشاكل (${problemCount})`],
+            ["suggestion", `الاقتراحات (${suggestions.length - problemCount})`],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setFilter(value as Filter)}
+            className={`-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors duration-200 ${
+              filter === value
+                ? "border-primary font-semibold text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <Empty title="ما فيه شيء بهذا التصنيف." />
       ) : (
         <ul className="space-y-2">
-          {suggestions.map((s) => (
+          {filtered.map((s) => (
             <li key={`${s.source}-${s.id}`}>
-              <Card className="p-4">
-                <div className="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <Card className={`p-4 ${s.type === "problem" ? "border-destructive/40" : ""}`}>
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-2">
+                    <Badge tone={s.type === "problem" ? "warn" : "good"}>
+                      {s.type === "problem" ? "🐛 مشكلة" : "💡 اقتراح"}
+                    </Badge>
                     <Badge tone={s.source === "teacher" ? "good" : "neutral"}>
                       {s.source === "teacher" ? "معلّم" : "طالب"}
                     </Badge>

@@ -8,7 +8,7 @@ const NAV = [
   { href: "/schedule", label: "جدول الشهر" },
   { href: "/reports", label: "تقرير الحلقة" },
   { href: "/inbox", label: "الوارد", badge: <NewWardBadge /> },
-  { href: "/suggest", label: "اقتراح تطوير" },
+  { href: "/suggest", label: "اقتراح / بلاغ" },
 ];
 
 export default function TeacherLayout({ children }: { children: React.ReactNode }) {

@@ -112,31 +112,40 @@ export async function findTeacherById(id: number): Promise<Teacher | null> {
 
 // ————— اقتراحات تطوير من المعلّم (تصل للمطوّر فقط) —————
 
+export type SuggestionType = "suggestion" | "problem";
+
 export type Suggestion = {
   id: number;
   senderLabel: string;
   message: string;
   createdAt: string;
+  type: SuggestionType;
   /** من أرسله — يُضاف عند دمج اقتراحات النظامين بلوحة المطوّر، اختياري هنا */
   source?: "teacher" | "student";
 };
 
-export async function addSuggestion(senderId: number, senderLabel: string, message: string): Promise<void> {
+export async function addSuggestion(
+  senderId: number,
+  senderLabel: string,
+  message: string,
+  type: SuggestionType = "suggestion",
+): Promise<void> {
   await db().sql`
-    INSERT INTO suggestions (sender_id, sender_label, message, created_at)
-    VALUES (${senderId}, ${senderLabel}, ${message}, ${new Date().toISOString()})
+    INSERT INTO suggestions (sender_id, sender_label, message, type, created_at)
+    VALUES (${senderId}, ${senderLabel}, ${message}, ${type}, ${new Date().toISOString()})
   `;
 }
 
 export async function listSuggestions(): Promise<Suggestion[]> {
   const rows = await db().sql`
-    SELECT id, sender_label, message, created_at FROM suggestions ORDER BY created_at DESC
+    SELECT id, sender_label, message, type, created_at FROM suggestions ORDER BY created_at DESC
   `;
   return rows.map((row) => ({
     id: row.id as number,
     senderLabel: row.sender_label as string,
     message: row.message as string,
     createdAt: row.created_at as string,
+    type: (row.type as SuggestionType) ?? "suggestion",
   }));
 }
 
