@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     teacher: {
       id: teacher.id,
       username: teacher.username,
+      teacherName: teacher.teacherName,
       halaqahName: teacher.halaqahName,
       emailVerified: teacher.emailVerified,
     },

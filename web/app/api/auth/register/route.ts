@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   // هو فعلياً بريد إلكتروني الآن من واجهة المستخدم وطبقة التحقق فقط.
   const username = String(body.username ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
+  const teacherName = String(body.teacherName ?? "").trim();
   const halaqahName = String(body.halaqahName ?? "").trim();
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "هذا البريد مسجّل من قبل" }, { status: 409 });
   }
 
-  const id = await createTeacher(username, hashPassword(password), halaqahName);
+  const id = await createTeacher(username, hashPassword(password), halaqahName, false, teacherName);
   await setSessionCookie(id);
 
   const token = await createEmailVerification(id);
@@ -40,11 +41,11 @@ export async function POST(request: Request) {
   const link = `${origin}/verify-email?token=${token}`;
   await sendMail(
     username,
-    "أكّد بريدك — حلقات",
-    `<div dir="rtl" style="font-family:sans-serif"><p>أهلاً، أكمل تسجيلك بحلقات بتأكيد بريدك.</p><p><a href="${link}">اضغط هنا لتأكيد البريد</a> (صالح ٢٤ ساعة).</p></div>`,
+    "أكّد بريدك — المعلم",
+    `<div dir="rtl" style="font-family:sans-serif"><p>أهلاً، أكمل تسجيلك بالمعلم بتأكيد بريدك.</p><p><a href="${link}">اضغط هنا لتأكيد البريد</a> (صالح ٢٤ ساعة).</p></div>`,
   );
 
   return Response.json({
-    teacher: { id, username, halaqahName: halaqahName || "حلقتي", emailVerified: false },
+    teacher: { id, username, teacherName, halaqahName: halaqahName || "حلقتي", emailVerified: false },
   });
 }

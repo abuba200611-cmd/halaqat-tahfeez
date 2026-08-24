@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button, Card } from "./ui";
 import { resetStore } from "@/lib/store";
 
-type Teacher = { id: number; username: string; halaqahName: string; emailVerified: boolean };
+type Teacher = { id: number; username: string; teacherName: string; halaqahName: string; emailVerified: boolean };
 type NavItem = { href: string; label: string; badge?: React.ReactNode };
 
 /*
@@ -78,11 +78,11 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
         <div className="mx-auto max-w-7xl px-4 py-3">
           <div className="flex items-center gap-3">
             <Link href="/" className="shrink-0 font-naskh text-lg font-bold text-primary">
-              حلقات
+              المعلم
             </Link>
             <div className="mr-auto flex min-w-0 items-center gap-3">
               <span className="hidden truncate text-sm text-muted-foreground sm:inline">
-                {teacher.halaqahName}
+                {teacher.teacherName ? `${teacher.teacherName} — ${teacher.halaqahName}` : teacher.halaqahName}
               </span>
               <Button variant="ghost" onClick={logout} className="shrink-0">
                 خروج
@@ -153,6 +153,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
   });
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [teacherName, setTeacherName] = useState("");
   const [halaqahName, setHalaqahName] = useState("");
   const [error, setError] = useState<string | null>(() =>
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("googleError"),
@@ -171,7 +172,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
       const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, halaqahName }),
+        body: JSON.stringify({ username, password, teacherName, halaqahName }),
       });
       const data = (await res.json()) as { teacher?: Teacher; error?: string };
       if (!res.ok || !data.teacher) {
@@ -192,7 +193,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">حلقات</h1>
+      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">المعلم</h1>
       <p className="mb-5 text-center text-sm text-muted-foreground">
         إدارة التحفيظ ومطابقة التسميع وجدول الشهر
       </p>
@@ -203,6 +204,18 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
         </h2>
 
         <form onSubmit={submit} className="space-y-3">
+          {mode === "register" && (
+            <label className="block text-sm">
+              <span className="text-xs text-muted-foreground">اسم المعلّم</span>
+              <input
+                value={teacherName}
+                onChange={(e) => setTeacherName(e.target.value)}
+                placeholder="اسمك الكامل"
+                className={field}
+              />
+            </label>
+          )}
+
           {mode === "register" && (
             <label className="block text-sm">
               <span className="text-xs text-muted-foreground">اسم الحلقة</span>

@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     const link = `${origin}/reset-password?token=${token}`;
     await sendMail(
       email,
-      "استرجاع كلمة المرور — حلقات",
-      `<div dir="rtl" style="font-family:sans-serif"><p>وصلنا طلب استرجاع كلمة مرور حسابك بحلقات.</p><p><a href="${link}">اضغط هنا لتعيين كلمة مرور جديدة</a> (صالح ساعة واحدة).</p><p>لو ما طلبت هذا، تجاهل الرسالة.</p></div>`,
+      "استرجاع كلمة المرور — المعلم",
+      `<div dir="rtl" style="font-family:sans-serif"><p>وصلنا طلب استرجاع كلمة مرور حسابك بالمعلم.</p><p><a href="${link}">اضغط هنا لتعيين كلمة مرور جديدة</a> (صالح ساعة واحدة).</p><p>لو ما طلبت هذا، تجاهل الرسالة.</p></div>`,
     );
   }
 

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   try {
     const profile = await exchangeGoogleCode(code, `${origin}/api/auth/google/callback`);
-    const teacherId = await findOrCreateTeacherByEmail(profile.email);
+    const teacherId = await findOrCreateTeacherByEmail(profile.email, profile.name);
     await setSessionCookie(teacherId);
     return Response.redirect(origin);
   } catch (error) {

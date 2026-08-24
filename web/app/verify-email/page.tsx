@@ -51,7 +51,7 @@ function VerifyEmailInner() {
           <>
             <p className="mb-3 text-sm text-success">تم تأكيد بريدك ✓</p>
             <Link href="/" className="text-sm text-primary hover:underline">
-              الرجوع لحلقات
+              الرجوع للمعلم
             </Link>
           </>
         )}

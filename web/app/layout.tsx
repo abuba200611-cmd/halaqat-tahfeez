@@ -15,7 +15,7 @@ const naskh = Noto_Naskh_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "حلقات — إدارة التحفيظ والمطابقة",
+  title: "المعلم — إدارة التحفيظ والمطابقة",
   description: "تسجيل الحفظ، ومطابقة الطلاب للتسميع المتبادل، وتوليد جدول المراجعة.",
 };
 

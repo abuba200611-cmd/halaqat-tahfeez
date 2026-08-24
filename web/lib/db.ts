@@ -22,6 +22,7 @@ import type { SavedSchedule, SavedScheduleInfo, SavedScheduleRecord } from "./sc
 export type Teacher = {
   id: number;
   username: string;
+  teacherName: string;
   halaqahName: string;
   emailVerified: boolean;
 };
@@ -59,10 +60,11 @@ export async function createTeacher(
   passwordHash: string,
   halaqahName: string,
   emailVerified = false,
+  teacherName = "",
 ): Promise<number> {
   const rows = await db().sql`
-    INSERT INTO teachers (username, password_hash, halaqah_name, email_verified, created_at)
-    VALUES (${username}, ${passwordHash}, ${halaqahName || "حلقتي"}, ${emailVerified}, ${new Date().toISOString()})
+    INSERT INTO teachers (username, password_hash, halaqah_name, teacher_name, email_verified, created_at)
+    VALUES (${username}, ${passwordHash}, ${halaqahName || "حلقتي"}, ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
     RETURNING id
   `;
   return Number(rows[0].id);
@@ -72,6 +74,7 @@ export async function findTeacherByUsername(username: string): Promise<{
   id: number;
   username: string;
   passwordHash: string;
+  teacherName: string;
   halaqahName: string;
   emailVerified: boolean;
 } | null> {
@@ -82,6 +85,7 @@ export async function findTeacherByUsername(username: string): Promise<{
     id: row.id,
     username: row.username,
     passwordHash: row.password_hash,
+    teacherName: row.teacher_name ?? "",
     halaqahName: row.halaqah_name,
     emailVerified: !!row.email_verified,
   };
@@ -90,23 +94,30 @@ export async function findTeacherByUsername(username: string): Promise<{
 /**
  * دخول جوجل: يجد معلّماً ببريده أو ينشئه فوراً بكلمة مرور عشوائية لن
  * يستخدمها أبداً (دخوله دائماً عبر جوجل). البريد نفسه عمود username.
+ * الاسم من ملف جوجل الشخصي يُخزَّن كاسم المعلّم مباشرة.
  */
-export async function findOrCreateTeacherByEmail(email: string): Promise<number> {
+export async function findOrCreateTeacherByEmail(email: string, name = ""): Promise<number> {
   const existing = await findTeacherByUsername(email);
   if (existing) return existing.id;
 
   const randomPasswordHash = randomBytes(32).toString("hex");
   // بريد جوجل موثّق من جوجل نفسها — نعتبره مؤكَّداً هنا فوراً
-  return createTeacher(email, randomPasswordHash, "", true);
+  return createTeacher(email, randomPasswordHash, "", true, name);
 }
 
 export async function findTeacherById(id: number): Promise<Teacher | null> {
   const rows = await db().sql`
-    SELECT id, username, halaqah_name, email_verified FROM teachers WHERE id = ${id}
+    SELECT id, username, halaqah_name, teacher_name, email_verified FROM teachers WHERE id = ${id}
   `;
   const row = rows[0];
   return row
-    ? { id: row.id, username: row.username, halaqahName: row.halaqah_name, emailVerified: !!row.email_verified }
+    ? {
+        id: row.id,
+        username: row.username,
+        teacherName: row.teacher_name ?? "",
+        halaqahName: row.halaqah_name,
+        emailVerified: !!row.email_verified,
+      }
     : null;
 }
 
