@@ -64,8 +64,8 @@ export async function GET() {
   if (!teacher) return unauthorized();
 
   return Response.json({
-    links: await listStudentLinks(teacher.id),
-    summaries: await listStudentLinkSummaries(teacher.id),
+    links: await listStudentLinks(teacher.halaqahId),
+    summaries: await listStudentLinkSummaries(teacher.halaqahId),
   });
 }
 
@@ -82,14 +82,14 @@ export async function POST(request: Request) {
   if (!studentId) {
     return Response.json({ error: "معرّف الطالب مفقود" }, { status: 400 });
   }
-  if (!(await getStudentById(teacher.id, studentId))) {
+  if (!(await getStudentById(teacher.halaqahId, studentId))) {
     return Response.json({ error: "الطالب غير موجود" }, { status: 404 });
   }
 
   // أول مرة يُرسل اسم المستخدم من النموذج؛ لإعادة السحب لاحقاً نستخدم المحفوظ
   let linkUsername = String(body.linkUsername ?? "").trim();
   if (!linkUsername) {
-    const existing = await getStudentLink(teacher.id, studentId);
+    const existing = await getStudentLink(teacher.halaqahId, studentId);
     if (!existing) {
       return Response.json({ error: "أدخل اسم مستخدم الطالب في نظام تسجيل الورد أولاً" }, { status: 400 });
     }
@@ -99,8 +99,8 @@ export async function POST(request: Request) {
   try {
     const summary = await fetchRemoteSummary(linkUsername);
     const label = describeSummary(summary);
-    await saveStudentLink(teacher.id, studentId, linkUsername, label);
-    const student = await applyLinkSummary(teacher.id, studentId, {
+    await saveStudentLink(teacher.halaqahId, studentId, linkUsername, label);
+    const student = await applyLinkSummary(teacher.halaqahId, studentId, {
       latestHifz: summary.latestHifz,
       latestReview: summary.latestReview,
     });

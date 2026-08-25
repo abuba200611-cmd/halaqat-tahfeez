@@ -55,7 +55,7 @@ export async function GET() {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
-  return Response.json({ students: await listStudents(teacher.id) });
+  return Response.json({ students: await listStudents(teacher.halaqahId) });
 }
 
 /** إضافة طالب أو تعديله */
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as { student?: unknown };
-    await upsertStudent(teacher.id, parseStudent(body.student));
+    await upsertStudent(teacher.halaqahId, parseStudent(body.student));
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json(
@@ -84,7 +84,7 @@ export async function PUT(request: Request) {
     const body = (await request.json()) as { students?: unknown };
     if (!Array.isArray(body.students)) throw new Error("قائمة الطلاب مفقودة");
 
-    await replaceStudents(teacher.id, body.students.map(parseStudent));
+    await replaceStudents(teacher.halaqahId, body.students.map(parseStudent));
     return Response.json({ ok: true, count: body.students.length });
   } catch (error) {
     return Response.json(
@@ -102,7 +102,7 @@ export async function DELETE(request: Request) {
   const id = String(body.id ?? "").trim();
   if (!id) return Response.json({ error: "معرّف الطالب مفقود" }, { status: 400 });
 
-  if (!(await deleteStudent(teacher.id, id))) {
+  if (!(await deleteStudent(teacher.halaqahId, id))) {
     return Response.json({ error: "الطالب غير موجود" }, { status: 404 });
   }
   return Response.json({ ok: true });

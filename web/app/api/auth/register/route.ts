@@ -1,4 +1,11 @@
-import { checkRegisterRateLimit, createEmailVerification, createTeacher, findTeacherByUsername } from "@/lib/db";
+import {
+  checkRegisterRateLimit,
+  createEmailVerification,
+  createHalaqahWithSupervisor,
+  findTeacherById,
+  findTeacherByUsername,
+  joinHalaqahAsAssistant,
+} from "@/lib/db";
 import { hashPassword, setSessionCookie } from "@/lib/auth";
 import { sendMail } from "@/lib/mail";
 
@@ -22,6 +29,8 @@ export async function POST(request: Request) {
   const password = String(body.password ?? "");
   const teacherName = String(body.teacherName ?? "").trim();
   const halaqahName = String(body.halaqahName ?? "").trim();
+  // وجود رمز دعوة معلّم يعني "انضمام لحلقة موجودة" بدل "إنشاء حلقة جديدة"
+  const joinCode = String(body.joinCode ?? "").trim();
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username)) {
     return Response.json({ error: "أدخل بريداً إلكترونياً صحيحاً" }, { status: 400 });
@@ -33,7 +42,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "هذا البريد مسجّل من قبل" }, { status: 409 });
   }
 
-  const id = await createTeacher(username, hashPassword(password), halaqahName, false, teacherName);
+  let id: number;
+  if (joinCode) {
+    const joined = await joinHalaqahAsAssistant(joinCode, username, hashPassword(password), false, teacherName);
+    if (joined === null) {
+      return Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 400 });
+    }
+    id = joined;
+  } else {
+    id = await createHalaqahWithSupervisor(username, hashPassword(password), halaqahName, false, teacherName);
+  }
   await setSessionCookie(id);
 
   const token = await createEmailVerification(id);
@@ -45,7 +63,6 @@ export async function POST(request: Request) {
     `<div dir="rtl" style="font-family:sans-serif"><p>أهلاً، أكمل تسجيلك بالمعلم بتأكيد بريدك.</p><p><a href="${link}">اضغط هنا لتأكيد البريد</a> (صالح ٢٤ ساعة).</p></div>`,
   );
 
-  return Response.json({
-    teacher: { id, username, teacherName, halaqahName: halaqahName || "حلقتي", emailVerified: false },
-  });
+  const teacher = await findTeacherById(id);
+  return Response.json({ teacher });
 }

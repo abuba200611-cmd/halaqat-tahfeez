@@ -1,5 +1,5 @@
 import { findLinkByUsername } from "@/lib/db";
-import { sendPushToTeacher } from "@/lib/push";
+import { sendPushToHalaqah } from "@/lib/push";
 
 /**
  * نداء خادم لخادم من tasjeel-tullab: طالب مرتبط سجّل ورداً جديداً، فنبعث
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   const link = await findLinkByUsername(username);
   if (link) {
-    await sendPushToTeacher(link.teacherId, {
+    await sendPushToHalaqah(link.teacherId, {
       title: "ورد جديد",
       body: `${link.studentName} سجّل ورداً جديداً — افتح صفحة الطلاب واسحب التحديث`,
       url: "/students",

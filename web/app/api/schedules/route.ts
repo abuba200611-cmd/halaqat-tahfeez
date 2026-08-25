@@ -117,12 +117,12 @@ export async function GET(request: Request) {
     const id = Number(idParam);
     if (!Number.isInteger(id)) return Response.json({ error: "معرّف الجدول غير صحيح" }, { status: 400 });
 
-    const record = await getSchedule(teacher.id, id);
+    const record = await getSchedule(teacher.halaqahId, id);
     if (!record) return Response.json({ error: "الجدول غير موجود" }, { status: 404 });
     return Response.json({ schedule: record });
   }
 
-  return Response.json({ schedules: await listSchedules(teacher.id) });
+  return Response.json({ schedules: await listSchedules(teacher.halaqahId) });
 }
 
 /** اعتماد جدول شهر وحفظه — يستبدل جدول الشهر نفسه إن وُجد */
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as { schedule?: unknown };
     const schedule = parseSchedule(body.schedule);
     const info = await saveSchedule(
-      teacher.id,
+      teacher.halaqahId,
       schedule.year,
       schedule.month,
       schedule.weekdays,
@@ -157,7 +157,7 @@ export async function DELETE(request: Request) {
   const id = Number(body.id);
   if (!Number.isInteger(id)) return Response.json({ error: "معرّف الجدول مفقود" }, { status: 400 });
 
-  if (!(await deleteSchedule(teacher.id, id))) {
+  if (!(await deleteSchedule(teacher.halaqahId, id))) {
     return Response.json({ error: "الجدول غير موجود" }, { status: 404 });
   }
   return Response.json({ ok: true });

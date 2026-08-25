@@ -19,7 +19,7 @@ export async function GET() {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
-  const students = await listStudents(teacher.id);
+  const students = await listStudents(teacher.halaqahId);
 
   const header = ["الاسم", "المجموعة", "المحفوظ (صفحات)", "النطاق", "الإتقان (٪)", "التقييم", "نشط"];
   const rows = students.map((s) => [

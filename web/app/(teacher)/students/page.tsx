@@ -88,6 +88,7 @@ export default function StudentsPage() {
       <div className="space-y-4">
         <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
         <InviteLinkCard />
+        <TeamInviteCard />
         <Empty
           title="القائمة فارغة."
           action={
@@ -284,6 +285,74 @@ function InviteLinkCard() {
           {copied ? "نُسخ ✓" : "نسخ"}
         </Button>
       </div>
+    </Card>
+  );
+}
+
+type TeamMember = { id: number; teacherName: string; username: string; role: "supervisor" | "assistant" };
+
+/**
+ * رابط منفصل تماماً عن رابط دعوة الطلاب أعلاه — من يفتحه وينشئ حسابه
+ * ينضم كمعلّم مساعد (صلاحيات مطابقة للمشرف تماماً) لنفس الحلقة، بدل ما
+ * ينشئ حلقة جديدة له.
+ */
+function TeamInviteCard() {
+  const [link, setLink] = useState<string | null>(null);
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/teacher/invite-colleague")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { link?: string; team?: TeamMember[] } | null) => {
+        if (data?.link) setLink(data.link);
+        if (data?.team) setTeam(data.team);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function copy() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // متروك بالحقل أصلاً
+    }
+  }
+
+  if (!link) return null;
+
+  return (
+    <Card className="no-print p-4">
+      <p className="mb-2 text-sm font-semibold">دعوة معلّم مساعد لنفس الحلقة</p>
+      <p className="mb-3 text-xs text-muted-foreground">
+        من يفتح هذا الرابط وينشئ حسابه ينضم كمساعد مشرف لحلقتك — يشوف طلابك ويقدر يدير كل شيء
+        بصلاحيات مطابقة لك تماماً، بدل ما ينشئ حلقة جديدة منفصلة.
+      </p>
+      <div className="mb-3 flex gap-2">
+        <input
+          readOnly
+          value={link}
+          onFocus={(e) => e.currentTarget.select()}
+          className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground"
+        />
+        <Button onClick={copy} className="shrink-0">
+          {copied ? "نُسخ ✓" : "نسخ"}
+        </Button>
+      </div>
+      {team.length > 0 && (
+        <ul className="flex flex-wrap gap-2">
+          {team.map((t) => (
+            <li key={t.id}>
+              <Badge tone={t.role === "supervisor" ? "good" : "neutral"}>
+                {t.teacherName || t.username} — {t.role === "supervisor" ? "مشرف" : "مساعد"}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

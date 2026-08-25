@@ -1,4 +1,4 @@
-import { findTeacherByInviteCode, listStudents } from "@/lib/db";
+import { findHalaqahByInviteCode, listStudents } from "@/lib/db";
 import { pageCount } from "@/lib/pairing";
 
 /**
@@ -14,10 +14,10 @@ export async function GET(request: Request) {
   const code = new URL(request.url).searchParams.get("code")?.trim() ?? "";
   if (!code) return Response.json({ error: "الرمز مفقود" }, { status: 400 });
 
-  const teacher = await findTeacherByInviteCode(code);
-  if (!teacher) return Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 404 });
+  const halaqah = await findHalaqahByInviteCode(code);
+  if (!halaqah) return Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 404 });
 
-  const students = await listStudents(teacher.id);
+  const students = await listStudents(halaqah.id);
   const roster = students.map((s) => {
     const masteryValues = Object.values(s.mastery);
     const avgMastery = masteryValues.length
@@ -33,8 +33,8 @@ export async function GET(request: Request) {
   });
 
   return Response.json({
-    teacherName: teacher.teacherName,
-    halaqahName: teacher.halaqahName,
+    teacherName: halaqah.teacherName,
+    halaqahName: halaqah.halaqahName,
     students: roster,
   });
 }

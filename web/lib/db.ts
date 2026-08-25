@@ -19,11 +19,15 @@ import type { SavedSchedule, SavedScheduleInfo, SavedScheduleRecord } from "./sc
   يمرّ من هنا، فيبقى أي تبديل لاحق محصوراً في هذا الملف وحده.
 */
 
+export type TeacherRole = "supervisor" | "assistant";
+
 export type Teacher = {
   id: number;
   username: string;
   teacherName: string;
+  halaqahId: number;
   halaqahName: string;
+  role: TeacherRole;
   emailVerified: boolean;
 };
 
@@ -53,48 +57,88 @@ export async function sessionSecret(): Promise<string> {
   return (after[0]?.value as string) ?? generated;
 }
 
-// ————— المعلّمون —————
+// ————— الحلقات والمعلّمون —————
+// حلقة واحدة قد يديرها أكثر من معلّم: مشرف واحد (أنشأ الحلقة) وأي عدد
+// من المساعدين (انضمّوا برمز دعوة المعلّم)، بصلاحيات متطابقة تماماً —
+// الدور للعرض فقط، لا يقيّد أي إجراء.
 
-export async function createTeacher(
+function rowToTeacherAccount(row: Record<string, unknown>): Teacher & { passwordHash: string } {
+  return {
+    id: row.id as number,
+    username: row.username as string,
+    passwordHash: row.password_hash as string,
+    teacherName: (row.teacher_name as string) ?? "",
+    halaqahId: row.halaqah_id as number,
+    halaqahName: row.halaqah_name as string,
+    role: (row.role as TeacherRole) ?? "supervisor",
+    emailVerified: !!row.email_verified,
+  };
+}
+
+/**
+ * ينشئ حلقة جديدة وأول معلّم لها (مشرف) معاً — هذا هو مسار "أنشئ حلقة"
+ * بشاشة التسجيل. يرجع معرّف حساب المعلّم الجديد.
+ */
+export async function createHalaqahWithSupervisor(
   username: string,
   passwordHash: string,
   halaqahName: string,
   emailVerified = false,
   teacherName = "",
 ): Promise<number> {
+  const halaqahRows = await db().sql`
+    INSERT INTO halaqahs (name) VALUES (${halaqahName || "حلقتي"}) RETURNING id
+  `;
+  const halaqahId = Number(halaqahRows[0].id);
+
   const rows = await db().sql`
-    INSERT INTO teachers (username, password_hash, halaqah_name, teacher_name, email_verified, created_at)
-    VALUES (${username}, ${passwordHash}, ${halaqahName || "حلقتي"}, ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
+    INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
+    VALUES (${username}, ${passwordHash}, ${halaqahId}, 'supervisor', ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
     RETURNING id
   `;
   return Number(rows[0].id);
 }
 
-export async function findTeacherByUsername(username: string): Promise<{
-  id: number;
-  username: string;
-  passwordHash: string;
-  teacherName: string;
-  halaqahName: string;
-  emailVerified: boolean;
-} | null> {
-  const rows = await db().sql`SELECT * FROM teachers WHERE username = ${username}`;
+/**
+ * ينضم معلّم جديد (مساعد مشرف) لحلقة قائمة عبر رمز دعوة المعلّمين
+ * الخاص بها (منفصل عن رمز دعوة الطلاب). يرجع null لو الرمز غير صحيح.
+ */
+export async function joinHalaqahAsAssistant(
+  teacherInviteCode: string,
+  username: string,
+  passwordHash: string,
+  emailVerified = false,
+  teacherName = "",
+): Promise<number | null> {
+  const halaqahRows = await db().sql`SELECT id FROM halaqahs WHERE teacher_invite_code = ${teacherInviteCode}`;
+  const halaqahId = halaqahRows[0]?.id as number | undefined;
+  if (!halaqahId) return null;
+
+  const rows = await db().sql`
+    INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
+    VALUES (${username}, ${passwordHash}, ${halaqahId}, 'assistant', ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
+    RETURNING id
+  `;
+  return Number(rows[0].id);
+}
+
+export async function findTeacherByUsername(
+  username: string,
+): Promise<(Teacher & { passwordHash: string }) | null> {
+  const rows = await db().sql`
+    SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role,
+           h.id AS halaqah_id, h.name AS halaqah_name
+    FROM teachers t JOIN halaqahs h ON h.id = t.halaqah_id
+    WHERE t.username = ${username}
+  `;
   const row = rows[0];
-  if (!row) return null;
-  return {
-    id: row.id,
-    username: row.username,
-    passwordHash: row.password_hash,
-    teacherName: row.teacher_name ?? "",
-    halaqahName: row.halaqah_name,
-    emailVerified: !!row.email_verified,
-  };
+  return row ? rowToTeacherAccount(row) : null;
 }
 
 /**
- * دخول جوجل: يجد معلّماً ببريده أو ينشئه فوراً بكلمة مرور عشوائية لن
- * يستخدمها أبداً (دخوله دائماً عبر جوجل). البريد نفسه عمود username.
- * الاسم من ملف جوجل الشخصي يُخزَّن كاسم المعلّم مباشرة.
+ * دخول جوجل: يجد معلّماً ببريده أو ينشئ له حلقة جديدة فوراً بكلمة مرور
+ * عشوائية لن يستخدمها أبداً (دخوله دائماً عبر جوجل). البريد نفسه عمود
+ * username. الاسم من ملف جوجل الشخصي يُخزَّن كاسم المعلّم مباشرة.
  */
 export async function findOrCreateTeacherByEmail(email: string, name = ""): Promise<number> {
   const existing = await findTeacherByUsername(email);
@@ -102,23 +146,24 @@ export async function findOrCreateTeacherByEmail(email: string, name = ""): Prom
 
   const randomPasswordHash = randomBytes(32).toString("hex");
   // بريد جوجل موثّق من جوجل نفسها — نعتبره مؤكَّداً هنا فوراً
-  return createTeacher(email, randomPasswordHash, "", true, name);
+  return createHalaqahWithSupervisor(email, randomPasswordHash, "", true, name);
 }
 
 export async function findTeacherById(id: number): Promise<Teacher | null> {
   const rows = await db().sql`
-    SELECT id, username, halaqah_name, teacher_name, email_verified FROM teachers WHERE id = ${id}
+    SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role,
+           h.id AS halaqah_id, h.name AS halaqah_name
+    FROM teachers t JOIN halaqahs h ON h.id = t.halaqah_id
+    WHERE t.id = ${id}
   `;
   const row = rows[0];
-  return row
-    ? {
-        id: row.id,
-        username: row.username,
-        teacherName: row.teacher_name ?? "",
-        halaqahName: row.halaqah_name,
-        emailVerified: !!row.email_verified,
-      }
-    : null;
+  if (!row) return null;
+  // نبني الكائن صراحةً بلا بصمة كلمة المرور — لا يجب أن تصل هذي القيمة
+  // لأي واجهة عميل أبداً. rowToTeacherAccount ترجعها لأن
+  // findTeacherByUsername يحتاجها داخلياً عند التحقق من الدخول.
+  const { passwordHash, ...teacher } = rowToTeacherAccount(row);
+  void passwordHash;
+  return teacher;
 }
 
 // ————— اقتراحات تطوير من المعلّم (تصل للمطوّر فقط) —————
@@ -467,19 +512,23 @@ export async function findStudentByUsername(
   return { teacherId: row.teacher_id, id: row.id, name: row.name, passwordHash: row.password_hash };
 }
 
-/** هوية الطالب لجلسته: اسمه واسم حلقته — أو null إن حُذف أو أُلغي حسابه */
+/**
+ * هوية الطالب لجلسته: اسمه واسم حلقته — أو null إن حُذف أو أُلغي حسابه.
+ * المعامل الأول هنا معرّف الحلقة (halaqah_id) — students.teacher_id
+ * يحمل قيمة الحلقة منذ إضافة تعدّد المعلّمين، رغم بقاء اسم العمود.
+ */
 export async function findStudentAccount(
-  teacherId: number,
+  halaqahId: number,
   studentId: string,
 ): Promise<StudentAccount | null> {
   const rows = await db().sql`
-    SELECT s.id, s.name, t.halaqah_name
-    FROM students s JOIN teachers t ON t.id = s.teacher_id
-    WHERE s.teacher_id = ${teacherId} AND s.id = ${studentId} AND s.deleted_at IS NULL
+    SELECT s.id, s.name, h.name AS halaqah_name
+    FROM students s JOIN halaqahs h ON h.id = s.teacher_id
+    WHERE s.teacher_id = ${halaqahId} AND s.id = ${studentId} AND s.deleted_at IS NULL
   `;
   const row = rows[0];
   if (!row) return null;
-  return { teacherId, id: row.id, name: row.name, halaqahName: row.halaqah_name };
+  return { teacherId: halaqahId, id: row.id, name: row.name, halaqahName: row.halaqah_name };
 }
 
 // ————— سجلّات الورد اليومي —————
@@ -706,38 +755,76 @@ export async function saveStudentLink(
   `;
 }
 
-// ————— رابط دعوة الحلقة (انضمام ذاتي للطلاب) —————
+// ————— رابط دعوة الحلقة (انضمام ذاتي للطلاب، وانضمام معلّم زميل) —————
 
 /**
- * رمز دعوة الحلقة — يُولَّد كسولاً (أول طلب فقط) ويبقى ثابتاً بعدها.
- * الطالب يفتح رابطاً فيه هذا الرمز فينضم مباشرة لحلقة هذا المعلّم بلا
- * أي تدخّل يدوي (لا إضافة الطالب يدوياً، ولا تبادل اسم مستخدم للربط).
+ * رمز دعوة الطلاب — يُولَّد كسولاً (أول طلب فقط) ويبقى ثابتاً بعدها.
+ * الطالب يفتح رابطاً فيه هذا الرمز فينضم مباشرة لهذي الحلقة بلا أي
+ * تدخّل يدوي (لا إضافة الطالب يدوياً، ولا تبادل اسم مستخدم للربط).
  */
-export async function teacherInviteCode(teacherId: number): Promise<string> {
-  const existing = await db().sql`SELECT invite_code FROM teachers WHERE id = ${teacherId}`;
+export async function halaqahInviteCode(halaqahId: number): Promise<string> {
+  const existing = await db().sql`SELECT invite_code FROM halaqahs WHERE id = ${halaqahId}`;
   const current = existing[0]?.invite_code as string | null | undefined;
   if (current) return current;
 
   const generated = randomBytes(5).toString("hex");
   await db().sql`
-    UPDATE teachers SET invite_code = ${generated} WHERE id = ${teacherId} AND invite_code IS NULL
+    UPDATE halaqahs SET invite_code = ${generated} WHERE id = ${halaqahId} AND invite_code IS NULL
   `;
-  const after = await db().sql`SELECT invite_code FROM teachers WHERE id = ${teacherId}`;
+  const after = await db().sql`SELECT invite_code FROM halaqahs WHERE id = ${halaqahId}`;
   return (after[0]?.invite_code as string) ?? generated;
 }
 
-export async function findTeacherByInviteCode(
+/**
+ * رمز دعوة معلّم زميل — منفصل تماماً عن رمز دعوة الطلاب أعلاه. من يفتح
+ * رابطه وينشئ حساباً ينضم كـ"مساعد مشرف" لهذي الحلقة بصلاحيات كاملة.
+ */
+export async function halaqahTeacherInviteCode(halaqahId: number): Promise<string> {
+  const existing = await db().sql`SELECT teacher_invite_code FROM halaqahs WHERE id = ${halaqahId}`;
+  const current = existing[0]?.teacher_invite_code as string | null | undefined;
+  if (current) return current;
+
+  const generated = randomBytes(5).toString("hex");
+  await db().sql`
+    UPDATE halaqahs SET teacher_invite_code = ${generated}
+    WHERE id = ${halaqahId} AND teacher_invite_code IS NULL
+  `;
+  const after = await db().sql`SELECT teacher_invite_code FROM halaqahs WHERE id = ${halaqahId}`;
+  return (after[0]?.teacher_invite_code as string) ?? generated;
+}
+
+/** أعضاء فريق الحلقة (مشرف + مساعدون) — لعرضهم بصفحة إعدادات الحلقة */
+export async function listHalaqahTeachers(
+  halaqahId: number,
+): Promise<{ id: number; teacherName: string; username: string; role: TeacherRole }[]> {
+  const rows = await db().sql`
+    SELECT id, teacher_name, username, role FROM teachers
+    WHERE halaqah_id = ${halaqahId} ORDER BY (role = 'supervisor') DESC, created_at
+  `;
+  return rows.map((r) => ({
+    id: r.id as number,
+    teacherName: (r.teacher_name as string) || (r.username as string),
+    username: r.username as string,
+    role: (r.role as TeacherRole) ?? "assistant",
+  }));
+}
+
+export async function findHalaqahByInviteCode(
   code: string,
 ): Promise<{ id: number; teacherName: string; halaqahName: string } | null> {
   const rows = await db().sql`
-    SELECT id, teacher_name, halaqah_name FROM teachers WHERE invite_code = ${code}
+    SELECT h.id, h.name AS halaqah_name,
+           string_agg(t.teacher_name, '، ' ORDER BY (t.role = 'supervisor') DESC) AS teacher_names
+    FROM halaqahs h LEFT JOIN teachers t ON t.halaqah_id = h.id AND t.teacher_name != ''
+    WHERE h.invite_code = ${code}
+    GROUP BY h.id, h.name
   `;
   const row = rows[0];
-  return row ? { id: row.id, teacherName: row.teacher_name ?? "", halaqahName: row.halaqah_name } : null;
+  return row ? { id: row.id, teacherName: (row.teacher_names as string) ?? "", halaqahName: row.halaqah_name } : null;
 }
 
 /**
- * يضيف طالباً لقائمة المعلّم صاحب رمز الدعوة بلا أي ربط بحساب تسجيل ورد
+ * يضيف طالباً لقائمة الحلقة صاحبة رمز الدعوة بلا أي ربط بحساب تسجيل ورد
  * (يُستخدم من نظام إدارة الجامع — الطالب سجّل بياناته بالجامع فقط، ما
  * فتح حساباً بنظام تسجيل الورد بعد). يرجع null لو الرمز غير صحيح.
  */
@@ -745,11 +832,11 @@ export async function addStudentByInviteCode(
   inviteCode: string,
   studentName: string,
 ): Promise<{ teacherId: number; studentId: string } | null> {
-  const teacher = await findTeacherByInviteCode(inviteCode);
-  if (!teacher) return null;
+  const halaqah = await findHalaqahByInviteCode(inviteCode);
+  if (!halaqah) return null;
 
   const studentId = randomBytes(12).toString("hex");
-  await upsertStudent(teacher.id, {
+  await upsertStudent(halaqah.id, {
     id: studentId,
     name: studentName,
     group: "",
@@ -758,12 +845,12 @@ export async function addStudentByInviteCode(
     active: true,
     rating: 0,
   });
-  return { teacherId: teacher.id, studentId };
+  return { teacherId: halaqah.id, studentId };
 }
 
 /**
- * ينشئ طالباً جديداً بحلقة المعلّم صاحب رمز الدعوة، ويربطه فوراً باسم
- * مستخدمه بنظام تسجيل الورد — يغني عن خطوتي "إضافة طالب" و"ربط" اليدويتين.
+ * ينشئ طالباً جديداً بالحلقة صاحبة رمز الدعوة، ويربطه فوراً باسم مستخدمه
+ * بنظام تسجيل الورد — يغني عن خطوتي "إضافة طالب" و"ربط" اليدويتين.
  * يرجع null لو الرمز غير صحيح، فلا يفشل تسجيل الطالب نفسه بأي حال.
  */
 export async function joinHalaqahByInviteCode(
@@ -771,11 +858,11 @@ export async function joinHalaqahByInviteCode(
   studentName: string,
   linkUsername: string,
 ): Promise<{ teacherId: number; studentId: string } | null> {
-  const teacher = await findTeacherByInviteCode(inviteCode);
-  if (!teacher) return null;
+  const halaqah = await findHalaqahByInviteCode(inviteCode);
+  if (!halaqah) return null;
 
   const studentId = randomBytes(12).toString("hex");
-  await upsertStudent(teacher.id, {
+  await upsertStudent(halaqah.id, {
     id: studentId,
     name: studentName,
     group: "",
@@ -784,8 +871,8 @@ export async function joinHalaqahByInviteCode(
     active: true,
     rating: 0,
   });
-  await saveStudentLink(teacher.id, studentId, linkUsername, null);
-  return { teacherId: teacher.id, studentId };
+  await saveStudentLink(halaqah.id, studentId, linkUsername, null);
+  return { teacherId: halaqah.id, studentId };
 }
 
 /** يدمج نطاقاً جديداً مع القائمة، مذيباً كل ما يتداخل أو يتلاصق معه بدل تكديسه */

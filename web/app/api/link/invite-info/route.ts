@@ -1,4 +1,4 @@
-import { findTeacherByInviteCode } from "@/lib/db";
+import { findHalaqahByInviteCode } from "@/lib/db";
 
 /**
  * معلومات عرض فقط عن حلقة رمز دعوة — يستخدمه تسجيل الطلاب ليعرض "ستنضم
@@ -13,8 +13,8 @@ export async function GET(request: Request) {
   const code = new URL(request.url).searchParams.get("code")?.trim() ?? "";
   if (!code) return Response.json({ error: "الرمز مفقود" }, { status: 400 });
 
-  const teacher = await findTeacherByInviteCode(code);
-  if (!teacher) return Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 404 });
+  const halaqah = await findHalaqahByInviteCode(code);
+  if (!halaqah) return Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 404 });
 
-  return Response.json({ teacherName: teacher.teacherName, halaqahName: teacher.halaqahName });
+  return Response.json({ teacherName: halaqah.teacherName, halaqahName: halaqah.halaqahName });
 }

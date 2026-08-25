@@ -6,7 +6,7 @@ import {
   setWardLogStatus,
   type NewWardLog,
 } from "@/lib/db";
-import { sendPushToTeacher } from "@/lib/push";
+import { sendPushToHalaqah } from "@/lib/push";
 import { TOTAL_PAGES } from "@/lib/quran";
 import type { WardStatus } from "@/lib/types";
 
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const parts: string[] = [];
     if (hifz) parts.push(`حفظ ${hifz.from}–${hifz.to}`);
     if (review) parts.push(`مراجعة ${review.from}–${review.to}`);
-    await sendPushToTeacher(student.teacherId, {
+    await sendPushToHalaqah(student.teacherId, {
       title: "أنجز طالب ورده",
       body: `${student.name}${parts.length ? " · " + parts.join(" · ") : ""}`,
       url: "/inbox",
@@ -81,8 +81,8 @@ export async function GET(request: Request) {
 
   const onlyNew = new URL(request.url).searchParams.get("new") === "1";
   return Response.json({
-    wards: await listWardLogs(teacher.id, onlyNew),
-    newCount: await countNewWards(teacher.id),
+    wards: await listWardLogs(teacher.halaqahId, onlyNew),
+    newCount: await countNewWards(teacher.halaqahId),
   });
 }
 
@@ -99,8 +99,8 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "حالة غير صحيحة" }, { status: 400 });
   }
 
-  if (!(await setWardLogStatus(teacher.id, id, status))) {
+  if (!(await setWardLogStatus(teacher.halaqahId, id, status))) {
     return Response.json({ error: "الورد غير موجود" }, { status: 404 });
   }
-  return Response.json({ ok: true, newCount: await countNewWards(teacher.id) });
+  return Response.json({ ok: true, newCount: await countNewWards(teacher.halaqahId) });
 }

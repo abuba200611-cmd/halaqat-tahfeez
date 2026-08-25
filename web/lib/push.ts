@@ -3,6 +3,7 @@ import "server-only";
 import webpush from "web-push";
 import {
   deletePushSubscription,
+  listHalaqahTeachers,
   listPushSubscriptions,
   setVapidKeys,
   vapidKeys,
@@ -70,4 +71,14 @@ export async function sendPushToTeacher(teacherId: number, payload: PushPayload)
       }
     }),
   );
+}
+
+/**
+ * يرسل إشعاراً لكل معلّمي الحلقة معاً (المشرف وكل المساعدين) — حلقة
+ * واحدة قد تجمع أكثر من حساب معلّم الآن، فإشعار "وارد جديد" مثلاً
+ * يجب أن يصل الجميع لا صاحب الحساب الأول فقط.
+ */
+export async function sendPushToHalaqah(halaqahId: number, payload: PushPayload): Promise<void> {
+  const teachers = await listHalaqahTeachers(halaqahId);
+  await Promise.all(teachers.map((t) => sendPushToTeacher(t.id, payload)));
 }

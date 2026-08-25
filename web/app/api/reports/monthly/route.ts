@@ -23,12 +23,12 @@ export async function GET() {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
-  const links = await listStudentLinks(teacher.id);
+  const links = await listStudentLinks(teacher.halaqahId);
   const usernames = Object.values(links);
 
   const [tasjeelWards, legacyWards] = await Promise.all([
     listWardsForUsernames(usernames).catch(() => []),
-    listWardLogs(teacher.id),
+    listWardLogs(teacher.halaqahId),
   ]);
 
   const byMonth = new Map<string, { hifzPages: number; reviewPages: number; active: Set<string> }>();

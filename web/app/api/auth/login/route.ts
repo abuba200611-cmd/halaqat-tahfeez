@@ -18,7 +18,9 @@ export async function POST(request: Request) {
       id: teacher.id,
       username: teacher.username,
       teacherName: teacher.teacherName,
+      halaqahId: teacher.halaqahId,
       halaqahName: teacher.halaqahName,
+      role: teacher.role,
       emailVerified: teacher.emailVerified,
     },
   });

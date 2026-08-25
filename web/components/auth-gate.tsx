@@ -5,7 +5,15 @@ import Link from "next/link";
 import { Button, Card } from "./ui";
 import { resetStore } from "@/lib/store";
 
-type Teacher = { id: number; username: string; teacherName: string; halaqahName: string; emailVerified: boolean };
+type Teacher = {
+  id: number;
+  username: string;
+  teacherName: string;
+  halaqahId: number;
+  halaqahName: string;
+  role: "supervisor" | "assistant";
+  emailVerified: boolean;
+};
 type NavItem = { href: string; label: string; badge?: React.ReactNode };
 
 /*
@@ -80,10 +88,15 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
             <Link href="/" className="shrink-0 font-naskh text-lg font-bold text-primary">
               المعلم
             </Link>
-            <div className="mr-auto flex min-w-0 items-center gap-3">
+            <div className="mr-auto flex min-w-0 items-center gap-2">
               <span className="hidden truncate text-sm text-muted-foreground sm:inline">
                 {teacher.teacherName ? `${teacher.teacherName} — ${teacher.halaqahName}` : teacher.halaqahName}
               </span>
+              {teacher.role === "assistant" && (
+                <span className="hidden shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent sm:inline">
+                  مساعد مشرف
+                </span>
+              )}
               <Button variant="ghost" onClick={logout} className="shrink-0">
                 خروج
               </Button>
@@ -143,8 +156,15 @@ function VerifyEmailBanner() {
 }
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) => void }) {
+  // رابط دعوة معلّم زميل (?join=رمز) — يفرض وضع "حساب جديد" وينضم كمساعد
+  // مشرف لحلقة قائمة بدل إنشاء حلقة جديدة.
+  const [joinCode] = useState<string>(() =>
+    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("join") ?? "",
+  );
+  const [joinHalaqah, setJoinHalaqah] = useState<string | null>(null);
   const [mode, setMode] = useState<"login" | "register">(() => {
     if (typeof window === "undefined") return "register";
+    if (new URLSearchParams(window.location.search).get("join")) return "register";
     try {
       return window.localStorage.getItem(KNOWN_ACCOUNT_KEY) ? "login" : "register";
     } catch {
@@ -164,6 +184,16 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
     if (error) window.history.replaceState(null, "", window.location.pathname);
   }, [error]);
 
+  useEffect(() => {
+    if (!joinCode) return;
+    fetch(`/api/teacher/join-info?code=${encodeURIComponent(joinCode)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { halaqahName?: string } | null) => {
+        if (data?.halaqahName) setJoinHalaqah(data.halaqahName);
+      })
+      .catch(() => {});
+  }, [joinCode]);
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -172,7 +202,13 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
       const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, teacherName, halaqahName }),
+        body: JSON.stringify({
+          username,
+          password,
+          teacherName,
+          halaqahName,
+          joinCode: mode === "register" ? joinCode : undefined,
+        }),
       });
       const data = (await res.json()) as { teacher?: Teacher; error?: string };
       if (!res.ok || !data.teacher) {
@@ -199,6 +235,18 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
       </p>
 
       <Card className="p-5">
+        {joinCode && (
+          <p className="mb-4 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-center text-sm text-primary">
+            {joinHalaqah ? (
+              <>
+                ستنضم كمساعد مشرف لحلقة <span className="font-semibold">{joinHalaqah}</span>
+              </>
+            ) : (
+              "التحقق من رابط الدعوة…"
+            )}
+          </p>
+        )}
+
         <h2 className="mb-4 text-center text-base font-semibold text-foreground">
           {mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
         </h2>
@@ -216,7 +264,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
             </label>
           )}
 
-          {mode === "register" && (
+          {mode === "register" && !joinCode && (
             <label className="block text-sm">
               <span className="text-xs text-muted-foreground">اسم الحلقة</span>
               <input
