@@ -87,8 +87,7 @@ export default function StudentsPage() {
     return (
       <div className="space-y-4">
         <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
-        <InviteLinkCard />
-        <TeamInviteCard />
+        <InviteLinksSection />
         <Empty
           title="القائمة فارغة."
           action={
@@ -107,7 +106,7 @@ export default function StudentsPage() {
   return (
     <div className="space-y-4">
       <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
-      <InviteLinkCard />
+      <InviteLinksSection />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-naskh text-2xl font-bold">
           الطلاب <span className="tabular text-base font-normal text-muted-foreground">({students.length})</span>
@@ -241,21 +240,13 @@ export default function StudentsPage() {
  * مثلاً)، وكل من يفتحه وينشئ حسابه بنظام تسجيل الورد ينضم فوراً لهذه
  * الحلقة بلا أي إدخال يدوي (لا إضافة طالب، ولا ربط اسم مستخدم).
  */
-function InviteLinkCard() {
-  const [link, setLink] = useState<string | null>(null);
+type TeamMember = { id: number; teacherName: string; username: string; role: "supervisor" | "assistant" };
+
+/** حقل رابط بزر نسخ — نفس الشكل يتكرّر لكل نوع رابط دعوة بالقسم أدناه */
+function CopyLinkField({ link }: { link: string }) {
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/teacher/invite")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { link?: string } | null) => {
-        if (data?.link) setLink(data.link);
-      })
-      .catch(() => {});
-  }, []);
-
   async function copy() {
-    if (!link) return;
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
@@ -265,94 +256,93 @@ function InviteLinkCard() {
     }
   }
 
-  if (!link) return null;
-
   return (
-    <Card className="no-print p-4">
-      <p className="mb-2 text-sm font-semibold">رابط دعوة الحلقة</p>
-      <p className="mb-3 text-xs text-muted-foreground">
-        شاركه مع طلابك (بقروب واتساب مثلاً) — كل من يفتحه وينشئ حسابه ينضم لحلقتك تلقائياً،
-        بلا ما تحتاج تضيفه أو تربطه يدوياً.
-      </p>
-      <div className="flex gap-2">
-        <input
-          readOnly
-          value={link}
-          onFocus={(e) => e.currentTarget.select()}
-          className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground"
-        />
-        <Button onClick={copy} className="shrink-0">
-          {copied ? "نُسخ ✓" : "نسخ"}
-        </Button>
-      </div>
-    </Card>
+    <div className="flex gap-2">
+      <input
+        readOnly
+        value={link}
+        onFocus={(e) => e.currentTarget.select()}
+        className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground"
+      />
+      <Button onClick={copy} className="shrink-0">
+        {copied ? "نُسخ ✓" : "نسخ"}
+      </Button>
+    </div>
   );
 }
 
-type TeamMember = { id: number; teacherName: string; username: string; role: "supervisor" | "assistant" };
-
 /**
- * رابط منفصل تماماً عن رابط دعوة الطلاب أعلاه — من يفتحه وينشئ حسابه
- * ينضم كمعلّم مساعد (صلاحيات مطابقة للمشرف تماماً) لنفس الحلقة، بدل ما
- * ينشئ حلقة جديدة له.
+ * قسم واحد يجمع كل روابط دعوة الحلقة — بدل ما تكون بطاقات متفرّقة يصعب
+ * تمييزها، كل نوع رابط له أيقونة وعنوان واضح يفرّقه عن الثاني فوراً:
+ * 🎓 للطلاب (ينضمّون بأنفسهم لتسجيل ورد) مقابل 👥 لمعلّم مساعد (ينضم
+ * بصلاحيات مطابقة تماماً لنفس الحلقة).
  */
-function TeamInviteCard() {
-  const [link, setLink] = useState<string | null>(null);
+function InviteLinksSection() {
+  const [studentLink, setStudentLink] = useState<string | null>(null);
+  const [teacherLink, setTeacherLink] = useState<string | null>(null);
   const [team, setTeam] = useState<TeamMember[]>([]);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    fetch("/api/teacher/invite")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { link?: string } | null) => {
+        if (data?.link) setStudentLink(data.link);
+      })
+      .catch(() => {});
+
     fetch("/api/teacher/invite-colleague")
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { link?: string; team?: TeamMember[] } | null) => {
-        if (data?.link) setLink(data.link);
+        if (data?.link) setTeacherLink(data.link);
         if (data?.team) setTeam(data.team);
       })
       .catch(() => {});
   }, []);
 
-  async function copy() {
-    if (!link) return;
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // متروك بالحقل أصلاً
-    }
-  }
-
-  if (!link) return null;
+  if (!studentLink && !teacherLink) return null;
 
   return (
     <Card className="no-print p-4">
-      <p className="mb-2 text-sm font-semibold">دعوة معلّم مساعد لنفس الحلقة</p>
-      <p className="mb-3 text-xs text-muted-foreground">
-        من يفتح هذا الرابط وينشئ حسابه ينضم كمساعد مشرف لحلقتك — يشوف طلابك ويقدر يدير كل شيء
-        بصلاحيات مطابقة لك تماماً، بدل ما ينشئ حلقة جديدة منفصلة.
-      </p>
-      <div className="mb-3 flex gap-2">
-        <input
-          readOnly
-          value={link}
-          onFocus={(e) => e.currentTarget.select()}
-          className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground"
-        />
-        <Button onClick={copy} className="shrink-0">
-          {copied ? "نُسخ ✓" : "نسخ"}
-        </Button>
+      <h2 className="mb-3 text-sm font-semibold">روابط الدعوة</h2>
+
+      <div className="space-y-4 divide-y divide-border [&>*+*]:pt-4">
+        {studentLink && (
+          <div>
+            <p className="mb-1 flex items-center gap-1.5 text-sm font-medium">
+              <span aria-hidden>🎓</span> للطلاب
+            </p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              شاركه مع طلابك (بقروب واتساب مثلاً) — كل من يفتحه وينشئ حسابه بتسجيل الورد
+              ينضم لحلقتك تلقائياً، بلا ما تحتاج تضيفه أو تربطه يدوياً.
+            </p>
+            <CopyLinkField link={studentLink} />
+          </div>
+        )}
+
+        {teacherLink && (
+          <div>
+            <p className="mb-1 flex items-center gap-1.5 text-sm font-medium">
+              <span aria-hidden>👥</span> لمعلّم مساعد
+            </p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              رابط مختلف تماماً عن رابط الطلاب أعلاه — من يفتحه وينشئ حسابه ينضم كمساعد مشرف
+              لنفس حلقتك (يشوف طلابك ويدير كل شيء بصلاحيات مطابقة لك)، بدل ما ينشئ حلقة جديدة.
+            </p>
+            <CopyLinkField link={teacherLink} />
+            {team.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {team.map((t) => (
+                  <li key={t.id}>
+                    <Badge tone={t.role === "supervisor" ? "good" : "neutral"}>
+                      {t.teacherName || t.username} — {t.role === "supervisor" ? "مشرف" : "مساعد"}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
-      {team.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
-          {team.map((t) => (
-            <li key={t.id}>
-              <Badge tone={t.role === "supervisor" ? "good" : "neutral"}>
-                {t.teacherName || t.username} — {t.role === "supervisor" ? "مشرف" : "مساعد"}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      )}
     </Card>
   );
 }
