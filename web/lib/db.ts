@@ -737,6 +737,31 @@ export async function findTeacherByInviteCode(
 }
 
 /**
+ * يضيف طالباً لقائمة المعلّم صاحب رمز الدعوة بلا أي ربط بحساب تسجيل ورد
+ * (يُستخدم من نظام إدارة الجامع — الطالب سجّل بياناته بالجامع فقط، ما
+ * فتح حساباً بنظام تسجيل الورد بعد). يرجع null لو الرمز غير صحيح.
+ */
+export async function addStudentByInviteCode(
+  inviteCode: string,
+  studentName: string,
+): Promise<{ teacherId: number; studentId: string } | null> {
+  const teacher = await findTeacherByInviteCode(inviteCode);
+  if (!teacher) return null;
+
+  const studentId = randomBytes(12).toString("hex");
+  await upsertStudent(teacher.id, {
+    id: studentId,
+    name: studentName,
+    group: "",
+    ranges: [],
+    mastery: {},
+    active: true,
+    rating: 0,
+  });
+  return { teacherId: teacher.id, studentId };
+}
+
+/**
  * ينشئ طالباً جديداً بحلقة المعلّم صاحب رمز الدعوة، ويربطه فوراً باسم
  * مستخدمه بنظام تسجيل الورد — يغني عن خطوتي "إضافة طالب" و"ربط" اليدويتين.
  * يرجع null لو الرمز غير صحيح، فلا يفشل تسجيل الطالب نفسه بأي حال.
