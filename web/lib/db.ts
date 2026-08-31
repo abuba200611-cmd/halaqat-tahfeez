@@ -936,3 +936,24 @@ export async function applyLinkSummary(
   await upsertStudent(teacherId, updated);
   return updated;
 }
+
+// ————— مدير الجامع والمشرف العام (STEP 5 — أساس، بلا مسارات دخول بعد) —————
+// قراءة فقط بمعرّف الحساب — تكفي بناء الجلسة (lib/mosque-auth.ts،
+// lib/super-admin-auth.ts). إنشاء الحسابات والدخول بكلمة مرور خطوة
+// لاحقة منفصلة (تحتاج مسار API لا وجود له بعد).
+
+export type MosqueAdmin = { id: number; mosqueId: number; username: string };
+
+export async function findMosqueAdminById(id: number): Promise<MosqueAdmin | null> {
+  const rows = await db().sql`SELECT id, mosque_id, username FROM mosque_admins WHERE id = ${id}`;
+  const row = rows[0];
+  return row ? { id: row.id, mosqueId: row.mosque_id, username: row.username } : null;
+}
+
+export type SuperAdmin = { id: number; username: string };
+
+export async function findSuperAdminById(id: number): Promise<SuperAdmin | null> {
+  const rows = await db().sql`SELECT id, username FROM super_admins WHERE id = ${id}`;
+  const row = rows[0];
+  return row ? { id: row.id, username: row.username } : null;
+}
