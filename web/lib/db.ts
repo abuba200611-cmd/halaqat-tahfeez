@@ -1069,6 +1069,29 @@ export async function checkStudentLinkRateLimit(ip: string): Promise<boolean> {
   return count < STUDENT_LINK_ATTEMPT_LIMIT;
 }
 
+// ————— حماية دخول المعلّم والطالب من brute-force (STEP 6C) —————
+// جدول مستقل تماماً عن register_attempts/student_link_attempts. خلافاً
+// لهما، يُسجَّل صف هنا فقط عند فشل محاولة الدخول (كلمة مرور خاطئة) —
+// الدخول الناجح لا يُستهلك من الحصة إطلاقاً ولا يُسجَّل، حتى لو كان
+// نجاحاً بعد محاولات فاشلة سابقة من نفس الـIP.
+
+const LOGIN_ATTEMPT_LIMIT = 5;
+const LOGIN_ATTEMPT_WINDOW_MINUTES = 60;
+
+/** يفحص فقط بلا تسجيل — هل عدد محاولات الدخول الفاشلة من هذا الـIP خلال الساعة الماضية دون الحد؟ */
+export async function checkLoginRateLimit(ip: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM login_attempts
+    WHERE ip = ${ip} AND created_at > now() - (${LOGIN_ATTEMPT_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  return Number(rows[0]?.n ?? 0) < LOGIN_ATTEMPT_LIMIT;
+}
+
+/** يسجّل محاولة دخول فاشلة — يُستدعى فقط بعد فشل التحقق من كلمة المرور */
+export async function recordFailedLoginAttempt(ip: string): Promise<void> {
+  await db().sql`INSERT INTO login_attempts (ip) VALUES (${ip})`;
+}
+
 /** يدمج نطاقاً جديداً مع القائمة، مذيباً كل ما يتداخل أو يتلاصق معه بدل تكديسه */
 function mergeRangeIntoList(
   ranges: MemorizedRange[],
