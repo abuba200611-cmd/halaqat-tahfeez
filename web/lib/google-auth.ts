@@ -17,9 +17,9 @@ export function googleAuthUrl(redirectUri: string, state: string): string {
   return `${AUTH_URL}?${params.toString()}`;
 }
 
-export type GoogleProfile = { email: string; name: string };
+export type GoogleProfile = { sub: string; email: string; name: string };
 
-/** يبادل كود التفويض بمعلومات المستخدم (البريد والاسم) */
+/** يبادل كود التفويض بمعلومات المستخدم (المعرّف الثابت sub، والبريد، والاسم) */
 export async function exchangeGoogleCode(code: string, redirectUri: string): Promise<GoogleProfile> {
   const tokenRes = await fetch(TOKEN_URL, {
     method: "POST",
@@ -40,8 +40,14 @@ export async function exchangeGoogleCode(code: string, redirectUri: string): Pro
     headers: { Authorization: `Bearer ${tokens.access_token}` },
   });
   if (!infoRes.ok) throw new Error("تعذّر جلب بيانات حساب جوجل");
-  const info = (await infoRes.json()) as { email?: string; name?: string; email_verified?: boolean };
+  const info = (await infoRes.json()) as {
+    sub?: string;
+    email?: string;
+    name?: string;
+    email_verified?: boolean;
+  };
   if (!info.email || info.email_verified === false) throw new Error("بريد جوجل غير موثّق");
+  if (!info.sub) throw new Error("تعذّر التحقق من هوية حساب جوجل");
 
-  return { email: info.email.toLowerCase(), name: info.name ?? info.email };
+  return { sub: info.sub, email: info.email.toLowerCase(), name: info.name ?? info.email };
 }

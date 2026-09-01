@@ -875,6 +875,69 @@ export async function joinHalaqahByInviteCode(
   return { teacherId: halaqah.id, studentId };
 }
 
+// ————— دخول Google للطالب (STEP 6A — مسار "طالب جديد" فقط) —————
+// اسم مختلف عمداً عن StudentAccount/findStudentAccount أعلاه (شكل جلسة
+// الطالب الحالية) لتفادي التصادم اللفظي مع جدول student_accounts نفسه.
+// provider_subject (Google sub) هو مفتاح المطابقة الوحيد؛ provider_email
+// لا يظهر في أي WHERE — للعرض فقط.
+
+export type GoogleStudentAccount = { halaqahId: number; studentId: string };
+
+/** يبحث عن حساب طالب مرتبط مسبقاً بهذا الـ sub — لا علاقة للبريد بالمطابقة */
+export async function findGoogleStudentAccount(providerSubject: string): Promise<GoogleStudentAccount | null> {
+  const rows = await db().sql`
+    SELECT halaqah_id, student_id FROM student_accounts
+    WHERE provider = 'google' AND provider_subject = ${providerSubject}
+  `;
+  const row = rows[0];
+  return row ? { halaqahId: row.halaqah_id as number, studentId: row.student_id as string } : null;
+}
+
+export type NewGoogleStudent = {
+  inviteCode: string;
+  studentName: string;
+  providerSubject: string;
+  providerEmail: string;
+};
+
+/**
+ * ينشئ السجل الأكاديمي (students) وحساب دخول جوجل (student_accounts) معاً
+ * بعملية واحدة ذرّية — لا حالة وسطى ممكنة فيها أحدهما بلا الآخر. يتحقق من
+ * رمز الدعوة أولاً عبر findHalaqahByInviteCode الحالية (بلا اختراع نظام
+ * دعوات جديد). يرجع null فقط لو رمز الدعوة غير صحيح؛ أي خطأ آخر (مثل
+ * تكرار provider_subject تحت UNIQUE) يُرجع الترانزاكشن بالكامل ويُرمى.
+ */
+export async function createGoogleStudentAccount(
+  input: NewGoogleStudent,
+): Promise<GoogleStudentAccount | null> {
+  const halaqah = await findHalaqahByInviteCode(input.inviteCode);
+  if (!halaqah) return null;
+
+  const studentId = randomBytes(12).toString("hex");
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
+       VALUES ($1, $2, $3, '', '[]', '{}', true, 0, 0)`,
+      [studentId, halaqah.id, input.studentName],
+    );
+    await client.query(
+      `INSERT INTO student_accounts (halaqah_id, student_id, provider, provider_subject, provider_email)
+       VALUES ($1, $2, 'google', $3, $4)`,
+      [halaqah.id, studentId, input.providerSubject, input.providerEmail],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  return { halaqahId: halaqah.id, studentId };
+}
+
 /** يدمج نطاقاً جديداً مع القائمة، مذيباً كل ما يتداخل أو يتلاصق معه بدل تكديسه */
 function mergeRangeIntoList(
   ranges: MemorizedRange[],
