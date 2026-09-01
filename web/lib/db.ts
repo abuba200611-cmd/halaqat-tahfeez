@@ -1092,6 +1092,43 @@ export async function recordFailedLoginAttempt(ip: string): Promise<void> {
   await db().sql`INSERT INTO login_attempts (ip) VALUES (${ip})`;
 }
 
+// ————— حماية POST /api/admin/login من brute-force (STEP 6E — M1) —————
+// جدول مستقل تماماً عن login_attempts — نفس المبدأ حرفياً: تسجيل فقط
+// عند فشل المقارنة، النجاح لا يُستهلك من الحصة.
+
+const ADMIN_LOGIN_ATTEMPT_LIMIT = 5;
+const ADMIN_LOGIN_ATTEMPT_WINDOW_MINUTES = 60;
+
+/** يفحص فقط بلا تسجيل — هل عدد محاولات دخول الأدمن الفاشلة من هذا الـIP خلال الساعة الماضية دون الحد؟ */
+export async function checkAdminLoginRateLimit(ip: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM admin_login_attempts
+    WHERE ip = ${ip} AND created_at > now() - (${ADMIN_LOGIN_ATTEMPT_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  return Number(rows[0]?.n ?? 0) < ADMIN_LOGIN_ATTEMPT_LIMIT;
+}
+
+/** يسجّل محاولة دخول أدمن فاشلة — يُستدعى فقط بعد فشل مقارنة ADMIN_SECRET */
+export async function recordFailedAdminLoginAttempt(ip: string): Promise<void> {
+  await db().sql`INSERT INTO admin_login_attempts (ip) VALUES (${ip})`;
+}
+
+// ————— تدوير رمز دعوة المعلّم الزميل (STEP 6E — M2) —————
+
+/**
+ * يستبدل teacher_invite_code الحالي لهذي الحلقة برمز جديد فوراً — العمود
+ * نفسه هو مصدر الحقيقة الوحيد (لا نسخة منفصلة بأي مكان)، فالتحديث المباشر
+ * يُبطل القديم ويُفعّل الجديد بعملية واحدة ذرّية. نفس مستوى الإنتروبيا
+ * المستخدم في halaqahTeacherInviteCode أعلاه (randomBytes(5) → ١٠ محارف hex).
+ */
+export async function rotateHalaqahTeacherInviteCode(halaqahId: number): Promise<string> {
+  const generated = randomBytes(5).toString("hex");
+  await db().sql`
+    UPDATE halaqahs SET teacher_invite_code = ${generated} WHERE id = ${halaqahId}
+  `;
+  return generated;
+}
+
 /** يدمج نطاقاً جديداً مع القائمة، مذيباً كل ما يتداخل أو يتلاصق معه بدل تكديسه */
 function mergeRangeIntoList(
   ranges: MemorizedRange[],
