@@ -106,3 +106,96 @@ export async function clearStudentGooglePendingCookie(): Promise<void> {
   const store = await cookies();
   store.delete(PENDING_COOKIE);
 }
+
+// ————— دخول Google لربط طالب موجود مسبقاً (STEP 6B) —————
+// كوكيات مستقلة تماماً عن الأعلى (STEP 6A): لا تشارك أي اسم كوكي، حتى
+// لو فتح الطالب تبويبين (واحد "طالب جديد" وواحد "ربط حساب") لا يتعارضان.
+// نفس آلية التوقيع (sign) ونفس مهلة الـpending (١٠ دقائق) — فقط الأسماء
+// ووسم الحمولة (tag) مختلفان لمنع أي استبدال/إعادة استخدام عرَضي بين
+// المسارين.
+
+const LINK_STATE_COOKIE = "student_google_link_oauth_state";
+const LINK_PENDING_COOKIE = "student_google_link_pending";
+const LINK_PENDING_TAG = "student_google_link_pending";
+
+/** يولّد state جديداً لمسار الربط، بكوكي مستقل تماماً عن مسار الطالب الجديد */
+export async function createStudentGoogleLinkState(): Promise<string> {
+  const state = randomBytes(16).toString("hex");
+  const store = await cookies();
+  store.set(LINK_STATE_COOKIE, state, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 600,
+  });
+  return state;
+}
+
+/** يتحقق من تطابق state مع كوكي مسار الربط، ويحذفها فوراً بأي حال */
+export async function consumeStudentGoogleLinkState(state: string): Promise<boolean> {
+  const store = await cookies();
+  const expected = store.get(LINK_STATE_COOKIE)?.value;
+  store.delete(LINK_STATE_COOKIE);
+  return !!expected && expected === state;
+}
+
+function linkPendingPayload(sub: string, email: string, issuedAt: number): string {
+  const encodedSub = Buffer.from(sub).toString("base64url");
+  const encodedEmail = Buffer.from(email).toString("base64url");
+  return `${LINK_PENDING_TAG}.${encodedSub}.${encodedEmail}.${issuedAt}`;
+}
+
+/** يبني توكن هوية جوجل المعلَّقة الخاص بمسار الربط — دالة صِرفة لسهولة اختبارها */
+export async function createStudentGoogleLinkPendingToken(sub: string, email: string): Promise<string> {
+  const payload = linkPendingPayload(sub, email, Date.now());
+  return `${payload}.${await sign(payload)}`;
+}
+
+/** يتحقق من توقيع توكن الربط المعلَّق وصلاحيته، ويرجع (sub, email) أو null */
+export async function readStudentGoogleLinkPendingToken(
+  token: string,
+): Promise<{ sub: string; email: string } | null> {
+  const parts = token.split(".");
+  if (parts.length !== 5) return null;
+  const [tag, encodedSub, encodedEmail, issuedPart, signature] = parts;
+  if (tag !== LINK_PENDING_TAG) return null;
+
+  const expected = await sign(`${tag}.${encodedSub}.${encodedEmail}.${issuedPart}`);
+  if (signature.length !== expected.length) return null;
+  if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
+
+  const issuedAt = Number(issuedPart);
+  if (!Number.isFinite(issuedAt)) return null;
+  if (Date.now() - issuedAt > PENDING_MAX_AGE_SECONDS * 1000) return null; // ١٠ دقائق، نفس مهلة STEP 6A
+
+  const sub = Buffer.from(encodedSub, "base64url").toString();
+  const email = Buffer.from(encodedEmail, "base64url").toString();
+  if (!sub) return null;
+  return { sub, email };
+}
+
+/** يحفظ هوية جوجل المعلَّقة الخاصة بمسار الربط، بكوكي مستقل تماماً */
+export async function setStudentGoogleLinkPendingCookie(sub: string, email: string): Promise<void> {
+  const token = await createStudentGoogleLinkPendingToken(sub, email);
+  const store = await cookies();
+  store.set(LINK_PENDING_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: PENDING_MAX_AGE_SECONDS,
+  });
+}
+
+/** يقرأ هوية جوجل المعلَّقة الخاصة بمسار الربط، أو null إن لم تكن موجودة/صالحة */
+export async function readStudentGoogleLinkPendingCookie(): Promise<{ sub: string; email: string } | null> {
+  const store = await cookies();
+  const token = store.get(LINK_PENDING_COOKIE)?.value;
+  return token ? readStudentGoogleLinkPendingToken(token) : null;
+}
+
+export async function clearStudentGoogleLinkPendingCookie(): Promise<void> {
+  const store = await cookies();
+  store.delete(LINK_PENDING_COOKIE);
+}

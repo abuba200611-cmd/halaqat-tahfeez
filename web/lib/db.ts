@@ -938,6 +938,137 @@ export async function createGoogleStudentAccount(
   return { halaqahId: halaqah.id, studentId };
 }
 
+// ————— ربط طالب موجود مسبقاً بحساب Google (STEP 6B) —————
+// منفصل تماماً عن "طالب جديد" أعلاه: هنا لا يُنشأ أي صف بجدول students
+// إطلاقاً — الرمز يربط sub بطالب أكاديمي قائم فعلاً. أسماء الدوال/الأنواع
+// مختلفة عمداً عن GoogleStudentAccount/findStudentAccount لتفادي أي تصادم
+// لفظي مع ما هو موجود بالفعل.
+
+const STUDENT_LINK_TOKEN_TTL_HOURS = 24; // مدة صلاحية رمز الربط — ثابت واحد سهل التعديل
+
+export type NewStudentLinkToken = {
+  halaqahId: number;
+  studentId: string;
+  createdByType: "teacher";
+  createdById: number;
+};
+
+export type StudentLinkTokenIssued = { token: string; expiresAt: string };
+
+/**
+ * يصدر رمز ربط لمرة واحدة لطالب داخل الحلقة المحدَّدة. halaqahId يجب أن
+ * يأتي من جلسة المُصدِر (لا من مدخلات عميل غير موثوقة) — يتحقق من ذلك
+ * المستدعي في طبقة الـAPI. لا حاجة لاستعلام تحقّق منفصل عن وجود الطالب:
+ * الـFK المركّب (halaqah_id, student_id) → students(teacher_id, id) يرفض
+ * الإدراج تلقائياً لو الطالب لا ينتمي فعلاً لهذي الحلقة (23503)، فنترجمها
+ * هنا لـ null بدل تسريب خطأ قاعدة بيانات خام للمستدعي.
+ */
+export async function createStudentGoogleLinkToken(
+  input: NewStudentLinkToken,
+): Promise<StudentLinkTokenIssued | null> {
+  const token = randomBytes(20).toString("base64url"); // ١٦٠ بت إنتروبيا
+  const expiresAt = new Date(Date.now() + STUDENT_LINK_TOKEN_TTL_HOURS * 60 * 60 * 1000);
+
+  try {
+    await db().sql`
+      INSERT INTO student_google_link_tokens
+        (halaqah_id, student_id, token_hash, created_by_type, created_by_id, expires_at)
+      VALUES (
+        ${input.halaqahId}, ${input.studentId}, ${hashToken(token)},
+        ${input.createdByType}, ${input.createdById}, ${expiresAt.toISOString()}
+      )
+    `;
+  } catch (error) {
+    // db().sql (خلافاً لعميل pg الخام) يغلّف خطأ Postgres الحقيقي بـ.cause
+    // بدل وضع code مباشرة على الخطأ نفسه — نتحقق من الموضعين.
+    const err = error as { code?: string; cause?: { code?: string } } | null;
+    const code = err?.code ?? err?.cause?.code;
+    if (code === "23503") return null; // الطالب لا ينتمي لهذي الحلقة، أو غير موجود
+    throw error;
+  }
+
+  return { token, expiresAt: expiresAt.toISOString() };
+}
+
+export type StudentGoogleLinkResult =
+  | { ok: true; halaqahId: number; studentId: string }
+  | { ok: false; reason: "invalid_token" }
+  | { ok: false; reason: "sub_already_linked" };
+
+/**
+ * يستهلك رمز الربط ويربط sub بالطالب المرتبط به — بعملية ذرّية واحدة:
+ * UPDATE شرطي (used_at IS NULL AND expires_at > now()) يستهلك الرمز
+ * ويُرجع هوية الطالب، ثم INSERT في student_accounts يعتمد كلياً على
+ * UNIQUE(provider, provider_subject) لمنع ربط نفس sub بطالبين. أي فشل
+ * (رمز غير صالح، أو sub مرتبط مسبقاً بطالب آخر) يُرجع الترانزاكشن
+ * بالكامل — فيعود used_at للرمز إلى NULL تلقائياً، ويبقى صالحاً لمحاولة
+ * لاحقة بحساب Google صحيح.
+ */
+export async function consumeStudentGoogleLinkToken(
+  rawToken: string,
+  providerSubject: string,
+  providerEmail: string,
+): Promise<StudentGoogleLinkResult> {
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const consumed = await client.query(
+      `UPDATE student_google_link_tokens
+       SET used_at = now(), used_provider_subject = $1
+       WHERE token_hash = $2 AND used_at IS NULL AND expires_at > now()
+       RETURNING halaqah_id, student_id`,
+      [providerSubject, hashToken(rawToken)],
+    );
+    if (consumed.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "invalid_token" };
+    }
+    const halaqahId = consumed.rows[0].halaqah_id as number;
+    const studentId = consumed.rows[0].student_id as string;
+
+    try {
+      await client.query(
+        `INSERT INTO student_accounts (halaqah_id, student_id, provider, provider_subject, provider_email)
+         VALUES ($1, $2, 'google', $3, $4)`,
+        [halaqahId, studentId, providerSubject, providerEmail],
+      );
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      await client.query("ROLLBACK");
+      if (code === "23505") return { ok: false, reason: "sub_already_linked" };
+      throw error;
+    }
+
+    await client.query("COMMIT");
+    return { ok: true, halaqahId, studentId };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// ————— حماية مسار ربط الطالب من الإساءة (STEP 6B) —————
+// معدّل مستقل تماماً عن register_attempts — ذاك خاص بتسجيل حساب معلّم
+// جديد، وخلطهما بنفس العدّاد يجعل نشاط أحد المسارين يستهلك حصة الآخر
+// لنفس الـIP بلا أي علاقة منطقية بينهما.
+
+const STUDENT_LINK_ATTEMPT_LIMIT = 5;
+const STUDENT_LINK_ATTEMPT_WINDOW_MINUTES = 60;
+
+/** يسجّل محاولة ربط جديدة من هذا العنوان، ويرجع true لو مسموح إتمامها */
+export async function checkStudentLinkRateLimit(ip: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM student_link_attempts
+    WHERE ip = ${ip} AND created_at > now() - (${STUDENT_LINK_ATTEMPT_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  const count = Number(rows[0]?.n ?? 0);
+  await db().sql`INSERT INTO student_link_attempts (ip) VALUES (${ip})`;
+  return count < STUDENT_LINK_ATTEMPT_LIMIT;
+}
+
 /** يدمج نطاقاً جديداً مع القائمة، مذيباً كل ما يتداخل أو يتلاصق معه بدل تكديسه */
 function mergeRangeIntoList(
   ranges: MemorizedRange[],
