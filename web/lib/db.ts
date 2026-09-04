@@ -599,6 +599,19 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
   return rows.map(rowToWard);
 }
 
+/** الأوراد المعتمدة فقط لحلقة — للتقارير الرسمية (لا تدخل أوراد new/seen في أي حساب) */
+export async function listApprovedWardLogs(teacherId: number): Promise<WardLog[]> {
+  const rows = await db().sql`
+    SELECT w.id, w.student_id, s.name AS student_name, w.date,
+           w.hifz_from, w.hifz_to, w.review_from, w.review_to,
+           w.note, w.status, w.created_at
+    FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
+    WHERE w.teacher_id = ${teacherId} AND w.status = 'approved'
+    ORDER BY w.created_at DESC, w.id DESC
+  `;
+  return rows.map(rowToWard);
+}
+
 /** أوراد طالب بعينه — لعرض سجلّه في صفحته */
 export async function listWardLogsForStudent(teacherId: number, studentId: string): Promise<WardLog[]> {
   const rows = await db().sql`

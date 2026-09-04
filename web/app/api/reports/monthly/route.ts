@@ -1,5 +1,5 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
-import { listStudentLinks, listWardLogs } from "@/lib/db";
+import { listApprovedWardLogs, listStudentLinks } from "@/lib/db";
 import { listWardsForUsernames } from "@/lib/tasjeel-db";
 
 type MonthlyReport = {
@@ -17,7 +17,9 @@ function monthKey(date: string): string {
  * أداء الحلقة الشهري: يجمع صفحات الحفظ والمراجعة من مصدرين معاً —
  * الطلاب المرتبطين بتسجيل الطلاب (المصدر الأساسي اليوم) + أي ورد قديم
  * من نظام الطلاب الداخلي (student-auth، إن استُخدم). "الطلاب النشطون"
- * لكل شهر = عدد فريد بغضّ النظر عن المصدر.
+ * لكل شهر = عدد فريد بغضّ النظر عن المصدر. المصدر الثاني يقتصر على
+ * الأوراد المعتمدة فقط (status='approved') — تقرير رسمي، لا يجوز أن
+ * يحسب أوراداً لم يعتمدها المعلّم بعد.
  */
 export async function GET() {
   const teacher = await currentTeacher();
@@ -28,7 +30,7 @@ export async function GET() {
 
   const [tasjeelWards, legacyWards] = await Promise.all([
     listWardsForUsernames(usernames).catch(() => []),
-    listWardLogs(teacher.halaqahId),
+    listApprovedWardLogs(teacher.halaqahId),
   ]);
 
   const byMonth = new Map<string, { hifzPages: number; reviewPages: number; active: Set<string> }>();
