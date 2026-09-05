@@ -10,6 +10,7 @@ const STATUS_LABEL: Record<WardStatus, string> = {
   new: "بانتظار الاطّلاع",
   seen: "اطّلع المعلّم",
   approved: "معتمد",
+  needs_revision: "يحتاج إعادة",
 };
 
 function statusTone(status: WardStatus): "neutral" | "good" | "warn" {
@@ -207,11 +208,27 @@ export default function StudentWardPage() {
                   <span className="tabular text-sm font-medium">{log.date}</span>
                   <Badge tone={statusTone(log.status)}>{STATUS_LABEL[log.status]}</Badge>
                 </div>
+
+                {log.previousAttemptId && (
+                  <p className="mt-1 text-xs text-muted-foreground">↩ محاولة جديدة عن ورد سابق</p>
+                )}
+
                 <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
                   {rangeText(log.hifz) && <p>حفظ: {rangeText(log.hifz)}</p>}
                   {rangeText(log.review) && <p>مراجعة: {rangeText(log.review)}</p>}
                   {log.note && <p className="text-foreground">{log.note}</p>}
                 </div>
+
+                {log.status === "needs_revision" && (
+                  <div className="mt-2 space-y-1 rounded-md border border-border bg-surface p-2">
+                    {log.reviewNote && (
+                      <p className="text-sm text-accent">ملاحظة معلّمك: «{log.reviewNote}»</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      أرسل محاولة جديدة من النموذج أعلاه — هذه المحاولة لا يمكن تعديلها.
+                    </p>
+                  </div>
+                )}
               </Card>
             ))}
           </ul>

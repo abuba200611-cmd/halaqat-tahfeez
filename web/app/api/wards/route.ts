@@ -52,14 +52,16 @@ export async function POST(request: Request) {
       reviewTo: review?.to ?? null,
       note,
     };
-    await createWardLog(student.teacherId, student.id, log);
+    const { previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
 
-    // إشعار المعلّم — لا يُفشل الحفظ إن تعذّر
+    // إشعار المعلّم — لا يُفشل الحفظ إن تعذّر. عنوان مختلف لو كانت هذي
+    // إعادة إرسال بعد "طلب إعادة" سابق (previousAttemptId من الخادم نفسه)
+    // — نفس آلية sendPushToHalaqah الموجودة، بلا أي بنية إشعار جديدة.
     const parts: string[] = [];
     if (hifz) parts.push(`حفظ ${hifz.from}–${hifz.to}`);
     if (review) parts.push(`مراجعة ${review.from}–${review.to}`);
     await sendPushToHalaqah(student.teacherId, {
-      title: "أنجز طالب ورده",
+      title: previousAttemptId ? "أعاد طالب إرسال ورده بعد طلب المراجعة" : "أنجز طالب ورده",
       body: `${student.name}${parts.length ? " · " + parts.join(" · ") : ""}`,
       url: "/inbox",
       tag: "ward",
@@ -86,21 +88,42 @@ export async function GET(request: Request) {
   });
 }
 
-/** المعلّم يغيّر حالة ورد: اطّلاع أو اعتماد */
+/** المعلّم يغيّر حالة ورد: اطّلاع، اعتماد، أو طلب إعادة (يتطلب ملاحظة) */
 export async function PATCH(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
-  const body = (await request.json().catch(() => ({}))) as { id?: unknown; status?: unknown };
+  const body = (await request.json().catch(() => ({}))) as {
+    id?: unknown;
+    status?: unknown;
+    note?: unknown;
+  };
   const id = Number(body.id);
   const status = String(body.status ?? "") as WardStatus;
   if (!Number.isInteger(id)) return Response.json({ error: "معرّف الورد مفقود" }, { status: 400 });
-  if (status !== "seen" && status !== "approved") {
+  if (status !== "seen" && status !== "approved" && status !== "needs_revision") {
     return Response.json({ error: "حالة غير صحيحة" }, { status: 400 });
   }
 
-  if (!(await setWardLogStatus(teacher.halaqahId, id, status))) {
-    return Response.json({ error: "الورد غير موجود" }, { status: 404 });
+  // ملاحظة المراجعة إلزامية فقط عند طلب إعادة — لا تُقرأ ولا تُستخدم لأي حالة أخرى.
+  // previous_attempt_id لا يُقرأ من الجسم إطلاقاً بأي حال (يُشتَق داخلياً بالخادم فقط).
+  let note: string | undefined;
+  if (status === "needs_revision") {
+    note = String(body.note ?? "").trim().slice(0, 500);
+    if (!note) {
+      return Response.json({ error: "اكتب ملاحظة توضّح سبب طلب الإعادة" }, { status: 400 });
+    }
+  }
+
+  try {
+    if (!(await setWardLogStatus(teacher.halaqahId, id, status, teacher.id, note))) {
+      return Response.json({ error: "الورد غير موجود أو لا يمكن تعديله" }, { status: 404 });
+    }
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "تعذّر تحديث حالة الورد" },
+      { status: 400 },
+    );
   }
   return Response.json({ ok: true, newCount: await countNewWards(teacher.halaqahId) });
 }

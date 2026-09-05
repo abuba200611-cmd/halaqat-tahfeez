@@ -69,7 +69,7 @@ export type PairingSettings = {
 /** نطاق صفحات في الورد — من صفحة إلى صفحة */
 export type PageRange = { from: number; to: number };
 
-export type WardStatus = "new" | "seen" | "approved";
+export type WardStatus = "new" | "seen" | "approved" | "needs_revision";
 
 /**
  * سجلّ ورد يومي يرسله الطالب: ما حفظه جديداً وما راجعه.
@@ -88,6 +88,13 @@ export type WardLog = {
   status: WardStatus;
   /** وقت الإرسال بتوقيت UTC: YYYY-MM-DD HH:MM:SS */
   createdAt: string;
+  /** المحاولة السابقة التي أعاد الطالب إرسال ورده بعدها — سلسلة محاولات، لا تُعدَّل القديمة أبداً */
+  previousAttemptId: number | null;
+  /** معرّف المعلّم الذي اتخذ القرار الأخير على هذا الورد (اعتماد/طلب إعادة) */
+  reviewedBy: number | null;
+  reviewedAt: string | null;
+  /** ملاحظة المعلّم — إلزامية فقط عند status = needs_revision */
+  reviewNote: string | null;
 };
 
 /** هوية الطالب في جلسته — للعرض والربط بالمعلّم */

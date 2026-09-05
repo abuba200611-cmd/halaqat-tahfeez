@@ -557,24 +557,54 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     note: row.note as string,
     status: row.status as WardStatus,
     createdAt: row.created_at as string,
+    previousAttemptId: (row.previous_attempt_id as number | null) ?? null,
+    reviewedBy: (row.reviewed_by as number | null) ?? null,
+    reviewedAt: (row.reviewed_at as string | null) ?? null,
+    reviewNote: (row.review_note as string | null) ?? null,
   };
 }
 
+/**
+ * آخر محاولة "تحتاج إعادة" لهذا الطالب لم تُربَط بعد بأي محاولة لاحقة —
+ * أو null لو لا توجد. تُستخدَم داخلياً فقط لربط سلسلة المحاولات تلقائياً؛
+ * لا تُستدعى من أي مسار API مباشرة، ولا تقبل أي مدخل من العميل.
+ */
+async function findOpenRevisionAttempt(teacherId: number, studentId: string): Promise<number | null> {
+  const rows = await db().sql`
+    SELECT id FROM ward_logs
+    WHERE teacher_id = ${teacherId} AND student_id = ${studentId} AND status = 'needs_revision'
+      AND id NOT IN (
+        SELECT previous_attempt_id FROM ward_logs
+        WHERE teacher_id = ${teacherId} AND student_id = ${studentId} AND previous_attempt_id IS NOT NULL
+      )
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+  `;
+  return rows[0] ? Number(rows[0].id) : null;
+}
+
+/**
+ * ينشئ محاولة ورد جديدة. لو كانت هناك محاولة سابقة بحالة needs_revision
+ * لم تُستأنَف بعد لنفس الطالب، تُربَط تلقائياً عبر previous_attempt_id —
+ * مُشتَقّ من الخادم حصراً (استعلام داخلي)، لا يُقبَل من أي استدعاء خارجي
+ * ولا يُمرَّر كمعامل. المحاولة القديمة لا تُعدَّل أبداً.
+ */
 export async function createWardLog(
   teacherId: number,
   studentId: string,
   log: NewWardLog,
-): Promise<number> {
+): Promise<{ id: number; previousAttemptId: number | null }> {
+  const previousAttemptId = await findOpenRevisionAttempt(teacherId, studentId);
   const rows = await db().sql`
     INSERT INTO ward_logs
-      (teacher_id, student_id, date, hifz_from, hifz_to, review_from, review_to, note, status, created_at)
+      (teacher_id, student_id, date, hifz_from, hifz_to, review_from, review_to, note, status, created_at, previous_attempt_id)
     VALUES (
       ${teacherId}, ${studentId}, ${log.date}, ${log.hifzFrom}, ${log.hifzTo},
-      ${log.reviewFrom}, ${log.reviewTo}, ${log.note}, 'new', ${new Date().toISOString()}
+      ${log.reviewFrom}, ${log.reviewTo}, ${log.note}, 'new', ${new Date().toISOString()}, ${previousAttemptId}
     )
     RETURNING id
   `;
-  return Number(rows[0].id);
+  return { id: Number(rows[0].id), previousAttemptId };
 }
 
 /** وارد المعلّم — كل الأوراد أو الجديدة فقط، الأحدث أولاً */
@@ -583,7 +613,8 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
     ? await db().sql`
         SELECT w.id, w.student_id, s.name AS student_name, w.date,
                w.hifz_from, w.hifz_to, w.review_from, w.review_to,
-               w.note, w.status, w.created_at
+               w.note, w.status, w.created_at,
+               w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
         WHERE w.teacher_id = ${teacherId} AND w.status = 'new'
         ORDER BY w.created_at DESC, w.id DESC
@@ -591,7 +622,8 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
     : await db().sql`
         SELECT w.id, w.student_id, s.name AS student_name, w.date,
                w.hifz_from, w.hifz_to, w.review_from, w.review_to,
-               w.note, w.status, w.created_at
+               w.note, w.status, w.created_at,
+               w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
         WHERE w.teacher_id = ${teacherId}
         ORDER BY w.created_at DESC, w.id DESC
@@ -599,12 +631,13 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
   return rows.map(rowToWard);
 }
 
-/** الأوراد المعتمدة فقط لحلقة — للتقارير الرسمية (لا تدخل أوراد new/seen في أي حساب) */
+/** الأوراد المعتمدة فقط لحلقة — للتقارير الرسمية (لا تدخل أوراد new/seen/needs_revision في أي حساب) */
 export async function listApprovedWardLogs(teacherId: number): Promise<WardLog[]> {
   const rows = await db().sql`
     SELECT w.id, w.student_id, s.name AS student_name, w.date,
            w.hifz_from, w.hifz_to, w.review_from, w.review_to,
-           w.note, w.status, w.created_at
+           w.note, w.status, w.created_at,
+           w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
     FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
     WHERE w.teacher_id = ${teacherId} AND w.status = 'approved'
     ORDER BY w.created_at DESC, w.id DESC
@@ -617,7 +650,8 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
   const rows = await db().sql`
     SELECT w.id, w.student_id, s.name AS student_name, w.date,
            w.hifz_from, w.hifz_to, w.review_from, w.review_to,
-           w.note, w.status, w.created_at
+           w.note, w.status, w.created_at,
+           w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
     FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
     WHERE w.teacher_id = ${teacherId} AND w.student_id = ${studentId}
     ORDER BY w.created_at DESC, w.id DESC
@@ -626,7 +660,43 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
   return rows.map(rowToWard);
 }
 
-export async function setWardLogStatus(teacherId: number, id: number, status: WardStatus): Promise<boolean> {
+/**
+ * يغيّر حالة ورد. عند needs_revision: يتطلّب ملاحظة غير فارغة، يسجّل
+ * reviewed_by/reviewed_at، ويرفض التحويل لو كانت الحالة الحالية approved
+ * (لا رجوع عن اعتماد). عند approved: يسجّل reviewed_by/reviewed_at أيضاً
+ * (قرار مراجعة حقيقي). عند أي حالة أخرى (seen): يبقى السلوك القديم كما هو
+ * تماماً بلا لمس.
+ */
+export async function setWardLogStatus(
+  teacherId: number,
+  id: number,
+  status: WardStatus,
+  actingTeacherId?: number,
+  reviewNote?: string,
+): Promise<boolean> {
+  if (status === "needs_revision") {
+    const note = reviewNote?.trim();
+    if (!note) throw new Error("ملاحظة المراجعة مطلوبة عند طلب الإعادة");
+    const rows = await db().sql`
+      UPDATE ward_logs
+      SET status = 'needs_revision', reviewed_by = ${actingTeacherId ?? null},
+          reviewed_at = ${new Date().toISOString()}, review_note = ${note}
+      WHERE teacher_id = ${teacherId} AND id = ${id} AND status <> 'approved'
+      RETURNING id
+    `;
+    return rows.length > 0;
+  }
+
+  if (status === "approved") {
+    const rows = await db().sql`
+      UPDATE ward_logs
+      SET status = 'approved', reviewed_by = ${actingTeacherId ?? null}, reviewed_at = ${new Date().toISOString()}
+      WHERE teacher_id = ${teacherId} AND id = ${id}
+      RETURNING id
+    `;
+    return rows.length > 0;
+  }
+
   const rows = await db().sql`
     UPDATE ward_logs SET status = ${status}
     WHERE teacher_id = ${teacherId} AND id = ${id}
