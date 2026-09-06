@@ -1196,6 +1196,41 @@ export async function recordFailedAdminLoginAttempt(ip: string): Promise<void> {
   await db().sql`INSERT INTO admin_login_attempts (ip) VALUES (${ip})`;
 }
 
+// ————— حماية المسارات الستة تحت /api/link من الفيضان (STEP 29 — F-02 Tier 1) —————
+// جدول مستقل تماماً (link_attempts) — العدّ على ip وحده (لا endpoint):
+// المستدعي الشرعي لا يُسجَّل عليه صف إطلاقاً (يحمل السرّ الصحيح دائماً)،
+// فلا false positive نحميه بتفريق الحصص، والمهاجم بلا سرّ لا يهمّه أي
+// مسار يقصف فلا مبرر لمنحه ٦× الميزانية بتفريقها. endpoint يُسجَّل بكل
+// صف لغرض تحقيقي فقط (أي مسار استُهدف)، لا يدخل حساب العدّ.
+//
+// الاستدعاء إلزامي بهذا الترتيب (مُطبَّق بـlib/link-auth.ts، لا يُترَك
+// لكل route): افحص أولاً بـcheckLinkRateLimit — لو تجاوز، أرجع 429
+// مباشرة بلا استدعاء recordFailedLinkAttempt إطلاقاً. لو لم يتجاوز،
+// استدعِ recordFailedLinkAttempt ثم أرجع 401. هذا يجعل نموّ الجدول
+// محدوداً بحد أقصى ~LINK_ATTEMPT_LIMIT صف لكل IP لكل نافذة مهما طال
+// القصف، ويوفّر نصف كلفة DB على كل طلب مقصوف بعد التجاوز. (سباق
+// check-then-insert غير ذرّي: دفعة متزامنة قد تُدخل أكثر من الحدّ صفاً
+// واحدة، لكن الدفعة التالية تقرأ العدّاد المرتفع وتتوقف فوراً — النموّ
+// محدود ويصحّح نفسه ذاتياً؛ الذرّية شرط لطبقة السقف المصادَق المؤجَّلة
+// [Tier 2]، لا لهذه الطبقة.)
+
+const LINK_ATTEMPT_LIMIT = 10;
+const LINK_ATTEMPT_WINDOW_MINUTES = 60;
+
+/** يفحص فقط بلا تسجيل — هل عدد محاولات فشل السرّ من هذا الـIP عبر كل مسارات /api/link خلال الساعة الماضية دون الحد؟ */
+export async function checkLinkRateLimit(ip: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM link_attempts
+    WHERE ip = ${ip} AND created_at > now() - (${LINK_ATTEMPT_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  return Number(rows[0]?.n ?? 0) < LINK_ATTEMPT_LIMIT;
+}
+
+/** يسجّل محاولة فاشلة لمسار معيّن — يُستدعى فقط بعد فشل مطابقة x-link-secret وبعد التأكد من عدم التجاوز */
+export async function recordFailedLinkAttempt(ip: string, endpoint: string): Promise<void> {
+  await db().sql`INSERT INTO link_attempts (ip, endpoint) VALUES (${ip}, ${endpoint})`;
+}
+
 // ————— تدوير رمز دعوة المعلّم الزميل (STEP 6E — M2) —————
 
 /**

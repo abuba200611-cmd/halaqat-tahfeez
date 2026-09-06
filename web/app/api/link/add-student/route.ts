@@ -1,4 +1,5 @@
 import { addStudentByInviteCode } from "@/lib/db";
+import { requireLinkSecret } from "@/lib/link-auth";
 
 /**
  * نداء خادم لخادم من نظام إدارة الجامع: يضيف طالباً لقائمة معلّم عبر رمز
@@ -6,10 +7,8 @@ import { addStudentByInviteCode } from "@/lib/db";
  * بنفس السرّ المشترك (x-link-secret) المستخدم مع تسجيل-طلاب.
  */
 export async function POST(request: Request) {
-  const secret = request.headers.get("x-link-secret");
-  if (!secret || secret !== process.env.LINK_SECRET) {
-    return Response.json({ error: "غير مصرّح" }, { status: 401 });
-  }
+  const denied = await requireLinkSecret(request, "link/add-student");
+  if (denied) return denied;
 
   const body = (await request.json().catch(() => ({}))) as { inviteCode?: unknown; studentName?: unknown };
   const inviteCode = String(body.inviteCode ?? "").trim();

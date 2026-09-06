@@ -1,4 +1,5 @@
 import { findLinkByUsername } from "@/lib/db";
+import { requireLinkSecret } from "@/lib/link-auth";
 import { sendPushToHalaqah } from "@/lib/push";
 
 /**
@@ -7,10 +8,8 @@ import { sendPushToHalaqah } from "@/lib/push";
  * بجهة السحب — الاتجاه هنا معاكس فقط (tasjeel يستدعي حلقات).
  */
 export async function POST(request: Request) {
-  const secret = request.headers.get("x-link-secret");
-  if (!secret || secret !== process.env.LINK_SECRET) {
-    return Response.json({ error: "غير مصرّح" }, { status: 401 });
-  }
+  const denied = await requireLinkSecret(request, "link/notify");
+  if (denied) return denied;
 
   const body = (await request.json().catch(() => ({}))) as { username?: unknown };
   const username = String(body.username ?? "").trim();

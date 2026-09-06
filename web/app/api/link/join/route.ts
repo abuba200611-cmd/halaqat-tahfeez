@@ -1,4 +1,5 @@
 import { joinHalaqahByInviteCode } from "@/lib/db";
+import { requireLinkSecret } from "@/lib/link-auth";
 
 /**
  * نداء خادم لخادم من tasjeel-tullab بعد أن يسجّل طالب حسابه عبر رابط
@@ -6,10 +7,8 @@ import { joinHalaqahByInviteCode } from "@/lib/db";
  * يدوي من المعلّم. محمي بنفس السرّ المشترك (x-link-secret).
  */
 export async function POST(request: Request) {
-  const secret = request.headers.get("x-link-secret");
-  if (!secret || secret !== process.env.LINK_SECRET) {
-    return Response.json({ error: "غير مصرّح" }, { status: 401 });
-  }
+  const denied = await requireLinkSecret(request, "link/join");
+  if (denied) return denied;
 
   const body = (await request.json().catch(() => ({}))) as {
     inviteCode?: unknown;
