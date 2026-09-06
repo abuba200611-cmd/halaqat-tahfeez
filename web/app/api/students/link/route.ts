@@ -69,14 +69,13 @@ export async function GET() {
   });
 }
 
-/** يحفظ (أو يعيد استخدام) رمز الربط، ويسحب أحدث ملخّص، ويطبّقه على الطالب */
+/** يعيد سحب أحدث ملخّص لرابط موجود مسبقاً فقط، ويطبّقه على الطالب */
 export async function POST(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
   const body = (await request.json().catch(() => ({}))) as {
     studentId?: unknown;
-    linkUsername?: unknown;
   };
   const studentId = String(body.studentId ?? "").trim();
   if (!studentId) {
@@ -86,15 +85,19 @@ export async function POST(request: Request) {
     return Response.json({ error: "الطالب غير موجود" }, { status: 404 });
   }
 
-  // أول مرة يُرسل اسم المستخدم من النموذج؛ لإعادة السحب لاحقاً نستخدم المحفوظ
-  let linkUsername = String(body.linkUsername ?? "").trim();
-  if (!linkUsername) {
-    const existing = await getStudentLink(teacher.halaqahId, studentId);
-    if (!existing) {
-      return Response.json({ error: "أدخل اسم مستخدم الطالب في نظام تسجيل الورد أولاً" }, { status: 400 });
-    }
-    linkUsername = existing.linkUsername;
+  // مصدر هوية الحساب الخارجي هو الرابط المحفوظ سلفاً حصراً — لا يجوز
+  // اشتقاقه من مدخل عميل (نص يكتبه المعلّم لا يثبت ملكيته الفعلية لحساب
+  // خارجي). إنشاء رابط جديد يمرّ حصراً عبر /api/link/join (نداء موثوق من
+  // tasjeel-tullab نفسه وقت تسجيل الطالب)، لا من هنا إطلاقاً — إغلاق
+  // F-01 (Cross-Tenant Data Exposure)، STEP 27.
+  const existing = await getStudentLink(teacher.halaqahId, studentId);
+  if (!existing) {
+    return Response.json(
+      { error: "لا يوجد ربط محفوظ لهذا الطالب — يُنشَأ الربط تلقائياً عند انضمام الطالب عبر نظام تسجيل الورد" },
+      { status: 400 },
+    );
   }
+  const linkUsername = existing.linkUsername;
 
   try {
     const summary = await fetchRemoteSummary(linkUsername);
