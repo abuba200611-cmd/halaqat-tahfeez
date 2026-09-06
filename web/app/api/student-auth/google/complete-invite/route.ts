@@ -12,6 +12,20 @@ import {
  */
 export async function POST(request: Request) {
   const pending = await readStudentGooglePendingCookie();
+
+  // الكوكي المعلَّقة أحادية الاستخدام بنيوياً: تُمسَح فور قراءتها هنا،
+  // قبل أي تفرّع لاحق — لا بإضافتها يدوياً بكل فرع خروج على حدة. sub
+  // وemail محفوظان بالمتغيّر بالذاكرة أعلاه، فلا شيء لاحقاً يحتاج الكوكي
+  // نفسها. بدون هذا، تبقى الكوكي (صالحة ١٠ دقائق) قابلة لإعادة الاستخدام
+  // بعد أي فشل — رمز دعوة خاطئ (٤٠٤) أو حتى استثناء بعد نجاح الرمز
+  // (٥٠٠، وهو أخطر لأنه oracle على رمز صحيح فعلاً) — فيتحوّل دخول Google
+  // واحد لعدد محاولات غير محدود على مساحة الرمز.
+  try {
+    await clearStudentGooglePendingCookie();
+  } catch {
+    // فشل المسح لا يجوز أن يُسقط الطلب — يكمل بنفس السلوك المقصود أدناه
+  }
+
   if (!pending) {
     return Response.json(
       { error: "انتهت جلسة الدخول بجوجل — سجّل الدخول بحساب جوجل مرة أخرى" },
@@ -34,11 +48,13 @@ export async function POST(request: Request) {
       providerEmail: pending.email,
     });
     if (!result) {
-      return Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 404 });
+      return Response.json(
+        { error: "رمز الدعوة غير صحيح — سجّل الدخول بحساب جوجل مرة أخرى ثم أعد المحاولة بالرمز الصحيح" },
+        { status: 404 },
+      );
     }
 
     await setStudentSessionCookie(result.halaqahId, result.studentId);
-    await clearStudentGooglePendingCookie();
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json(
