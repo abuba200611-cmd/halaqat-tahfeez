@@ -1,6 +1,7 @@
 import "server-only";
 
 import * as Sentry from "@sentry/nextjs";
+import { clientIp } from "./client-ip";
 import { checkLinkRateLimit, recordFailedLinkAttempt } from "./db";
 
 /** ثواني تظهر بترويسة Retry-After عند 429 — تطابق نافذة الحدّ بـlib/db.ts */
@@ -50,12 +51,7 @@ export async function requireLinkSecret(request: Request, endpoint: string): Pro
   return Response.json({ error: "غير مصرّح" }, { status: 401 });
 }
 
-/**
- * عنوان IP العميل — نسخة محلية لهذا الملف، تستدعيها المسارات الستة عبر
- * requireLinkSecret فعلياً (وليست نسخة اختبارية معزولة). مطابقة سلوكياً
- * للنسخ الست القائمة بمسارات المصادقة (auth/login وغيرها) — لم تُمَس
- * تلك النسخ ولن تُستورَد من هنا، فكل منها يبقى مستقلاً كما كان.
- */
-export function clientIp(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-}
+// عنوان IP العميل — منقولة لـlib/client-ip.ts (STEP 33) لتُستخدَم مصدراً
+// وحيداً مع مسارات جديدة لا علاقة لها بـLINK_SECRET؛ يُعاد تصديرها هنا
+// فقط حفاظاً على استيراد requireLinkSecret والاختبار القائم بلا تغيير.
+export { clientIp } from "./client-ip";

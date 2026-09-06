@@ -1231,6 +1231,47 @@ export async function recordFailedLinkAttempt(ip: string, endpoint: string): Pro
   await db().sql`INSERT INTO link_attempts (ip, endpoint) VALUES (${ip}, ${endpoint})`;
 }
 
+// ————— حماية مسارَي تخمين رموز الدعوة بلا LINK_SECRET (STEP 33) —————
+// complete-invite (invite_code) وjoin-info (teacher_invite_code)، كلاهما
+// ٤٠ بت بلا أي سرّ مشترك يحميهما. جدول مستقل (invite_attempts) — العدّ
+// على ip وحده (لا endpoint): كلا المسارين يخمّن نفس نوع الغرض، وتفريق
+// الحصة بينهما يمنح المهاجم ضِعف الميزانية بلا مكسب. خلافاً لـ
+// link_attempts (STEP 29)، مستخدم شرعي *يمكن* أن يفشل هنا فعلاً (خطأ
+// طباعي، رابط معلّم قديم) — العتبة مبنية على ذلك، لا على استحالته.
+//
+// العتبة ٣٠ مشتقّة من ذروة تسجيل جماعي على IP مشترك، لا من فشل مستخدم
+// فرد — الدلو هنا لكل IP لا لكل شخص: معلّم يوزّع رابط الدعوة على حلقته
+// (٣٠-٥٠ طالباً على واي‑فاي مسجد واحد أو خلف نفس CGNAT)، كل طالب يكتب
+// ١٠ محارف hex يدوياً بجوّاله بمعدّل خطأ ~٢٠-٣٠٪ من أول محاولة — ٥٠
+// طالباً × ٢٥٪ ≈ ١٢-٢٠ فشلاً بذروة التسجيل الجماعي وحدها، فأُضيف هامش
+// فوقها. هذا الحدّ **دفاع في العمق** يكبح المسح الآلي ويحدّ استهلاك
+// الموارد — وليس ما يجعل التخمين غير عملي أصلاً؛ ذاك دور الـ٤٠ بت
+// وكلفة دورة OAuth كاملة لكل محاولة على complete-invite (STEP 31).
+//
+// الاستدعاء إلزامي بنفس ترتيب link_attempts: افحص أولاً بـ
+// checkInviteRateLimit — لو تجاوز، أرجع 429 مباشرة بلا استدعاء
+// recordFailedInviteAttempt إطلاقاً. لو لم يتجاوز، استدعِ
+// recordFailedInviteAttempt بعد التأكد من عدم التجاوز ثم أرجع الرد
+// الأصلي (404). سباق check-then-insert غير ذرّي عمداً — نفس تبرير
+// link_attempts، غير مطلوب هنا.
+
+const INVITE_ATTEMPT_LIMIT = 30;
+const INVITE_ATTEMPT_WINDOW_MINUTES = 60;
+
+/** يفحص فقط بلا تسجيل — هل عدد محاولات فشل رمز الدعوة من هذا الـIP عبر كلا المسارين خلال الساعة الماضية دون الحد؟ */
+export async function checkInviteRateLimit(ip: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM invite_attempts
+    WHERE ip = ${ip} AND created_at > now() - (${INVITE_ATTEMPT_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  return Number(rows[0]?.n ?? 0) < INVITE_ATTEMPT_LIMIT;
+}
+
+/** يسجّل محاولة فاشلة لمسار معيّن — يُستدعى فقط بعد فشل رمز الدعوة وبعد التأكد من عدم التجاوز */
+export async function recordFailedInviteAttempt(ip: string, endpoint: string): Promise<void> {
+  await db().sql`INSERT INTO invite_attempts (ip, endpoint) VALUES (${ip}, ${endpoint})`;
+}
+
 // ————— تدوير رمز دعوة المعلّم الزميل (STEP 6E — M2) —————
 
 /**
