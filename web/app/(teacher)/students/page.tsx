@@ -209,7 +209,7 @@ export default function StudentsPage() {
                       onClick={() => setLinkFor(student)}
                       className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     >
-                      {links[student.id] ? "تحديث" : "ربط"}
+                      {links[student.id] ? "تحديث" : "حالة الربط"}
                     </button>
                     <button
                       onClick={() => {
