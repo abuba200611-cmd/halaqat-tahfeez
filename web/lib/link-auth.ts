@@ -2,6 +2,7 @@ import "server-only";
 
 import * as Sentry from "@sentry/nextjs";
 import { clientIp } from "./client-ip";
+import { safeEqual } from "./safe-equal";
 import { checkLinkRateLimit, recordFailedLinkAttempt } from "./db";
 
 /** ثواني تظهر بترويسة Retry-After عند 429 — تطابق نافذة الحدّ بـlib/db.ts */
@@ -25,7 +26,8 @@ const LINK_RETRY_AFTER_SECONDS = 60 * 60;
  */
 export async function requireLinkSecret(request: Request, endpoint: string): Promise<Response | null> {
   const secret = request.headers.get("x-link-secret");
-  if (secret && secret === process.env.LINK_SECRET) {
+  const expected = process.env.LINK_SECRET;
+  if (secret && expected && safeEqual(secret, expected)) {
     return null;
   }
 

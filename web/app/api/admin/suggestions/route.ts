@@ -1,14 +1,8 @@
 import { cookies } from "next/headers";
-import { timingSafeEqual } from "node:crypto";
 import { listSuggestions, type Suggestion } from "@/lib/db";
 import { listStudentSuggestions } from "@/lib/tasjeel-db";
+import { safeEqual } from "@/lib/safe-equal";
 import { ADMIN_COOKIE } from "../login/route";
-
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
-}
 
 export async function GET() {
   const store = await cookies();

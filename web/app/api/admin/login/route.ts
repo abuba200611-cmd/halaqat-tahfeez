@@ -1,14 +1,8 @@
 import { cookies } from "next/headers";
-import { timingSafeEqual } from "node:crypto";
 import { checkAdminLoginRateLimit, recordFailedAdminLoginAttempt } from "@/lib/db";
+import { safeEqual } from "@/lib/safe-equal";
 
 export const ADMIN_COOKIE = "admin_session";
-
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
-}
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
 function clientIp(request: Request): string {
