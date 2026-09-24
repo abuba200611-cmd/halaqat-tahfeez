@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Button, Card } from "@/components/ui";
+import { AuthCard, AuthShell } from "@/components/auth-shell";
 
 /*
   صفحة منعزلة عمداً — STEP 6B. لا تظهر داخل student-gate العام ولا في أي
@@ -29,26 +29,30 @@ function StudentLinkFlow() {
   return <StartGoogle initialError={urlError} />;
 }
 
-function PageShell({ title, children }: { title: string; children: React.ReactNode }) {
+function PageShell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">{title}</h1>
-      <Card className="mt-5 p-5">{children}</Card>
-    </main>
+    <AuthShell>
+      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">{title}</h1>
+      {subtitle && <p className="mb-6 text-center text-sm text-white/60">{subtitle}</p>}
+      <AuthCard>{children}</AuthCard>
+    </AuthShell>
   );
 }
 
 function StartGoogle({ initialError }: { initialError: string | null }) {
   return (
-    <PageShell title="ربط حساب Google">
-      <p className="mb-4 text-center text-sm text-muted-foreground">لديك رمز ربط من معلّمك؟</p>
-      {initialError && <p className="mb-3 text-center text-sm text-destructive">{initialError}</p>}
-      <a href="/api/student-auth/google/link/start" className="block">
-        <Button className="w-full">الدخول بحساب Google</Button>
+    <PageShell title="ربط حساب Google" subtitle="لديك رمز ربط من معلّمك؟">
+      {initialError && <p className="mb-3 text-center text-sm text-red-400">{initialError}</p>}
+      <a
+        href="/api/student-auth/google/link/start"
+        className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl"
+        style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+      >
+        الدخول بحساب Google
       </a>
-      <p className="mt-4 text-center text-xs text-muted-foreground">
+      <p className="mt-4 text-center text-xs text-white/60">
         لا تملك رمزاً؟ اطلبه من معلّم حلقتك.{" "}
-        <Link href="/student" className="text-primary hover:underline">
+        <Link href="/student" className="font-semibold text-white hover:underline">
           أو سجّل دخولك من هنا
         </Link>
       </p>
@@ -61,9 +65,6 @@ function EnterLinkCodeForm() {
   const [linkCode, setLinkCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  const field =
-    "mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -89,24 +90,26 @@ function EnterLinkCodeForm() {
   }
 
   return (
-    <PageShell title="أدخل رمز الربط">
-      <p className="mb-4 text-center text-sm text-muted-foreground">
-        تم التحقق من حساب Google بنجاح. أدخل رمز الربط الذي أعطاك إياه معلّمك لإتمام ربط حسابك.
-      </p>
+    <PageShell title="أدخل رمز الربط" subtitle="تم التحقق من حساب Google بنجاح. أدخل رمز الربط الذي أعطاك إياه معلّمك لإتمام ربط حسابك.">
       <form onSubmit={submit} className="space-y-3">
         <label className="block text-sm">
-          <span className="text-xs text-muted-foreground">رمز الربط</span>
+          <span className="text-xs text-white/60">رمز الربط</span>
           <input
             value={linkCode}
             onChange={(e) => setLinkCode(e.target.value)}
             required
-            className={field}
+            className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10"
           />
         </label>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" disabled={busy} className="w-full">
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+        >
           {busy ? "لحظة…" : "ربط الحساب"}
-        </Button>
+        </button>
       </form>
     </PageShell>
   );

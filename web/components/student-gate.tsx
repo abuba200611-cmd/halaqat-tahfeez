@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { Button, Card } from "./ui";
+import { AuthCard, AuthShell } from "./auth-shell";
+import { EyeIcon, EyeOffIcon, LogoutIcon, UserIcon } from "./icons";
 
 export type StudentSession = { id: string; name: string; halaqahName: string };
 
@@ -55,17 +56,27 @@ export function StudentGate({ children }: { children: React.ReactNode }) {
     return <StudentLogin onAuthenticated={setStudent} />;
   }
 
+  const initial = (student.name || "ط").trim().charAt(0);
+
   return (
     <StudentContext.Provider value={student}>
-      <header className="border-b border-border bg-surface">
-        <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-3">
-          <span className="font-naskh text-lg font-bold text-primary">وردي</span>
-          <div className="mr-auto flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">{student.name}</span>
-            <Button variant="ghost" onClick={logout}>
-              خروج
-            </Button>
+      <header className="text-white" style={{ background: "linear-gradient(90deg, #1E3A8A, #2563EB)" }}>
+        <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-3.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-sm font-bold">
+            {initial}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-bold">{student.name}</div>
+            <div className="truncate text-xs text-white/70">{student.halaqahName || "وردي"}</div>
           </div>
+          <button
+            onClick={logout}
+            className="shrink-0 cursor-pointer rounded-lg p-2 text-white/80 transition-colors duration-200 hover:bg-white/10 hover:text-white"
+            title="خروج"
+            aria-label="خروج"
+          >
+            <LogoutIcon size={19} />
+          </button>
         </div>
       </header>
       <main className="mx-auto w-full max-w-md flex-1 px-4 py-6">{children}</main>
@@ -78,6 +89,7 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -107,51 +119,69 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
   }
 
   const field =
-    "mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+    "mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 pr-11 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10";
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">وردي</h1>
-      <p className="mb-5 text-center text-sm text-muted-foreground">
+    <AuthShell>
+      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">وردي</h1>
+      <p className="mb-6 text-center text-sm text-white/60">
         سجّل حفظك ومراجعتك، ويصل معلّمك أنك أنجزت ورد اليوم.
       </p>
 
-      <Card className="p-5">
+      <AuthCard>
         <form onSubmit={submit} className="space-y-3">
           <label className="block text-sm">
-            <span className="text-xs text-muted-foreground">اسم المستخدم</span>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              required
-              className={field}
-            />
+            <span className="text-xs text-white/60">اسم المستخدم</span>
+            <div className="relative">
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                required
+                className={field}
+              />
+              <UserIcon size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+            </div>
           </label>
 
           <label className="block text-sm">
-            <span className="text-xs text-muted-foreground">كلمة المرور</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              className={field}
-            />
+            <span className="text-xs text-white/60">كلمة المرور</span>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+                className={field}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer text-white/50 transition-colors duration-200 hover:text-white"
+                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+              >
+                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
+            </div>
           </label>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <Button type="submit" disabled={busy} className="w-full">
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+          >
             {busy ? "لحظة…" : "دخول"}
-          </Button>
+          </button>
         </form>
-      </Card>
 
-      <p className="mt-4 text-center text-xs text-muted-foreground">
-        لا تملك حساباً؟ اطلب من معلّم حلقتك أن ينشئ لك اسم مستخدم وكلمة مرور.
-      </p>
-    </main>
+        <p className="mt-4 text-center text-xs text-white/60">
+          لا تملك حساباً؟ اطلب من معلّم حلقتك أن ينشئ لك اسم مستخدم وكلمة مرور.
+        </p>
+      </AuthCard>
+    </AuthShell>
   );
 }

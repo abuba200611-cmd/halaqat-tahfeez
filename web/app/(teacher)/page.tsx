@@ -414,7 +414,7 @@ export function Hero({
 }
 
 /** نقش هندسي إسلامي خفيف جداً (نجمة ثمانية مكررة) — خلفية زخرفية بحتة، تحتفظ بهوية التطبيق رغم تغيير اللون */
-function IslamicPattern() {
+export function IslamicPattern() {
   return (
     <svg
       aria-hidden="true"
