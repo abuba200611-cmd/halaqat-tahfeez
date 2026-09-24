@@ -21,13 +21,16 @@ import { useStudents } from "@/lib/store";
 import type { SavedScheduleInfo, SavedScheduleRecord } from "@/lib/schedule";
 import type { WardLog } from "@/lib/types";
 
-/* ————— لوحة ألوان الصفحة (STEP 40) — محصورة هنا، لا تمسّ رموز الثيم العامة ————— */
+/* ————— لوحة ألوان الصفحة (STEP 41 — يطابق مرجع لوحة تحكّم زرقاء بقائمة جانبية) — محصورة هنا ————— */
 const C = {
-  emerald: "#0F766E",
-  emeraldLight: "#14B8A6",
+  heroFrom: "#1E3A8A",
+  heroTo: "#2563EB",
+  blue: "#2563EB",
+  emerald: "#059669",
+  orange: "#EA580C",
+  purple: "#7C3AED",
   gold: "#D4A24C",
-  pageBg: "#F6F9F8",
-  cardBorder: "#E6EEEC",
+  cardBorder: "#E7EAF3",
   text: "#0F172A",
   textMuted: "#64748B",
 };
@@ -110,6 +113,7 @@ type Teacher = { teacherName: string; halaqahName: string };
 function useDashboardData() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [wards, setWards] = useState<WardLog[] | null>(null);
+  const [newCount, setNewCount] = useState(0);
   const [scheduleDays, setScheduleDays] = useState<SavedScheduleRecord["schedule"]["days"] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -126,6 +130,7 @@ function useDashboardData() {
 
       if (meRes?.teacher) setTeacher(meRes.teacher);
       setWards((wardsRes?.wards as WardLog[]) ?? []);
+      setNewCount((wardsRes?.newCount as number) ?? 0);
 
       // الجدول المحفوظ لشهرنا الحالي فقط — إن وُجد، نجلب محتواه الكامل (نداء ثانٍ لنفس /api/schedules)
       const now = todayUTC();
@@ -149,12 +154,12 @@ function useDashboardData() {
     };
   }, []);
 
-  return { teacher, wards, scheduleDays, loading };
+  return { teacher, wards, newCount, scheduleDays, loading };
 }
 
 export default function DashboardPage() {
   const { students, loading: studentsLoading, loadDemo, clear } = useStudents();
-  const { teacher, wards, scheduleDays, loading: dataLoading } = useDashboardData();
+  const { teacher, wards, newCount, scheduleDays, loading: dataLoading } = useDashboardData();
   const [demoCount, setDemoCount] = useState(150);
   const active = students.filter((s) => s.active);
 
@@ -233,33 +238,40 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <Hero
         teacherName={teacher?.teacherName}
+        studentCount={active.length}
+        pagesThisWeek={stats.pagesThisWeek}
+        sessionsThisWeek={stats.sessionsThisWeek}
         participationPct={stats.participationPct}
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
+          color={C.blue}
           icon={<UsersIcon size={22} />}
           label="عدد الطلاب"
           value={active.length}
-          hint={`${new Set(active.map((s) => s.group)).size} مجموعات`}
+          progress={students.length > 0 ? Math.round((active.length / students.length) * 100) : null}
+          progressLabel={`${active.length} من ${students.length} نشطون`}
         />
         <StatCard
+          color={C.emerald}
           icon={<BookIcon size={22} />}
           label="صفحات محفوظة — هذا الأسبوع"
           value={stats.pagesThisWeek}
           delta={stats.pagesDelta}
         />
         <StatCard
+          color={C.orange}
           icon={<CalendarIcon size={22} />}
           label="الحلقات هذا الأسبوع"
           value={stats.sessionsThisWeek}
           delta={stats.sessionsDelta}
         />
         <StatCard
+          color={C.gold}
           icon={<FlameIcon size={22} />}
           label="أيام متتالية نشطة"
           value={stats.streak}
-          gold
         />
       </div>
 
@@ -269,13 +281,27 @@ export default function DashboardPage() {
         <StarsOfWeek stars={stats.starsOfWeek} />
         <TodaySession today={stats.todaySession} next={stats.nextSession} />
       </div>
+
+      {newCount > 0 && <PendingReview count={newCount} />}
     </div>
   );
 }
 
 /* ————— بطاقة الترحيب (Hero) ————— */
 
-function Hero({ teacherName, participationPct }: { teacherName?: string; participationPct: number | null }) {
+function Hero({
+  teacherName,
+  studentCount,
+  pagesThisWeek,
+  sessionsThisWeek,
+  participationPct,
+}: {
+  teacherName?: string;
+  studentCount: number;
+  pagesThisWeek: number;
+  sessionsThisWeek: number | null;
+  participationPct: number | null;
+}) {
   const gregorian = new Intl.DateTimeFormat("ar", { day: "numeric", month: "long", year: "numeric", weekday: "long" }).format(
     new Date(),
   );
@@ -285,65 +311,43 @@ function Hero({ teacherName, participationPct }: { teacherName?: string; partici
     year: "numeric",
   }).format(new Date());
 
+  const chips: { label: string; value: string }[] = [
+    { label: "الطلاب", value: studentCount.toLocaleString("en") },
+    { label: "صفحات الأسبوع", value: pagesThisWeek.toLocaleString("en") },
+    { label: "الحلقات هذا الأسبوع", value: sessionsThisWeek === null ? "—" : sessionsThisWeek.toLocaleString("en") },
+    { label: "نشاط الأسبوع", value: participationPct === null ? "—" : `${participationPct}٪` },
+  ];
+
   return (
     <div
       className="relative overflow-hidden rounded-2xl p-6 text-white sm:p-8"
-      style={{ background: `linear-gradient(135deg, ${C.emerald}, ${C.emeraldLight})` }}
+      style={{ background: `linear-gradient(135deg, ${C.heroFrom}, ${C.heroTo})` }}
     >
       <IslamicPattern />
-      <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
+      <div className="relative">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="font-naskh text-2xl font-bold sm:text-3xl">
             السلام عليكم{teacherName ? `، أ. ${teacherName}` : ""}
           </h1>
-          <p className="mt-1 text-sm text-white/85">
-            {gregorian} · {hijri}
-          </p>
-          <p className="mt-3 font-naskh text-sm italic text-white/80">«خيركم من تعلّم القرآن وعلّمه»</p>
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90">{gregorian}</span>
         </div>
+        <p className="mt-1 text-sm text-white/85">{hijri}</p>
+        <p className="mt-3 font-naskh text-sm italic text-white/80">«خيركم من تعلّم القرآن وعلّمه»</p>
 
-        {participationPct !== null && (
-          <div className="hidden shrink-0 sm:block">
-            <ProgressRing percent={participationPct} />
-          </div>
-        )}
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {chips.map((chip) => (
+            <div key={chip.label} className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+              <div className="tabular text-xl font-bold">{chip.value}</div>
+              <div className="mt-0.5 text-xs text-white/75">{chip.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-function ProgressRing({ percent }: { percent: number }) {
-  const size = 92;
-  const stroke = 8;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const clamped = Math.max(0, Math.min(100, percent));
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.25)" strokeWidth={stroke} fill="none" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke="white"
-          strokeWidth={stroke}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c - (clamped / 100) * c}
-          style={{ transition: "stroke-dashoffset 600ms ease" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="tabular text-lg font-bold text-white">{clamped}٪</span>
-        <span className="text-[10px] leading-tight text-white/80">نشاط الأسبوع</span>
-      </div>
-    </div>
-  );
-}
-
-/** نقش هندسي إسلامي خفيف جداً (نجمة ثمانية مكررة) — خلفية زخرفية بحتة */
+/** نقش هندسي إسلامي خفيف جداً (نجمة ثمانية مكررة) — خلفية زخرفية بحتة، تحتفظ بهوية التطبيق رغم تغيير اللون */
 function IslamicPattern() {
   return (
     <svg
@@ -369,31 +373,29 @@ function IslamicPattern() {
 /* ————— بطاقة إحصائية ————— */
 
 function StatCard({
+  color,
   icon,
   label,
   value,
-  hint,
   delta,
-  gold,
+  progress,
+  progressLabel,
 }: {
+  color: string;
   icon: React.ReactNode;
   label: string;
   value: number | null;
-  hint?: string;
   delta?: number | null;
-  gold?: boolean;
+  progress?: number | null;
+  progressLabel?: string;
 }) {
   const animated = useCountUp(value ?? 0);
-  const iconTone = gold ? C.gold : C.emerald;
 
   return (
-    <div
-      className="rounded-2xl bg-white p-5 shadow-sm"
-      style={{ border: `1px solid ${C.cardBorder}` }}
-    >
+    <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
       <div
         className="mb-3 flex h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: `${iconTone}1A`, color: iconTone }}
+        style={{ backgroundColor: `${color}1A`, color }}
       >
         {icon}
       </div>
@@ -403,17 +405,27 @@ function StatCard({
       <div className="mt-1 text-xs" style={{ color: C.textMuted }}>
         {label}
       </div>
-      {hint && (
-        <div className="mt-1 text-xs" style={{ color: C.textMuted }}>
-          {hint}
+
+      {progress !== undefined && progress !== null && (
+        <div className="mt-3">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.max(0, Math.min(100, progress))}%`, backgroundColor: color, transition: "width 600ms ease" }}
+            />
+          </div>
+          {progressLabel && (
+            <div className="mt-1 text-[11px]" style={{ color: C.textMuted }}>
+              {progressLabel}
+            </div>
+          )}
         </div>
       )}
+
       {delta !== undefined && delta !== null && delta !== 0 && (
-        <div className={`mt-1 flex items-center gap-1 text-xs ${delta > 0 ? "text-emerald-600" : "text-slate-400"}`}>
+        <div className={`mt-2 flex items-center gap-1 text-xs ${delta > 0 ? "text-emerald-600" : "text-slate-400"}`}>
           {delta > 0 ? <ArrowUpIcon size={12} /> : <ArrowDownIcon size={12} />}
-          <span className="tabular">
-            {Math.abs(delta)} عن الأسبوع الماضي
-          </span>
+          <span className="tabular">{Math.abs(delta)} عن الأسبوع الماضي</span>
         </div>
       )}
     </div>
@@ -424,10 +436,10 @@ function StatCard({
 
 function QuickActions({ clearAction }: { clearAction: () => void }) {
   const items = [
-    { href: "/students", icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
-    { href: "/pairing", icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
-    { href: "/reports", icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
-    { href: "/schedule", icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
+    { href: "/students", color: C.blue, icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
+    { href: "/pairing", color: C.emerald, icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
+    { href: "/reports", color: C.orange, icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
+    { href: "/schedule", color: C.purple, icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
   ];
 
   return (
@@ -449,10 +461,8 @@ function QuickActions({ clearAction }: { clearAction: () => void }) {
             style={{ border: `1px solid ${C.cardBorder}` }}
           >
             <div
-              className="mb-3 flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-200 group-hover:text-white"
-              style={{ backgroundColor: `${C.emerald}1A`, color: C.emerald }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = C.emerald)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = `${C.emerald}1A`)}
+              className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl"
+              style={{ backgroundColor: item.color, color: "#ffffff" }}
             >
               {item.icon}
             </div>
@@ -473,7 +483,7 @@ function QuickActions({ clearAction }: { clearAction: () => void }) {
 
 function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: number }[] }) {
   return (
-    <div className="rounded-2xl border border-[#E6EEEC] bg-white p-5 shadow-sm">
+    <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
       <h2 className="mb-4 flex items-center gap-2 font-naskh text-lg font-bold" style={{ color: C.text }}>
         <span style={{ color: C.gold }}>
           <StarIcon size={18} />
@@ -490,7 +500,7 @@ function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: numb
             <li key={s.id} className="flex items-center gap-3">
               <div
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                style={{ backgroundColor: i === 0 ? C.gold : C.emerald }}
+                style={{ backgroundColor: i === 0 ? C.gold : C.blue }}
               >
                 {s.name.trim().charAt(0) || "؟"}
               </div>
@@ -518,7 +528,7 @@ function TodaySession({ today, next }: { today: SessionDay | null; next: Session
   const session = today ?? next;
 
   return (
-    <div className="rounded-2xl border border-[#E6EEEC] bg-white p-5 shadow-sm">
+    <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
       <h2 className="mb-4 font-naskh text-lg font-bold" style={{ color: C.text }}>
         {today ? "حلقة اليوم" : "الجلسة القادمة"}
       </h2>
@@ -550,6 +560,36 @@ function TodaySession({ today, next }: { today: SessionDay | null; next: Session
   );
 }
 
+/* ————— بانتظار المراجعة (أوراد جديدة) — بيانات حقيقية من /api/wards ————— */
+
+function PendingReview({ count }: { count: number }) {
+  return (
+    <Link
+      href="/inbox"
+      className="flex items-center gap-4 rounded-2xl p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+      style={{ border: `1px solid ${C.orange}33`, backgroundColor: `${C.orange}0D` }}
+    >
+      <span
+        className="tabular flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
+        style={{ backgroundColor: C.orange }}
+      >
+        {count}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold" style={{ color: C.text }}>
+          أوراد بانتظار المراجعة
+        </div>
+        <div className="mt-0.5 text-xs" style={{ color: C.textMuted }}>
+          أوراد جديدة أرسلها الطلاب، بحاجة اطّلاعك أو اعتمادك
+        </div>
+      </div>
+      <Button className="shrink-0" style={{ backgroundColor: C.orange }}>
+        مراجعة الوارد
+      </Button>
+    </Link>
+  );
+}
+
 /* ————— حالة اللوحة الفارغة (بلا طلاب) ————— */
 
 function EmptyDashboard({
@@ -563,7 +603,7 @@ function EmptyDashboard({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <span style={{ color: C.emeraldLight }}>
+      <span style={{ color: C.heroTo }}>
         <SproutIcon size={64} />
       </span>
       <h1 className="mt-4 font-naskh text-2xl font-bold" style={{ color: C.text }}>
@@ -608,7 +648,7 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <SkeletonBlock className="h-40" />
+      <SkeletonBlock className="h-48" />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <SkeletonBlock key={i} className="h-28" />

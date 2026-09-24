@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button, Card } from "./ui";
-import { MailIcon } from "./icons";
+import { BellIcon, LogoutIcon, MailIcon } from "./icons";
 import { resetStore } from "@/lib/store";
 
 type Teacher = {
@@ -16,7 +16,14 @@ type Teacher = {
   role: "supervisor" | "assistant";
   emailVerified: boolean;
 };
-type NavItem = { href: string; label: string; badge?: React.ReactNode };
+type NavItem = { href: string; label: string; icon: React.ReactNode; badge?: React.ReactNode };
+
+/* ————— لوحة ألوان الهيكل (STEP 41 — يطابق مرجع "لوحة تحكّم بقائمة جانبية زرقاء") ————— */
+const B = {
+  sidebar: "#0F1E42",
+  sidebarActive: "#1B3568",
+  sidebarText: "#9FB0D6",
+};
 
 /*
   أول زيارة، الجهاز ما عنده حساب بعد — عرض تبويب "تسجيل الدخول" مربك (يطلب
@@ -83,61 +90,132 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
   }
 
   return (
-    <>
-      <header className="no-print border-b border-border bg-surface">
-        <div className="mx-auto max-w-7xl px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="shrink-0 font-naskh text-lg font-bold text-primary">
-              المعلم
-            </Link>
-            <div className="mr-auto flex min-w-0 items-center gap-2">
-              <span className="hidden truncate text-sm text-muted-foreground sm:inline">
-                {teacher.teacherName ? `${teacher.teacherName} — ${teacher.halaqahName}` : teacher.halaqahName}
-              </span>
-              {teacher.role === "assistant" && (
-                <span className="hidden shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent sm:inline">
-                  مساعد مشرف
-                </span>
-              )}
-              <Button variant="ghost" onClick={logout} className="shrink-0">
-                خروج
-              </Button>
-            </div>
-          </div>
-          <NavBar nav={nav} />
-        </div>
-      </header>
-      {!teacher.emailVerified && <VerifyEmailBanner />}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
-    </>
+    <div className="flex min-h-full flex-1">
+      <Sidebar nav={nav} />
+
+      <div className="min-w-0 flex-1 lg:mr-64">
+        <TopBar nav={nav} teacher={teacher} onLogout={logout} />
+        {!teacher.emailVerified && <VerifyEmailBanner />}
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">{children}</main>
+      </div>
+    </div>
   );
 }
 
-/** شريط التنقّل العلوي — التبويب المطابق للمسار الحالي يصير pill زمردي فاتح بدل نص عادي (STEP 40) */
-function NavBar({ nav }: { nav: NavItem[] }) {
+/** القائمة الجانبية — ديسكتوب فقط (lg+)؛ الجوال يستخدم شريط التبويبات العلوي بـTopBar (STEP 41) */
+function Sidebar({ nav }: { nav: NavItem[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="no-scrollbar -mx-1 mt-2 flex gap-1 overflow-x-auto px-1">
-      {nav.map((item) => {
-        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-        return (
+    <aside
+      className="no-print fixed inset-y-0 right-0 z-20 hidden w-64 flex-col lg:flex"
+      style={{ backgroundColor: B.sidebar }}
+    >
+      <Link href="/" className="flex items-center gap-2 px-5 py-5">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 font-naskh text-lg font-bold text-white">
+          م
+        </span>
+        <span className="font-naskh text-lg font-bold text-white">المعلم</span>
+      </Link>
+
+      <nav className="mt-2 flex-1 space-y-1 overflow-y-auto px-3">
+        {nav.map((item) => {
+          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              style={{
+                backgroundColor: active ? B.sidebarActive : "transparent",
+                color: active ? "#ffffff" : B.sidebarText,
+                fontWeight: active ? 600 : 400,
+              }}
+            >
+              {item.icon}
+              <span className="flex-1">{item.label}</span>
+              {item.badge}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
+
+/** الشريط العلوي: ديسكتوب — جرس تنبيهات + هوية المعلّم؛ جوال — نفس هويّة الشعار + تبويبات أفقية (STEP 41) */
+function TopBar({ nav, teacher, onLogout }: { nav: NavItem[]; teacher: Teacher; onLogout: () => void }) {
+  const pathname = usePathname();
+  const newWardsHref = nav.find((n) => n.href === "/inbox")?.badge;
+  const initial = (teacher.teacherName || teacher.halaqahName || "م").trim().charAt(0);
+
+  return (
+    <header className="no-print border-b border-border bg-surface">
+      <div className="flex items-center gap-3 px-4 py-3 lg:px-8">
+        <Link href="/" className="shrink-0 font-naskh text-lg font-bold lg:hidden" style={{ color: "#1E3A8A" }}>
+          المعلم
+        </Link>
+
+        <div className="mr-auto flex min-w-0 items-center gap-3">
+          {teacher.role === "assistant" && (
+            <span className="hidden shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent sm:inline">
+              مساعد مشرف
+            </span>
+          )}
+          <span className="hidden truncate text-sm text-muted-foreground lg:inline">
+            {teacher.teacherName ? `${teacher.teacherName} — ${teacher.halaqahName}` : teacher.halaqahName}
+          </span>
+
           <Link
-            key={item.href}
-            href={item.href}
-            className={
-              "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring " +
-              (active
-                ? "bg-[#0F766E]/10 font-semibold text-[#0F766E]"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground")
-            }
+            href="/inbox"
+            className="relative hidden items-center justify-center rounded-full p-2 text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground lg:flex"
           >
-            {item.label}
-            {item.badge}
+            <BellIcon size={19} />
+            {newWardsHref && <span className="absolute -left-0.5 -top-0.5">{newWardsHref}</span>}
           </Link>
-        );
-      })}
-    </nav>
+
+          <div className="hidden items-center gap-2 lg:flex">
+            <span
+              className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white"
+              style={{ backgroundColor: "#2563EB" }}
+            >
+              {initial}
+            </span>
+            <button
+              onClick={onLogout}
+              className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
+              title="خروج"
+            >
+              <LogoutIcon size={17} />
+            </button>
+          </div>
+
+          <Button variant="ghost" onClick={onLogout} className="shrink-0 lg:hidden">
+            خروج
+          </Button>
+        </div>
+      </div>
+
+      {/* شريط تبويبات أفقي — الجوال فقط، القائمة الجانبية تكفي الديسكتوب */}
+      <nav className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-5 pb-2 lg:hidden">
+        {nav.map((item) => {
+          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={
+                "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring " +
+                (active ? "bg-[#2563EB]/10 font-semibold text-[#1E3A8A]" : "text-muted-foreground hover:bg-muted hover:text-foreground")
+              }
+            >
+              {item.label}
+              {item.badge}
+            </Link>
+          );
+        })}
+      </nav>
+    </header>
   );
 }
 
@@ -157,7 +235,7 @@ function VerifyEmailBanner() {
   }
 
   return (
-    <div className="no-print mx-auto w-full max-w-7xl px-4 pt-3">
+    <div className="no-print mx-auto w-full max-w-7xl px-4 pt-3 lg:px-8">
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
         <MailIcon size={18} className="shrink-0" />
         <span>لم تؤكّد بريدك الإلكتروني بعد.</span>

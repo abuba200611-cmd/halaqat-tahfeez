@@ -160,3 +160,41 @@ export function CheckCircleIcon(props: IconProps) {
     props,
   );
 }
+
+export function HomeIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M4 11.5 12 4l8 7.5" />
+      <path d="M6 10v9.5a1 1 0 0 0 1 1h3.5v-6h3v6H17a1 1 0 0 0 1-1V10" />
+    </>,
+    props,
+  );
+}
+
+export function BellIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M6 10a6 6 0 1 1 12 0c0 4.2 1.3 5.8 1.7 6.3.2.3 0 .7-.4.7H4.7c-.4 0-.6-.4-.4-.7.4-.5 1.7-2.1 1.7-6.3z" />
+      <path d="M9.5 19.5a2.5 2.5 0 0 0 5 0" />
+    </>,
+    props,
+  );
+}
+
+export function MessageIcon(props: IconProps) {
+  return base(
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-8z" />,
+    props,
+  );
+}
+
+export function LogoutIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M15 4h2.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H15" />
+      <path d="M4 12h11.5" />
+      <path d="M11.5 8 15.5 12 11.5 16" />
+    </>,
+    props,
+  );
+}
