@@ -229,3 +229,34 @@ export function CloseIcon(props: IconProps) {
     props,
   );
 }
+
+export function UserIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M4.5 20c0-4 3.3-7 7.5-7s7.5 3 7.5 7" />
+    </>,
+    props,
+  );
+}
+
+export function EyeIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </>,
+    props,
+  );
+}
+
+export function EyeOffIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.2A10.6 10.6 0 0 1 12 5c6.5 0 10 7 10 7a16.6 16.6 0 0 1-3.4 4.4M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7c1.3 0 2.5-.2 3.6-.6" />
+      <path d="M9.9 10a3 3 0 0 0 4.1 4.1" />
+    </>,
+    props,
+  );
+}

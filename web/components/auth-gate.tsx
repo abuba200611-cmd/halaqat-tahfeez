@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Button, Card } from "./ui";
-import { BellIcon, CloseIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon } from "./icons";
+import { AuthCard, AuthShell } from "./auth-shell";
+import { BellIcon, CloseIcon, EyeIcon, EyeOffIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
 import { resetStore } from "@/lib/store";
 
 type Teacher = {
@@ -326,6 +326,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("googleError"),
   );
   const [busy, setBusy] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (error) window.history.replaceState(null, "", window.location.pathname);
@@ -372,21 +373,23 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
   }
 
   const field =
-    "mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+    "mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 pr-11 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10";
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">المعلم</h1>
-      <p className="mb-5 text-center text-sm text-muted-foreground">
-        إدارة التحفيظ ومطابقة التسميع وجدول الشهر
+    <AuthShell>
+      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">
+        {mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
+      </h1>
+      <p className="mb-6 text-center text-sm text-white/60">
+        {mode === "login" ? "أهلًا بعودتك، سجّل دخولك لمتابعة حلقتك" : "أنشئ حسابك وابدأ إدارة حلقتك الآن"}
       </p>
 
-      <Card className="p-5">
+      <AuthCard>
         {joinCode && (
-          <p className="mb-4 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-center text-sm text-primary">
+          <p className="mb-4 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-center text-sm text-white/80">
             {joinHalaqah ? (
               <>
-                ستنضم كمساعد مشرف لحلقة <span className="font-semibold">{joinHalaqah}</span>
+                ستنضم كمساعد مشرف لحلقة <span className="font-semibold text-white">{joinHalaqah}</span>
               </>
             ) : (
               "التحقق من رابط الدعوة…"
@@ -394,88 +397,105 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
           </p>
         )}
 
-        <h2 className="mb-4 text-center text-base font-semibold text-foreground">
-          {mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
-        </h2>
-
         <form onSubmit={submit} className="space-y-3">
           {mode === "register" && (
             <label className="block text-sm">
-              <span className="text-xs text-muted-foreground">اسم المعلّم</span>
-              <input
-                value={teacherName}
-                onChange={(e) => setTeacherName(e.target.value)}
-                placeholder="اسمك الكامل"
-                className={field}
-              />
+              <span className="text-xs text-white/60">اسم المعلّم</span>
+              <div className="relative">
+                <input
+                  value={teacherName}
+                  onChange={(e) => setTeacherName(e.target.value)}
+                  placeholder="اسمك الكامل"
+                  className={field}
+                />
+                <UserIcon size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+              </div>
             </label>
           )}
 
           {mode === "register" && !joinCode && (
             <label className="block text-sm">
-              <span className="text-xs text-muted-foreground">اسم الحلقة</span>
+              <span className="text-xs text-white/60">اسم الحلقة</span>
               <input
                 value={halaqahName}
                 onChange={(e) => setHalaqahName(e.target.value)}
                 placeholder="مثال: حلقة الفجر"
-                className={field}
+                className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10"
               />
             </label>
           )}
 
           <label className="block text-sm">
-            <span className="text-xs text-muted-foreground">البريد الإلكتروني</span>
-            <input
-              type="email"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="email"
-              required
-              className={field}
-            />
+            <span className="text-xs text-white/60">البريد الإلكتروني</span>
+            <div className="relative">
+              <input
+                type="email"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="email"
+                required
+                className={field}
+              />
+              <UserIcon size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+            </div>
           </label>
 
           <label className="block text-sm">
-            <span className="text-xs text-muted-foreground">كلمة المرور</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-              required
-              minLength={mode === "register" ? 8 : undefined}
-              className={field}
-            />
+            <span className="text-xs text-white/60">كلمة المرور</span>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                required
+                minLength={mode === "register" ? 8 : undefined}
+                className={field}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer text-white/50 transition-colors duration-200 hover:text-white"
+                aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+              >
+                {showPassword ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
+            </div>
           </label>
 
           {mode === "login" && (
-            <Link href="/forgot-password" className="block text-left text-xs text-primary hover:underline">
+            <Link href="/forgot-password" className="block text-left text-xs text-white/60 hover:text-white hover:underline">
               نسيت كلمة المرور؟
             </Link>
           )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <Button type="submit" disabled={busy} className="w-full">
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+          >
             {busy ? "لحظة…" : mode === "login" ? "دخول" : "إنشاء الحساب"}
-          </Button>
+          </button>
         </form>
 
-        <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
+        <div className="my-4 flex items-center gap-3 text-xs text-white/40">
+          <span className="h-px flex-1 bg-white/15" />
           أو
-          <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-white/15" />
         </div>
 
         <a
           href="/api/auth/google/start"
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-3 text-sm font-medium text-white transition-colors duration-200 hover:bg-white/10"
         >
           <GoogleIcon />
           الدخول بحساب جوجل
         </a>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
+        <p className="mt-4 text-center text-xs text-white/60">
           {mode === "login" ? (
             <>
               ما عندك حساب؟{" "}
@@ -485,7 +505,7 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
                   setMode("register");
                   setError(null);
                 }}
-                className="cursor-pointer font-semibold text-primary hover:underline"
+                className="cursor-pointer font-semibold text-white hover:underline"
               >
                 أنشئ حساب جديد
               </button>
@@ -499,15 +519,15 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
                   setMode("login");
                   setError(null);
                 }}
-                className="cursor-pointer font-semibold text-primary hover:underline"
+                className="cursor-pointer font-semibold text-white hover:underline"
               >
                 سجّل دخولك
               </button>
             </>
           )}
         </p>
-      </Card>
-    </main>
+      </AuthCard>
+    </AuthShell>
   );
 }
 

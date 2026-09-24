@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, Card } from "@/components/ui";
+import { AuthCard, AuthShell } from "@/components/auth-shell";
+import { UserIcon } from "@/components/icons";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -34,40 +35,44 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">استرجاع كلمة المرور</h1>
-      <p className="mb-5 text-center text-sm text-muted-foreground">
-        اكتب بريدك، وبنبعث لك رابط تعيين كلمة مرور جديدة.
-      </p>
+    <AuthShell>
+      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">استرجاع كلمة المرور</h1>
+      <p className="mb-6 text-center text-sm text-white/60">اكتب بريدك، وبنبعث لك رابط تعيين كلمة مرور جديدة.</p>
 
-      <Card className="p-5">
+      <AuthCard>
         {sent ? (
-          <p className="text-center text-sm text-success">
-            لو هذا البريد مسجّل، وصلته رسالة الآن — تفقّد بريدك.
-          </p>
+          <p className="text-center text-sm text-emerald-400">لو هذا البريد مسجّل، وصلته رسالة الآن — تفقّد بريدك.</p>
         ) : (
           <form onSubmit={submit} className="space-y-3">
             <label className="block text-sm">
-              <span className="text-xs text-muted-foreground">البريد الإلكتروني</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-                className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              />
+              <span className="text-xs text-white/60">البريد الإلكتروني</span>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                  className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 pr-11 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10"
+                />
+                <UserIcon size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+              </div>
             </label>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" disabled={busy} className="w-full">
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy}
+              className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+            >
               {busy ? "لحظة…" : "إرسال رابط الاسترجاع"}
-            </Button>
+            </button>
           </form>
         )}
-        <Link href="/" className="mt-4 block text-center text-xs text-muted-foreground hover:text-foreground">
+        <Link href="/" className="mt-4 block text-center text-xs text-white/60 hover:text-white hover:underline">
           الرجوع لتسجيل الدخول
         </Link>
-      </Card>
-    </main>
+      </AuthCard>
+    </AuthShell>
   );
 }
