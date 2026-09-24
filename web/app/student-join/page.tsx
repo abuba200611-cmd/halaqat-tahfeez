@@ -77,6 +77,18 @@ function AlreadyLinked() {
   );
 }
 
+/** يقبل رمز الدعوة وحده أو رابط الدعوة كاملاً (يستخرج قيمة ?invite= منه) */
+function extractInviteCode(input: string): string {
+  const trimmed = input.trim();
+  const match = trimmed.match(/[?&]invite=([^&\s#]+)/);
+  if (!match) return trimmed;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
+}
+
 function CompleteInviteForm() {
   const router = useRouter();
   const [studentName, setStudentName] = useState("");
@@ -95,7 +107,7 @@ function CompleteInviteForm() {
       const res = await fetch("/api/student-auth/google/complete-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentName, inviteCode }),
+        body: JSON.stringify({ studentName, inviteCode: extractInviteCode(inviteCode) }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -124,7 +136,8 @@ function CompleteInviteForm() {
           <span className="text-xs text-white/60">رمز دعوة الحلقة</span>
           <input
             value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
+            onChange={(e) => setInviteCode(extractInviteCode(e.target.value))}
+            placeholder="الصق رابط الدعوة أو الرمز"
             required
             className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10"
           />
