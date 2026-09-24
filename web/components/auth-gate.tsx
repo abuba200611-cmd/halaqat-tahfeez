@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button, Card } from "./ui";
-import { BellIcon, LogoutIcon, MailIcon } from "./icons";
+import { BellIcon, CloseIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon } from "./icons";
 import { resetStore } from "@/lib/store";
 
 type Teacher = {
@@ -16,9 +16,9 @@ type Teacher = {
   role: "supervisor" | "assistant";
   emailVerified: boolean;
 };
-type NavItem = { href: string; label: string; icon: React.ReactNode; badge?: React.ReactNode };
+type NavItem = { href: string; label: string; desc?: string; icon: React.ReactNode; badge?: React.ReactNode };
 
-/* ————— لوحة ألوان الهيكل (STEP 41 — يطابق مرجع "لوحة تحكّم بقائمة جانبية زرقاء") ————— */
+/* ————— لوحة ألوان الهيكل (STEP 41/42 — يطابق مرجع "لوحة تحكّم بقائمة جانبية زرقاء") ————— */
 const B = {
   sidebar: "#0F1E42",
   sidebarActive: "#1B3568",
@@ -46,6 +46,7 @@ function markAccountKnown() {
 export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.ReactNode }) {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [checking, setChecking] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,10 +92,10 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
 
   return (
     <div className="flex min-h-full flex-1">
-      <Sidebar nav={nav} />
+      <Sidebar nav={nav} teacher={teacher} drawerOpen={drawerOpen} onCloseDrawer={() => setDrawerOpen(false)} onLogout={logout} />
 
       <div className="min-w-0 flex-1 lg:mr-64">
-        <TopBar nav={nav} teacher={teacher} onLogout={logout} />
+        <TopBar nav={nav} teacher={teacher} onOpenDrawer={() => setDrawerOpen(true)} />
         {!teacher.emailVerified && <VerifyEmailBanner />}
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">{children}</main>
       </div>
@@ -102,21 +103,41 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
   );
 }
 
-/** القائمة الجانبية — ديسكتوب فقط (lg+)؛ الجوال يستخدم شريط التبويبات العلوي بـTopBar (STEP 41) */
-function Sidebar({ nav }: { nav: NavItem[] }) {
+/**
+ * القائمة الجانبية — كاملة الطول، يمين (RTL). ديسكتوب: ثابتة دائماً
+ * (lg+). جوال: Drawer ينزلق من زر ☰ بـTopBar، مع طبقة تعتيم خلفية
+ * تُغلقه عند الضغط عليها (STEP 42 — يطابق مرجع القائمة الجانبية الكاملة
+ * بدل تبويبات أفقية).
+ */
+function Sidebar({
+  nav,
+  teacher,
+  drawerOpen,
+  onCloseDrawer,
+  onLogout,
+}: {
+  nav: NavItem[];
+  teacher: Teacher;
+  drawerOpen: boolean;
+  onCloseDrawer: () => void;
+  onLogout: () => void;
+}) {
   const pathname = usePathname();
+  const initial = (teacher.teacherName || teacher.halaqahName || "م").trim().charAt(0);
 
-  return (
-    <aside
-      className="no-print fixed inset-y-0 right-0 z-20 hidden w-64 flex-col lg:flex"
-      style={{ backgroundColor: B.sidebar }}
-    >
-      <Link href="/" className="flex items-center gap-2 px-5 py-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 font-naskh text-lg font-bold text-white">
-          م
-        </span>
-        <span className="font-naskh text-lg font-bold text-white">المعلم</span>
-      </Link>
+  const body = (
+    <>
+      <div className="flex items-center justify-between px-5 py-5">
+        <Link href="/" className="flex items-center gap-2" onClick={onCloseDrawer}>
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 font-naskh text-lg font-bold text-white">
+            م
+          </span>
+          <span className="font-naskh text-lg font-bold text-white">المعلم</span>
+        </Link>
+        <button onClick={onCloseDrawer} className="cursor-pointer rounded-md p-1 text-white/70 hover:text-white lg:hidden" aria-label="إغلاق القائمة">
+          <CloseIcon size={20} />
+        </button>
+      </div>
 
       <nav className="mt-2 flex-1 space-y-1 overflow-y-auto px-3">
         {nav.map((item) => {
@@ -125,6 +146,7 @@ function Sidebar({ nav }: { nav: NavItem[] }) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onCloseDrawer}
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               style={{
                 backgroundColor: active ? B.sidebarActive : "transparent",
@@ -139,82 +161,107 @@ function Sidebar({ nav }: { nav: NavItem[] }) {
           );
         })}
       </nav>
-    </aside>
+
+      {/* بطاقة المستخدم — أسفل القائمة الجانبية دائماً */}
+      <div className="border-t border-white/10 p-3">
+        <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
+          <span
+            className="tabular flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+            style={{ backgroundColor: "#2563EB" }}
+          >
+            {initial}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-white">{teacher.teacherName || "معلّم"}</div>
+            <div className="truncate text-xs" style={{ color: B.sidebarText }}>
+              {teacher.role === "assistant" ? "مساعد مشرف" : "مشرف"} — {teacher.halaqahName}
+            </div>
+          </div>
+          <button
+            onClick={onLogout}
+            className="shrink-0 cursor-pointer rounded-md p-1.5 text-white/70 transition-colors duration-200 hover:bg-white/10 hover:text-white"
+            title="خروج"
+          >
+            <LogoutIcon size={17} />
+          </button>
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* ديسكتوب — ثابتة دائماً */}
+      <aside className="no-print fixed inset-y-0 right-0 z-20 hidden w-64 flex-col lg:flex" style={{ backgroundColor: B.sidebar }}>
+        {body}
+      </aside>
+
+      {/* جوال — Drawer */}
+      <div className={`no-print fixed inset-0 z-40 lg:hidden ${drawerOpen ? "" : "pointer-events-none"}`}>
+        <div
+          className="absolute inset-0 bg-black/40 transition-opacity duration-200"
+          style={{ opacity: drawerOpen ? 1 : 0 }}
+          onClick={onCloseDrawer}
+        />
+        <aside
+          className="absolute inset-y-0 right-0 flex w-72 max-w-[85vw] flex-col transition-transform duration-200"
+          style={{ backgroundColor: B.sidebar, transform: drawerOpen ? "translateX(0)" : "translateX(100%)" }}
+        >
+          {body}
+        </aside>
+      </div>
+    </>
   );
 }
 
-/** الشريط العلوي: ديسكتوب — جرس تنبيهات + هوية المعلّم؛ جوال — نفس هويّة الشعار + تبويبات أفقية (STEP 41) */
-function TopBar({ nav, teacher, onLogout }: { nav: NavItem[]; teacher: Teacher; onLogout: () => void }) {
+/**
+ * الشريط العلوي الأبيض: زر ☰ (جوال فقط) + عنوان الصفحة النشطة ووصفها +
+ * بحث (بصري حالياً — بلا نتائج فعلية، لا نضيف منطق بحث جديد فوق طلاب
+ * الحلقة بهذي الخطوة) + جرس التنبيهات (newCount حقيقي) + صورة المعلّم.
+ */
+function TopBar({ nav, teacher, onOpenDrawer }: { nav: NavItem[]; teacher: Teacher; onOpenDrawer: () => void }) {
   const pathname = usePathname();
+  const active = nav.find((item) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href))) ?? nav[0];
   const newWardsHref = nav.find((n) => n.href === "/inbox")?.badge;
   const initial = (teacher.teacherName || teacher.halaqahName || "م").trim().charAt(0);
 
   return (
     <header className="no-print border-b border-border bg-surface">
       <div className="flex items-center gap-3 px-4 py-3 lg:px-8">
-        <Link href="/" className="shrink-0 font-naskh text-lg font-bold lg:hidden" style={{ color: "#1E3A8A" }}>
-          المعلم
-        </Link>
+        <button onClick={onOpenDrawer} className="cursor-pointer rounded-md p-1.5 text-foreground lg:hidden" aria-label="فتح القائمة">
+          <MenuIcon size={22} />
+        </button>
 
-        <div className="mr-auto flex min-w-0 items-center gap-3">
-          {teacher.role === "assistant" && (
-            <span className="hidden shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent sm:inline">
-              مساعد مشرف
-            </span>
-          )}
-          <span className="hidden truncate text-sm text-muted-foreground lg:inline">
-            {teacher.teacherName ? `${teacher.teacherName} — ${teacher.halaqahName}` : teacher.halaqahName}
-          </span>
+        <div className="min-w-0">
+          <h1 className="truncate font-naskh text-base font-bold text-foreground sm:text-lg">{active.label}</h1>
+          {active.desc && <p className="hidden truncate text-xs text-muted-foreground sm:block">{active.desc}</p>}
+        </div>
 
+        <div className="relative mr-auto hidden max-w-xs flex-1 md:block">
+          <SearchIcon size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            placeholder="بحث…"
+            className="w-full rounded-lg border border-border bg-background py-1.5 pl-3 pr-9 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          />
+        </div>
+
+        <div className="mr-auto flex shrink-0 items-center gap-2 md:mr-0">
           <Link
             href="/inbox"
-            className="relative hidden items-center justify-center rounded-full p-2 text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground lg:flex"
+            className="relative flex items-center justify-center rounded-full p-2 text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
           >
             <BellIcon size={19} />
             {newWardsHref && <span className="absolute -left-0.5 -top-0.5">{newWardsHref}</span>}
           </Link>
-
-          <div className="hidden items-center gap-2 lg:flex">
-            <span
-              className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white"
-              style={{ backgroundColor: "#2563EB" }}
-            >
-              {initial}
-            </span>
-            <button
-              onClick={onLogout}
-              className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
-              title="خروج"
-            >
-              <LogoutIcon size={17} />
-            </button>
-          </div>
-
-          <Button variant="ghost" onClick={onLogout} className="shrink-0 lg:hidden">
-            خروج
-          </Button>
+          <span
+            className="tabular flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white"
+            style={{ backgroundColor: "#2563EB" }}
+          >
+            {initial}
+          </span>
         </div>
       </div>
-
-      {/* شريط تبويبات أفقي — الجوال فقط، القائمة الجانبية تكفي الديسكتوب */}
-      <nav className="no-scrollbar -mx-1 flex gap-1 overflow-x-auto px-5 pb-2 lg:hidden">
-        {nav.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={
-                "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring " +
-                (active ? "bg-[#2563EB]/10 font-semibold text-[#1E3A8A]" : "text-muted-foreground hover:bg-muted hover:text-foreground")
-              }
-            >
-              {item.label}
-              {item.badge}
-            </Link>
-          );
-        })}
-      </nav>
     </header>
   );
 }

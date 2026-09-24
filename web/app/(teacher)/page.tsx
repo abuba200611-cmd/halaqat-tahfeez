@@ -21,7 +21,7 @@ import { useStudents } from "@/lib/store";
 import type { SavedScheduleInfo, SavedScheduleRecord } from "@/lib/schedule";
 import type { WardLog } from "@/lib/types";
 
-/* ————— لوحة ألوان الصفحة (STEP 41 — يطابق مرجع لوحة تحكّم زرقاء بقائمة جانبية) — محصورة هنا ————— */
+/* ————— لوحة ألوان الصفحة (STEP 41/42 — يطابق مرجع لوحة تحكّم زرقاء بقائمة جانبية) — محصورة هنا ————— */
 const C = {
   heroFrom: "#1E3A8A",
   heroTo: "#2563EB",
@@ -92,8 +92,7 @@ function useCountUp(target: number, durationMs = 600): number {
     let raf = 0;
     const start = performance.now();
     // كل تحديث للحالة يقع داخل هذا الاستدعاء (مُشغَّل عبر requestAnimationFrame)
-    // لا مباشرة بجسم الأثر — بلا حركة، الإطار الأول يصل t=1 فوراً فيقفز للقيمة
-    // النهائية بلا أي وميض.
+    // لا مباشرة بجسم الأثر — بلا حركة، الإطار الأول يصل t=1 فوراً فيقفز للقيمة.
     function tick(now: number) {
       const t = effectiveDuration === 0 ? 1 : Math.min(1, (now - start) / effectiveDuration);
       const eased = 1 - Math.pow(1 - t, 3);
@@ -101,7 +100,16 @@ function useCountUp(target: number, durationMs = 600): number {
       if (t < 1) raf = requestAnimationFrame(tick);
     }
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+
+    // شبكة أمان: rAF قد لا يُشغَّل بمعدّل موثوق ببعض السياقات (تبويب غير
+    // نشط، أدوات معاينة آلية) — بلا هذا، الرقم يبقى عالقاً على ٠ للأبد.
+    // نضمن الوصول للقيمة الصحيحة نهائياً بصرف النظر عن سلوك rAF.
+    const settle = window.setTimeout(() => setValue(target), effectiveDuration + 50);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(settle);
+    };
   }, [target, durationMs]);
 
   return value;
@@ -162,6 +170,7 @@ export default function DashboardPage() {
   const { teacher, wards, newCount, scheduleDays, loading: dataLoading } = useDashboardData();
   const [demoCount, setDemoCount] = useState(150);
   const active = students.filter((s) => s.active);
+  const hasStudents = students.length > 0;
 
   const loading = studentsLoading || dataLoading;
 
@@ -230,12 +239,15 @@ export default function DashboardPage() {
 
   if (loading) return <DashboardSkeleton />;
 
-  if (students.length === 0) {
-    return <EmptyDashboard demoCount={demoCount} setDemoCount={setDemoCount} loadDemo={loadDemo} />;
-  }
-
+  // الهيكل الكامل يبقى ظاهراً دائماً حتى بلا طلاب (STEP 42) — الأرقام
+  // تصير ٠ أو "—" بدل استبدال اللوحة كلها برسالة فارغة؛ بطاقة onboarding
+  // تظهر بدلاً من ذلك أعلى الصفحة تحديداً.
   return (
     <div className="space-y-6">
+      {!hasStudents && (
+        <OnboardingBanner demoCount={demoCount} setDemoCount={setDemoCount} loadDemo={loadDemo} />
+      )}
+
       <Hero
         teacherName={teacher?.teacherName}
         studentCount={active.length}
@@ -251,7 +263,7 @@ export default function DashboardPage() {
           label="عدد الطلاب"
           value={active.length}
           progress={students.length > 0 ? Math.round((active.length / students.length) * 100) : null}
-          progressLabel={`${active.length} من ${students.length} نشطون`}
+          progressLabel={students.length > 0 ? `${active.length} من ${students.length} نشطون` : "لا طلاب بعد"}
         />
         <StatCard
           color={C.emerald}
@@ -267,15 +279,10 @@ export default function DashboardPage() {
           value={stats.sessionsThisWeek}
           delta={stats.sessionsDelta}
         />
-        <StatCard
-          color={C.gold}
-          icon={<FlameIcon size={22} />}
-          label="أيام متتالية نشطة"
-          value={stats.streak}
-        />
+        <StatCard color={C.gold} icon={<FlameIcon size={22} />} label="أيام متتالية نشطة" value={stats.streak} />
       </div>
 
-      <QuickActions clearAction={clear} />
+      <QuickActions clearAction={clear} hasStudents={hasStudents} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <StarsOfWeek stars={stats.starsOfWeek} />
@@ -287,9 +294,63 @@ export default function DashboardPage() {
   );
 }
 
+/* ————— بطاقة onboarding — تظهر أعلى اللوحة بدل استبدالها بالكامل، طالما لا طلاب بعد ————— */
+
+export function OnboardingBanner({
+  demoCount,
+  setDemoCount,
+  loadDemo,
+}: {
+  demoCount: number;
+  setDemoCount: (n: number) => void;
+  loadDemo: (n: number) => void;
+}) {
+  return (
+    <div
+      className="flex flex-col items-center gap-4 rounded-2xl bg-white p-6 text-center shadow-sm sm:flex-row sm:text-right"
+      style={{ border: `1px solid ${C.cardBorder}` }}
+    >
+      <span className="shrink-0" style={{ color: C.heroTo }}>
+        <SproutIcon size={44} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h2 className="font-naskh text-lg font-bold" style={{ color: C.text }}>
+          ابدأ رحلة حلقتك 🌱
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: C.textMuted }}>
+          لا يوجد طلاب بعد — اللوحة أدناه تعرض الهيكل الكامل بأصفار حتى تضيف طلابك، أو جرّب حلقة تجريبية لاستكشافها أولاً.
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-center gap-2">
+        <Link href="/students">
+          <Button>إضافة طالب</Button>
+        </Link>
+        <label className="flex items-center gap-2 text-sm" style={{ color: C.textMuted }}>
+          العدد
+          <input
+            type="number"
+            min={2}
+            max={MAX_DEMO}
+            value={demoCount}
+            onChange={(e) => setDemoCount(Number(e.target.value))}
+            className="tabular w-20 rounded-md border border-border bg-surface px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          />
+        </label>
+        <Button
+          variant="ghost"
+          onClick={() => loadDemo(Math.min(MAX_DEMO, Math.max(2, demoCount)))}
+          disabled={!Number.isFinite(demoCount) || demoCount < 2}
+        >
+          تحميل حلقة تجريبية
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /* ————— بطاقة الترحيب (Hero) ————— */
 
-function Hero({
+export function Hero({
   teacherName,
   studentCount,
   pagesThisWeek,
@@ -311,11 +372,15 @@ function Hero({
     year: "numeric",
   }).format(new Date());
 
-  const chips: { label: string; value: string }[] = [
-    { label: "الطلاب", value: studentCount.toLocaleString("en") },
-    { label: "صفحات الأسبوع", value: pagesThisWeek.toLocaleString("en") },
-    { label: "الحلقات هذا الأسبوع", value: sessionsThisWeek === null ? "—" : sessionsThisWeek.toLocaleString("en") },
-    { label: "نشاط الأسبوع", value: participationPct === null ? "—" : `${participationPct}٪` },
+  const chips: { label: string; value: string; icon: React.ReactNode }[] = [
+    { label: "الطلاب", value: studentCount.toLocaleString("en"), icon: <UsersIcon size={16} /> },
+    { label: "صفحات الأسبوع", value: pagesThisWeek.toLocaleString("en"), icon: <BookIcon size={16} /> },
+    {
+      label: "الحلقات هذا الأسبوع",
+      value: sessionsThisWeek === null ? "—" : sessionsThisWeek.toLocaleString("en"),
+      icon: <CalendarIcon size={16} />,
+    },
+    { label: "نشاط الأسبوع", value: participationPct === null ? "—" : `${participationPct}٪`, icon: <ChartIcon size={16} /> },
   ];
 
   return (
@@ -337,7 +402,8 @@ function Hero({
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {chips.map((chip) => (
             <div key={chip.label} className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <div className="tabular text-xl font-bold">{chip.value}</div>
+              <div className="flex items-center gap-1.5 text-white/70">{chip.icon}</div>
+              <div className="tabular mt-1 text-xl font-bold">{chip.value}</div>
               <div className="mt-0.5 text-xs text-white/75">{chip.label}</div>
             </div>
           ))}
@@ -372,7 +438,7 @@ function IslamicPattern() {
 
 /* ————— بطاقة إحصائية ————— */
 
-function StatCard({
+export function StatCard({
   color,
   icon,
   label,
@@ -390,16 +456,27 @@ function StatCard({
   progressLabel?: string;
 }) {
   const animated = useCountUp(value ?? 0);
+  const showDelta = delta !== undefined && delta !== null && delta !== 0;
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
-      <div
-        className="mb-3 flex h-10 w-10 items-center justify-center rounded-full"
-        style={{ backgroundColor: `${color}1A`, color }}
-      >
-        {icon}
+      <div className="flex items-start justify-between">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}1A`, color }}>
+          {icon}
+        </div>
+        {showDelta && (
+          <span
+            className={`tabular flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+              delta! > 0 ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            {delta! > 0 ? <ArrowUpIcon size={10} /> : <ArrowDownIcon size={10} />}
+            {Math.abs(delta!)}
+          </span>
+        )}
       </div>
-      <div className="tabular text-3xl font-bold" style={{ color: C.text }}>
+
+      <div className="tabular mt-3 text-3xl font-bold" style={{ color: C.text }}>
         {value === null ? "—" : animated.toLocaleString("en")}
       </div>
       <div className="mt-1 text-xs" style={{ color: C.textMuted }}>
@@ -422,10 +499,9 @@ function StatCard({
         </div>
       )}
 
-      {delta !== undefined && delta !== null && delta !== 0 && (
-        <div className={`mt-2 flex items-center gap-1 text-xs ${delta > 0 ? "text-emerald-600" : "text-slate-400"}`}>
-          {delta > 0 ? <ArrowUpIcon size={12} /> : <ArrowDownIcon size={12} />}
-          <span className="tabular">{Math.abs(delta)} عن الأسبوع الماضي</span>
+      {showDelta && (
+        <div className="mt-2 text-[11px]" style={{ color: C.textMuted }}>
+          عن الأسبوع الماضي
         </div>
       )}
     </div>
@@ -434,12 +510,12 @@ function StatCard({
 
 /* ————— إجراءات سريعة ————— */
 
-function QuickActions({ clearAction }: { clearAction: () => void }) {
+export function QuickActions({ clearAction, hasStudents }: { clearAction: () => void; hasStudents: boolean }) {
   const items = [
-    { href: "/students", color: C.blue, icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
-    { href: "/pairing", color: C.emerald, icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
-    { href: "/reports", color: C.orange, icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
-    { href: "/schedule", color: C.purple, icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
+    { href: "/students", from: "#3B82F6", to: "#1D4ED8", icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
+    { href: "/pairing", from: "#10B981", to: "#047857", icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
+    { href: "/reports", from: "#F97316", to: "#C2410C", icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
+    { href: "/schedule", from: "#8B5CF6", to: "#6D28D9", icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
   ];
 
   return (
@@ -448,30 +524,23 @@ function QuickActions({ clearAction }: { clearAction: () => void }) {
         <h2 className="font-naskh text-lg font-bold" style={{ color: C.text }}>
           إجراءات سريعة
         </h2>
-        <Button variant="danger" onClick={clearAction} className="no-print">
-          مسح البيانات
-        </Button>
+        {hasStudents && (
+          <Button variant="danger" onClick={clearAction} className="no-print">
+            مسح البيانات
+          </Button>
+        )}
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {items.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="group rounded-2xl bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
-            style={{ border: `1px solid ${C.cardBorder}` }}
+            className="rounded-2xl p-5 text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+            style={{ background: `linear-gradient(135deg, ${item.from}, ${item.to})` }}
           >
-            <div
-              className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl"
-              style={{ backgroundColor: item.color, color: "#ffffff" }}
-            >
-              {item.icon}
-            </div>
-            <div className="font-semibold" style={{ color: C.text }}>
-              {item.title}
-            </div>
-            <div className="mt-0.5 text-xs" style={{ color: C.textMuted }}>
-              {item.desc}
-            </div>
+            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">{item.icon}</div>
+            <div className="font-semibold">{item.title}</div>
+            <div className="mt-0.5 text-xs text-white/80">{item.desc}</div>
           </Link>
         ))}
       </div>
@@ -479,9 +548,11 @@ function QuickActions({ clearAction }: { clearAction: () => void }) {
   );
 }
 
-/* ————— نجوم الأسبوع ————— */
+/* ————— نجوم الأسبوع — كقائمة متصدّرين (مربع ملوّن بالحروف + رقم الترتيب) ————— */
 
-function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: number }[] }) {
+export function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: number }[] }) {
+  const rankColors = [C.gold, C.blue, C.emerald];
+
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
       <h2 className="mb-4 flex items-center gap-2 font-naskh text-lg font-bold" style={{ color: C.text }}>
@@ -498,11 +569,19 @@ function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: numb
         <ul className="space-y-3">
           {stars.map((s, i) => (
             <li key={s.id} className="flex items-center gap-3">
-              <div
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                style={{ backgroundColor: i === 0 ? C.gold : C.blue }}
-              >
-                {s.name.trim().charAt(0) || "؟"}
+              <div className="relative shrink-0">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white"
+                  style={{ backgroundColor: rankColors[i] ?? C.blue }}
+                >
+                  {s.name.trim().charAt(0) || "؟"}
+                </div>
+                <span
+                  className="tabular absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
+                  style={{ backgroundColor: C.text }}
+                >
+                  {i + 1}
+                </span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium" style={{ color: C.text }}>
@@ -522,9 +601,9 @@ function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: numb
 
 /* ————— حلقة اليوم ————— */
 
-type SessionDay = SavedScheduleRecord["schedule"]["days"][number];
+export type SessionDay = SavedScheduleRecord["schedule"]["days"][number];
 
-function TodaySession({ today, next }: { today: SessionDay | null; next: SessionDay | null }) {
+export function TodaySession({ today, next }: { today: SessionDay | null; next: SessionDay | null }) {
   const session = today ?? next;
 
   return (
@@ -562,7 +641,7 @@ function TodaySession({ today, next }: { today: SessionDay | null; next: Session
 
 /* ————— بانتظار المراجعة (أوراد جديدة) — بيانات حقيقية من /api/wards ————— */
 
-function PendingReview({ count }: { count: number }) {
+export function PendingReview({ count }: { count: number }) {
   return (
     <Link
       href="/inbox"
@@ -587,55 +666,6 @@ function PendingReview({ count }: { count: number }) {
         مراجعة الوارد
       </Button>
     </Link>
-  );
-}
-
-/* ————— حالة اللوحة الفارغة (بلا طلاب) ————— */
-
-function EmptyDashboard({
-  demoCount,
-  setDemoCount,
-  loadDemo,
-}: {
-  demoCount: number;
-  setDemoCount: (n: number) => void;
-  loadDemo: (n: number) => void;
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <span style={{ color: C.heroTo }}>
-        <SproutIcon size={64} />
-      </span>
-      <h1 className="mt-4 font-naskh text-2xl font-bold" style={{ color: C.text }}>
-        ابدأ رحلة حلقتك 🌱
-      </h1>
-      <p className="mt-2 max-w-sm text-sm" style={{ color: C.textMuted }}>
-        لا يوجد طلاب بعد. أضف طلابك الحقيقيين، أو جرّب حلقة تجريبية بالعدد الذي تريده لاستكشاف اللوحة أولاً.
-      </p>
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-        <Link href="/students">
-          <Button>إضافة طالب</Button>
-        </Link>
-        <label className="flex items-center gap-2 text-sm" style={{ color: C.textMuted }}>
-          العدد
-          <input
-            type="number"
-            min={2}
-            max={MAX_DEMO}
-            value={demoCount}
-            onChange={(e) => setDemoCount(Number(e.target.value))}
-            className="tabular w-24 rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          />
-        </label>
-        <Button
-          variant="ghost"
-          onClick={() => loadDemo(Math.min(MAX_DEMO, Math.max(2, demoCount)))}
-          disabled={!Number.isFinite(demoCount) || demoCount < 2}
-        >
-          تحميل حلقة تجريبية
-        </Button>
-      </div>
-    </div>
   );
 }
 

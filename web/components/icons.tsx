@@ -198,3 +198,34 @@ export function LogoutIcon(props: IconProps) {
     props,
   );
 }
+
+export function SearchIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M19.5 19.5 15.2 15.2" />
+    </>,
+    props,
+  );
+}
+
+export function MenuIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M4 7h16" />
+      <path d="M4 12h16" />
+      <path d="M4 17h16" />
+    </>,
+    props,
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return base(
+    <>
+      <path d="M6 6l12 12" />
+      <path d="M18 6 6 18" />
+    </>,
+    props,
+  );
+}
