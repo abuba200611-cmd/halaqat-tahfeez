@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Button, Card } from "./ui";
+import { MailIcon } from "./icons";
 import { resetStore } from "@/lib/store";
 
 type Teacher = {
@@ -102,18 +104,7 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
               </Button>
             </div>
           </div>
-          <nav className="no-scrollbar -mx-1 mt-2 flex gap-1 overflow-x-auto px-1">
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                {item.label}
-                {item.badge}
-              </Link>
-            ))}
-          </nav>
+          <NavBar nav={nav} />
         </div>
       </header>
       {!teacher.emailVerified && <VerifyEmailBanner />}
@@ -122,7 +113,35 @@ export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.Re
   );
 }
 
-/** شريط تذكير بتأكيد البريد — يظهر فقط لمن سجّل ببريد/كلمة مرور ولم يؤكّد بعد */
+/** شريط التنقّل العلوي — التبويب المطابق للمسار الحالي يصير pill زمردي فاتح بدل نص عادي (STEP 40) */
+function NavBar({ nav }: { nav: NavItem[] }) {
+  const pathname = usePathname();
+
+  return (
+    <nav className="no-scrollbar -mx-1 mt-2 flex gap-1 overflow-x-auto px-1">
+      {nav.map((item) => {
+        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={
+              "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring " +
+              (active
+                ? "bg-[#0F766E]/10 font-semibold text-[#0F766E]"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground")
+            }
+          >
+            {item.label}
+            {item.badge}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** شريط تذكير بتأكيد البريد — يظهر فقط لمن سجّل ببريد/كلمة مرور ولم يؤكّد بعد (STEP 40: بطاقة هادئة بدل شريط ممتد) */
 function VerifyEmailBanner() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -138,19 +157,22 @@ function VerifyEmailBanner() {
   }
 
   return (
-    <div className="no-print border-b border-accent/30 bg-accent/5 px-4 py-2 text-center text-sm text-accent">
-      لم تؤكّد بريدك الإلكتروني بعد.{" "}
-      {sent ? (
-        "أُعيد الإرسال ✓ تفقّد بريدك."
-      ) : (
-        <button
-          onClick={resend}
-          disabled={busy}
-          className="cursor-pointer font-semibold underline hover:no-underline disabled:cursor-not-allowed"
-        >
-          {busy ? "لحظة…" : "أعد إرسال رابط التأكيد"}
-        </button>
-      )}
+    <div className="no-print mx-auto w-full max-w-7xl px-4 pt-3">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        <MailIcon size={18} className="shrink-0" />
+        <span>لم تؤكّد بريدك الإلكتروني بعد.</span>
+        {sent ? (
+          <span className="font-semibold">أُعيد الإرسال ✓ تفقّد بريدك.</span>
+        ) : (
+          <button
+            onClick={resend}
+            disabled={busy}
+            className="mr-auto cursor-pointer rounded-md bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 transition-colors duration-200 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? "لحظة…" : "أعد الإرسال"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
