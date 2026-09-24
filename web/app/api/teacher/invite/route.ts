@@ -1,14 +1,16 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { halaqahInviteCode } from "@/lib/db";
 
-/** عنوان نظام تسجيل الورد المستقل (tasjeel-tullab) — نفس المتغيّر المستخدم بجهة السحب اليدوي */
-const LINK_API_URL = process.env.LINK_STUDENT_API_URL ?? "http://localhost:3100";
-
-/** رابط دعوة جاهز للمشاركة — يفتح تسجيل حساب طالب جديد منضمّاً مباشرة لهذي الحلقة */
-export async function GET() {
+/**
+ * رابط دعوة الطلاب — يفتح /student-join داخل هذا التطبيق نفسه (STEP 46)،
+ * بنفس نطاق الطلب كرابط المعلّم المساعد. روابط tasjeel-tullab القديمة
+ * (LINK_STUDENT_API_URL/?invite=) تظل تعمل هناك — الرمز نفسه مشترك.
+ */
+export async function GET(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
   const code = await halaqahInviteCode(teacher.halaqahId);
-  return Response.json({ code, link: `${LINK_API_URL}/?invite=${code}` });
+  const origin = new URL(request.url).origin;
+  return Response.json({ code, link: `${origin}/student-join?invite=${encodeURIComponent(code)}` });
 }

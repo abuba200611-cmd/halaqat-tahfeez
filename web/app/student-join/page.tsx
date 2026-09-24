@@ -26,10 +26,11 @@ function StudentJoinFlow() {
   const linked = params.get("linked") === "1";
   const step = params.get("step");
   const urlError = params.get("error");
+  const invite = extractInviteCode(params.get("invite") ?? "");
 
   if (linked) return <AlreadyLinked />;
-  if (step === "invite") return <CompleteInviteForm />;
-  return <StartGoogle initialError={urlError} />;
+  if (step === "invite") return <CompleteInviteForm initialInvite={invite} />;
+  return <StartGoogle initialError={urlError} invite={invite} />;
 }
 
 function PageShell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
@@ -42,12 +43,28 @@ function PageShell({ title, subtitle, children }: { title: string; subtitle?: st
   );
 }
 
-function StartGoogle({ initialError }: { initialError: string | null }) {
+function StartGoogle({ initialError, invite }: { initialError: string | null; invite: string }) {
+  const startHref = invite
+    ? `/api/student-auth/google/start?invite=${encodeURIComponent(invite)}`
+    : "/api/student-auth/google/start";
+
   return (
-    <PageShell title="انضمام طالب جديد" subtitle="سجّل بحساب جوجل، ثم أدخل رمز دعوة حلقتك لإنشاء حسابك.">
+    <PageShell
+      title="انضمام طالب جديد"
+      subtitle={
+        invite
+          ? "سجّل بحساب جوجل، ثم اكتب اسمك فقط لإنشاء حسابك."
+          : "سجّل بحساب جوجل، ثم أدخل رمز دعوة حلقتك لإنشاء حسابك."
+      }
+    >
+      {invite && (
+        <p className="mb-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-center text-sm text-emerald-300">
+          رمز دعوة حلقتك جاهز ✓
+        </p>
+      )}
       {initialError && <p className="mb-3 text-center text-sm text-red-400">{initialError}</p>}
       <a
-        href="/api/student-auth/google/start"
+        href={startHref}
         className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl"
         style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
       >
@@ -89,10 +106,10 @@ function extractInviteCode(input: string): string {
   }
 }
 
-function CompleteInviteForm() {
+function CompleteInviteForm({ initialInvite }: { initialInvite: string }) {
   const router = useRouter();
   const [studentName, setStudentName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+  const [inviteCode, setInviteCode] = useState(initialInvite);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -123,7 +140,14 @@ function CompleteInviteForm() {
   }
 
   return (
-    <PageShell title="أكمل بيانات الانضمام" subtitle="تم التحقق من حساب جوجل بنجاح. أدخل اسمك ورمز دعوة حلقتك لإتمام إنشاء حسابك.">
+    <PageShell
+      title="أكمل بيانات الانضمام"
+      subtitle={
+        initialInvite
+          ? "تم التحقق من حساب جوجل بنجاح، ورمز حلقتك جاهز. اكتب اسمك لإتمام إنشاء حسابك."
+          : "تم التحقق من حساب جوجل بنجاح. أدخل اسمك ورمز دعوة حلقتك لإتمام إنشاء حسابك."
+      }
+    >
       <form onSubmit={submit} className="space-y-3">
         <label className="block text-sm">
           <span className="text-xs text-white/60">اسمك</span>

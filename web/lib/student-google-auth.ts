@@ -107,6 +107,43 @@ export async function clearStudentGooglePendingCookie(): Promise<void> {
   store.delete(PENDING_COOKIE);
 }
 
+// ————— رمز الدعوة عبر رحلة Google (STEP 46) —————
+// ليس سرّاً (الطالب نفسه وصله بالرابط) ولا يمنح أي صلاحية: مجرد تعبئة
+// مسبقة للخانة بعد الرجوع من Google. التحقق الفعلي من الرمز يبقى كما هو
+// في complete-invite، ضمن نفس محاولة الـpending الواحدة (STEP 31).
+
+const INVITE_COOKIE = "student_google_invite";
+
+/** يقبل رمزاً بشكل معقول فقط (الرموز الفعلية ١٠ محارف hex) — وإلا null */
+export function normalizeInviteCode(raw: string | null | undefined): string | null {
+  const code = (raw ?? "").trim();
+  return /^[A-Za-z0-9_-]{1,64}$/.test(code) ? code : null;
+}
+
+export async function setStudentGoogleInviteCookie(code: string): Promise<void> {
+  const store = await cookies();
+  store.set(INVITE_COOKIE, code, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: PENDING_MAX_AGE_SECONDS,
+  });
+}
+
+export async function clearStudentGoogleInviteCookie(): Promise<void> {
+  const store = await cookies();
+  store.delete(INVITE_COOKIE);
+}
+
+/** يقرأ الرمز المحفوظ ويمسحه فوراً — يُستهلك مرة واحدة عند الرجوع من Google */
+export async function consumeStudentGoogleInviteCookie(): Promise<string | null> {
+  const store = await cookies();
+  const value = store.get(INVITE_COOKIE)?.value;
+  store.delete(INVITE_COOKIE);
+  return normalizeInviteCode(value);
+}
+
 // ————— دخول Google لربط طالب موجود مسبقاً (STEP 6B) —————
 // كوكيات مستقلة تماماً عن الأعلى (STEP 6A): لا تشارك أي اسم كوكي، حتى
 // لو فتح الطالب تبويبين (واحد "طالب جديد" وواحد "ربط حساب") لا يتعارضان.

@@ -9,7 +9,27 @@ const {
   readStudentGooglePendingToken,
   createStudentGoogleLinkPendingToken,
   readStudentGoogleLinkPendingToken,
+  normalizeInviteCode,
 } = await import("./student-google-auth");
+
+describe("normalizeInviteCode", () => {
+  it("يقبل رمزاً فعلياً ويقصّ المسافات", () => {
+    expect(normalizeInviteCode("85ced758d1")).toBe("85ced758d1");
+    expect(normalizeInviteCode("  85ced758d1 ")).toBe("85ced758d1");
+  });
+
+  it("يرفض الفارغ وnull", () => {
+    expect(normalizeInviteCode("")).toBeNull();
+    expect(normalizeInviteCode(null)).toBeNull();
+    expect(normalizeInviteCode(undefined)).toBeNull();
+  });
+
+  it("يرفض أي شيء ليس رمزاً (روابط، رموز خاصة، أطول من ٦٤)", () => {
+    expect(normalizeInviteCode("https://x.app/?invite=abc")).toBeNull();
+    expect(normalizeInviteCode("abc;def")).toBeNull();
+    expect(normalizeInviteCode("a".repeat(65))).toBeNull();
+  });
+});
 
 describe("createStudentGooglePendingToken / readStudentGooglePendingToken", () => {
   it("يقرأ نفس sub والبريد اللذين وُقّع بهما التوكن", async () => {

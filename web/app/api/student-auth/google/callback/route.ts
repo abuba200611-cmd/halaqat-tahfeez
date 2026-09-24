@@ -1,6 +1,10 @@
 import { findGoogleStudentAccount } from "@/lib/db";
 import { exchangeGoogleCode } from "@/lib/google-auth";
-import { consumeStudentGoogleState, setStudentGooglePendingCookie } from "@/lib/student-google-auth";
+import {
+  consumeStudentGoogleInviteCookie,
+  consumeStudentGoogleState,
+  setStudentGooglePendingCookie,
+} from "@/lib/student-google-auth";
 
 /** يرجع لصفحة الانضمام مع حالة توضّح للواجهة ماذا تعرض */
 function toJoinPage(origin: string, params: Record<string, string>): Response {
@@ -21,8 +25,13 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
 
+  // رمز الدعوة المحفوظ من رابط المعلّم (STEP 46) — يرجع بالرابط لتعبئة
+  // الخانة، ومع رسائل الخطأ أيضاً حتى لا يضيع لو أعاد الطالب المحاولة.
+  const invite = await consumeStudentGoogleInviteCookie();
+  const withInvite = (params: Record<string, string>) => (invite ? { ...params, invite } : params);
+
   if (!code || !state || !(await consumeStudentGoogleState(state))) {
-    return toJoinPage(origin, { error: "تعذّر التحقق من طلب الدخول — حاول مرة ثانية" });
+    return toJoinPage(origin, withInvite({ error: "تعذّر التحقق من طلب الدخول — حاول مرة ثانية" }));
   }
 
   try {
@@ -34,8 +43,11 @@ export async function GET(request: Request) {
     }
 
     await setStudentGooglePendingCookie(profile.sub, profile.email);
-    return toJoinPage(origin, { step: "invite" });
+    return toJoinPage(origin, withInvite({ step: "invite" }));
   } catch (error) {
-    return toJoinPage(origin, { error: error instanceof Error ? error.message : "تعذّر الدخول بحساب جوجل" });
+    return toJoinPage(
+      origin,
+      withInvite({ error: error instanceof Error ? error.message : "تعذّر الدخول بحساب جوجل" }),
+    );
   }
 }

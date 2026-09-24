@@ -312,7 +312,7 @@ function InviteLinksSection() {
               <span aria-hidden>🎓</span> للطلاب
             </p>
             <p className="mb-2 text-xs text-muted-foreground">
-              شاركه مع طلابك (بقروب واتساب مثلاً) — كل من يفتحه وينشئ حسابه بتسجيل الورد
+              شاركه مع طلابك (بقروب واتساب مثلاً) — كل من يفتحه ويسجّل بحساب جوجل ويكتب اسمه
               ينضم لحلقتك تلقائياً، بلا ما تحتاج تضيفه أو تربطه يدوياً.
             </p>
             <CopyLinkField link={studentLink} />
