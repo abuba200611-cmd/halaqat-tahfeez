@@ -101,20 +101,18 @@ function AyahPosFields({
   );
 }
 
-export function AyahRangeField({
+/**
+ * زوج "من/إلى" لنطاق سورة/آية واحد، بلا أي عنوان قسم حولها — يُستخدم
+ * مباشرة (بالحفظ) أو كصفّ واحد داخل قائمة مقاطع المراجعة (STEP 52).
+ */
+export function AyahRangeInputs({
   idPrefix,
-  label,
-  icon,
-  colorClass,
   value,
   onChange,
   error,
   pageLabel,
 }: {
   idPrefix: string;
-  label: string;
-  icon: React.ReactNode;
-  colorClass: string;
   value: AyahRangeInput;
   onChange: (next: AyahRangeInput) => void;
   error: string | null;
@@ -135,17 +133,41 @@ export function AyahRangeField({
   }
 
   return (
+    <div className="space-y-2.5">
+      <AyahPosFields idPrefix={`${idPrefix}-from`} legend="من" pos={value.from} onChange={setFrom} />
+      <AyahPosFields idPrefix={`${idPrefix}-to`} legend="إلى" pos={value.to} onChange={setTo} />
+      {pageLabel && !error && <p className="tabular text-xs text-slate-400">{pageLabel}</p>}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+export function AyahRangeField({
+  idPrefix,
+  label,
+  icon,
+  colorClass,
+  value,
+  onChange,
+  error,
+  pageLabel,
+}: {
+  idPrefix: string;
+  label: string;
+  icon: React.ReactNode;
+  colorClass: string;
+  value: AyahRangeInput;
+  onChange: (next: AyahRangeInput) => void;
+  error: string | null;
+  pageLabel: string | null;
+}) {
+  return (
     <fieldset className="space-y-2">
       <legend className={`flex items-center gap-1.5 text-sm font-semibold ${colorClass}`}>
         {icon}
         {label}
       </legend>
-      <div className="space-y-2.5">
-        <AyahPosFields idPrefix={`${idPrefix}-from`} legend="من" pos={value.from} onChange={setFrom} />
-        <AyahPosFields idPrefix={`${idPrefix}-to`} legend="إلى" pos={value.to} onChange={setTo} />
-      </div>
-      {pageLabel && !error && <p className="tabular text-xs text-slate-400">{pageLabel}</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      <AyahRangeInputs idPrefix={idPrefix} value={value} onChange={onChange} error={error} pageLabel={pageLabel} />
     </fieldset>
   );
 }

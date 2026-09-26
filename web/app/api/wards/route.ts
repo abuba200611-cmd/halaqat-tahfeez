@@ -2,12 +2,15 @@ import { currentStudent, currentTeacher, studentUnauthorized, unauthorized } fro
 import {
   countNewWards,
   createWardLog,
+  deleteWardLog,
   listWardLogs,
   setWardLogStatus,
+  updateWardLog,
+  type NewReviewSegment,
   type NewWardLog,
 } from "@/lib/db";
 import { sendPushToHalaqah } from "@/lib/push";
-import { parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
+import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import type { WardStatus } from "@/lib/types";
 
 /** يقرأ موضع سورة/آية من الجسم بأمان — null لأي قيمة غير رقمية */
@@ -21,16 +24,61 @@ function readPos(input: unknown): { surah: number | null; ayah: number | null } 
   };
 }
 
-/** يقرأ نطاق سورة/آية اختياري من الجسم ويحوّله لنطاق صفحات — يرمي برسالة دقيقة لو غير صحيح */
+function readRangeInput(raw: unknown): AyahRangeInput {
+  const r = (raw ?? {}) as { from?: unknown; to?: unknown };
+  return { from: readPos(r.from), to: readPos(r.to) };
+}
+
+/** يقرأ نطاق سورة/آية اختياري (الحفظ) من الجسم ويحوّله لنطاق صفحات — يرمي برسالة دقيقة لو غير صحيح */
 function parseRange(input: unknown, label: string) {
   if (input === null || input === undefined) return null;
   if (typeof input !== "object") throw new Error(`أكمل اختيار السورة والآية بقسم ${label}`);
-  const raw = input as { from?: unknown; to?: unknown };
-  const range: AyahRangeInput = { from: readPos(raw.from), to: readPos(raw.to) };
-  return parseAyahRange(range, label);
+  return parseAyahRange(readRangeInput(input), label);
 }
 
-/** الطالب يرسل ورد اليوم — حفظه ومراجعته، بالسورة والآية (STEP 49) */
+/**
+ * يقرأ قائمة مقاطع المراجعة من الجسم (STEP 52: مصفوفة من ١ إلى ١٠
+ * مقاطع، كل مقطع {from, to}) ويتحقّق منها عبر parseReviewSegments —
+ * نفس مصدر الحقيقة الذي تستخدمه الواجهة للتحقّق الفوري.
+ */
+function parseReviewBody(input: unknown): ReturnType<typeof parseReviewSegments> {
+  if (input === null || input === undefined) return null;
+  if (!Array.isArray(input)) throw new Error("صيغة المراجعة غير صحيحة");
+  return parseReviewSegments(input.map(readRangeInput));
+}
+
+/** يبني NewWardLog من نتيجتَي تحقّق الحفظ والمراجعة — مشترك بين POST وPUT */
+function buildLog(
+  date: string,
+  hifz: ReturnType<typeof parseAyahRange>,
+  review: ReturnType<typeof parseReviewSegments>,
+  note: string,
+): NewWardLog {
+  const reviewSegments: NewReviewSegment[] | null = review
+    ? review.segments.map((seg, i) => ({ ...seg, fromPage: review.pages[i].from, toPage: review.pages[i].to }))
+    : null;
+  const reviewFrom = review ? Math.min(...review.pages.map((p) => p.from)) : null;
+  const reviewTo = review ? Math.max(...review.pages.map((p) => p.to)) : null;
+
+  return {
+    date,
+    hifzFrom: hifz?.pages.from ?? null,
+    hifzTo: hifz?.pages.to ?? null,
+    reviewFrom,
+    reviewTo,
+    hifzAyah: hifz?.ayah ?? null,
+    // STEP 52: المراجعة الجديدة دائماً مقاطع (0 أو أكثر)، لا نطاق واحد قديم
+    reviewAyah: null,
+    reviewSegments,
+    note,
+  };
+}
+
+function isValidDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/** الطالب يرسل ورد اليوم — حفظه (نطاق واحد) ومراجعته (١ إلى ١٠ مقاطع، STEP 52) */
 export async function POST(request: Request) {
   const student = await currentStudent();
   if (!student) return studentUnauthorized();
@@ -38,23 +86,14 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const hifz = parseRange(body.hifz, "الحفظ");
-    const review = parseRange(body.review, "المراجعة");
+    const review = parseReviewBody(body.review);
     const note = String(body.note ?? "").trim().slice(0, 500);
 
     if (!hifz && !review && !note) {
       throw new Error("سجّل حفظاً أو مراجعة قبل الإرسال");
     }
 
-    const log: NewWardLog = {
-      date: new Date().toISOString().slice(0, 10),
-      hifzFrom: hifz?.pages.from ?? null,
-      hifzTo: hifz?.pages.to ?? null,
-      reviewFrom: review?.pages.from ?? null,
-      reviewTo: review?.pages.to ?? null,
-      hifzAyah: hifz?.ayah ?? null,
-      reviewAyah: review?.ayah ?? null,
-      note,
-    };
+    const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, note);
     const { previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
 
     // إشعار المعلّم — لا يُفشل الحفظ إن تعذّر. عنوان مختلف لو كانت هذي
@@ -62,7 +101,7 @@ export async function POST(request: Request) {
     // — نفس آلية sendPushToHalaqah الموجودة، بلا أي بنية إشعار جديدة.
     const parts: string[] = [];
     if (hifz) parts.push(`حفظ ${hifz.pages.from}–${hifz.pages.to}`);
-    if (review) parts.push(`مراجعة ${review.pages.from}–${review.pages.to}`);
+    if (review) parts.push(`مراجعة ${review.pagesTotal} صفحة`);
     await sendPushToHalaqah(student.teacherId, {
       title: previousAttemptId ? "أعاد طالب إرسال ورده بعد طلب المراجعة" : "أنجز طالب ورده",
       body: `${student.name}${parts.length ? " · " + parts.join(" · ") : ""}`,
@@ -77,6 +116,68 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+}
+
+/**
+ * الطالب يعدّل ورداً سبق إرساله — فقط ما دام لم يتّخذ المعلّم قراراً
+ * بعده (new أو seen). الشرط بالكامل داخل استعلام lib/db.ts نفسه، لا هنا
+ * — هذا المسار لا يثق بأي شيء غير معرّف الورد من الجسم؛ الملكية (نفس
+ * الحلقة والطالب) والقفل يتحقّقان سويّاً بجملة SQL واحدة.
+ */
+export async function PUT(request: Request) {
+  const student = await currentStudent();
+  if (!student) return studentUnauthorized();
+
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const id = Number(body.id);
+    if (!Number.isInteger(id)) throw new Error("معرّف الورد مفقود");
+
+    const date = String(body.date ?? "").trim();
+    if (!isValidDate(date)) throw new Error("تاريخ غير صحيح");
+
+    const hifz = parseRange(body.hifz, "الحفظ");
+    const review = parseReviewBody(body.review);
+    const note = String(body.note ?? "").trim().slice(0, 500);
+
+    if (!hifz && !review && !note) {
+      throw new Error("سجّل حفظاً أو مراجعة قبل الحفظ");
+    }
+
+    const log = buildLog(date, hifz, review, note);
+    const ok = await updateWardLog(student.teacherId, student.id, id, log);
+    if (!ok) {
+      return Response.json(
+        { error: "لا يمكن تعديل هذا الورد — إمّا اعتمده معلّمك بالفعل أو ليس ملكك" },
+        { status: 403 },
+      );
+    }
+    return Response.json({ ok: true });
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "تعذّر حفظ التعديل" },
+      { status: 400 },
+    );
+  }
+}
+
+/** الطالب يحذف ورداً سبق إرساله — نفس شرط القفل والملكية أعلاه بالضبط */
+export async function DELETE(request: Request) {
+  const student = await currentStudent();
+  if (!student) return studentUnauthorized();
+
+  const body = (await request.json().catch(() => ({}))) as { id?: unknown };
+  const id = Number(body.id);
+  if (!Number.isInteger(id)) return Response.json({ error: "معرّف الورد مفقود" }, { status: 400 });
+
+  const ok = await deleteWardLog(student.teacherId, student.id, id);
+  if (!ok) {
+    return Response.json(
+      { error: "لا يمكن حذف هذا الورد — إمّا اعتمده معلّمك بالفعل أو ليس ملكك" },
+      { status: 403 },
+    );
+  }
+  return Response.json({ ok: true });
 }
 
 /** وارد المعلّم: قائمة الأوراد وعدد الجديد منها */
