@@ -162,11 +162,26 @@ function CompleteInviteForm({ initialInvite }: { initialInvite: string }) {
             value={inviteCode}
             onChange={(e) => setInviteCode(extractInviteCode(e.target.value))}
             placeholder="الصق رابط الدعوة أو الرمز"
+            autoComplete="off"
             required
             className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10"
           />
         </label>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && (
+          <div className="space-y-2 rounded-xl border border-red-400/20 bg-red-400/5 p-3">
+            <p className="text-sm text-red-400">{error}</p>
+            <a
+              href={
+                extractInviteCode(inviteCode)
+                  ? `/api/student-auth/google/start?invite=${encodeURIComponent(extractInviteCode(inviteCode))}`
+                  : "/api/student-auth/google/start"
+              }
+              className="block text-center text-sm font-semibold text-white hover:underline"
+            >
+              سجّل بحساب جوجل من جديد ←
+            </a>
+          </div>
+        )}
         <button
           type="submit"
           disabled={busy}
