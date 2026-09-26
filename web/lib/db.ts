@@ -4,6 +4,7 @@ import { getDatabase } from "@netlify/database";
 import { createHash, randomBytes } from "node:crypto";
 import { juzesOfRange } from "./quran";
 import type {
+  AyahRange,
   MemorizedRange,
   PushSubscriptionData,
   Student,
@@ -539,8 +540,27 @@ export type NewWardLog = {
   hifzTo: number | null;
   reviewFrom: number | null;
   reviewTo: number | null;
+  /** موضع السورة/الآية الأصلي (STEP 49) — null لورد مُرسَل بالصفحات فقط (لا يوجد بعد هذا التحديث، لكن العمود يبقى اختيارياً) */
+  hifzAyah: AyahRange | null;
+  reviewAyah: AyahRange | null;
   note: string;
 };
+
+/** يبني نطاق سورة/آية من أربعة أعمدة متجاورة، أو null لو أيّ منها فارغ (ورد قديم بالصفحات فقط) */
+function ayahRangeFromRow(
+  row: Record<string, unknown>,
+  fromSurahCol: string,
+  fromAyahCol: string,
+  toSurahCol: string,
+  toAyahCol: string,
+): AyahRange | null {
+  const fromSurah = row[fromSurahCol] as number | null;
+  const fromAyah = row[fromAyahCol] as number | null;
+  const toSurah = row[toSurahCol] as number | null;
+  const toAyah = row[toAyahCol] as number | null;
+  if (fromSurah === null || fromAyah === null || toSurah === null || toAyah === null) return null;
+  return { fromSurah, fromAyah, toSurah, toAyah };
+}
 
 function rowToWard(row: Record<string, unknown>): WardLog {
   const hifzFrom = row.hifz_from as number | null;
@@ -554,6 +574,8 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     date: row.date as string,
     hifz: hifzFrom !== null && hifzTo !== null ? { from: hifzFrom, to: hifzTo } : null,
     review: reviewFrom !== null && reviewTo !== null ? { from: reviewFrom, to: reviewTo } : null,
+    hifzAyah: ayahRangeFromRow(row, "hifz_from_surah", "hifz_from_ayah", "hifz_to_surah", "hifz_to_ayah"),
+    reviewAyah: ayahRangeFromRow(row, "review_from_surah", "review_from_ayah", "review_to_surah", "review_to_ayah"),
     note: row.note as string,
     status: row.status as WardStatus,
     createdAt: row.created_at as string,
@@ -597,10 +619,18 @@ export async function createWardLog(
   const previousAttemptId = await findOpenRevisionAttempt(teacherId, studentId);
   const rows = await db().sql`
     INSERT INTO ward_logs
-      (teacher_id, student_id, date, hifz_from, hifz_to, review_from, review_to, note, status, created_at, previous_attempt_id)
+      (teacher_id, student_id, date, hifz_from, hifz_to, review_from, review_to,
+       hifz_from_surah, hifz_from_ayah, hifz_to_surah, hifz_to_ayah,
+       review_from_surah, review_from_ayah, review_to_surah, review_to_ayah,
+       note, status, created_at, previous_attempt_id)
     VALUES (
       ${teacherId}, ${studentId}, ${log.date}, ${log.hifzFrom}, ${log.hifzTo},
-      ${log.reviewFrom}, ${log.reviewTo}, ${log.note}, 'new', ${new Date().toISOString()}, ${previousAttemptId}
+      ${log.reviewFrom}, ${log.reviewTo},
+      ${log.hifzAyah?.fromSurah ?? null}, ${log.hifzAyah?.fromAyah ?? null},
+      ${log.hifzAyah?.toSurah ?? null}, ${log.hifzAyah?.toAyah ?? null},
+      ${log.reviewAyah?.fromSurah ?? null}, ${log.reviewAyah?.fromAyah ?? null},
+      ${log.reviewAyah?.toSurah ?? null}, ${log.reviewAyah?.toAyah ?? null},
+      ${log.note}, 'new', ${new Date().toISOString()}, ${previousAttemptId}
     )
     RETURNING id
   `;
@@ -613,6 +643,8 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
     ? await db().sql`
         SELECT w.id, w.student_id, s.name AS student_name, w.date,
                w.hifz_from, w.hifz_to, w.review_from, w.review_to,
+               w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
+               w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
                w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
@@ -622,6 +654,8 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
     : await db().sql`
         SELECT w.id, w.student_id, s.name AS student_name, w.date,
                w.hifz_from, w.hifz_to, w.review_from, w.review_to,
+               w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
+               w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
                w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
@@ -636,6 +670,8 @@ export async function listApprovedWardLogs(teacherId: number): Promise<WardLog[]
   const rows = await db().sql`
     SELECT w.id, w.student_id, s.name AS student_name, w.date,
            w.hifz_from, w.hifz_to, w.review_from, w.review_to,
+               w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
+               w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
     FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
@@ -650,6 +686,8 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
   const rows = await db().sql`
     SELECT w.id, w.student_id, s.name AS student_name, w.date,
            w.hifz_from, w.hifz_to, w.review_from, w.review_to,
+               w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
+               w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
     FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id

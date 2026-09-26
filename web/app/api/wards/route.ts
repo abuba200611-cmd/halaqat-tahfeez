@@ -7,29 +7,30 @@ import {
   type NewWardLog,
 } from "@/lib/db";
 import { sendPushToHalaqah } from "@/lib/push";
-import { TOTAL_PAGES } from "@/lib/quran";
+import { parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
 import type { WardStatus } from "@/lib/types";
 
-/** يقرأ نطاق صفحات اختيارياً من الجسم؛ null إن لم يُرسل، أو يرمي إن كان ناقصاً/خارج الحدود */
-function parseRange(
-  input: unknown,
-  label: string,
-): { from: number; to: number } | null {
-  if (input === null || input === undefined) return null;
-  if (typeof input !== "object") throw new Error(`نطاق ${label} غير صحيح`);
-  const raw = input as Record<string, unknown>;
-  if (raw.from === undefined && raw.to === undefined) return null;
-
-  const from = Number(raw.from);
-  const to = Number(raw.to);
-  if (!Number.isInteger(from) || !Number.isInteger(to)) throw new Error(`نطاق ${label} غير صحيح`);
-  if (from < 1 || to > TOTAL_PAGES || from > to) {
-    throw new Error(`نطاق ${label} خارج حدود المصحف`);
-  }
-  return { from, to };
+/** يقرأ موضع سورة/آية من الجسم بأمان — null لأي قيمة غير رقمية */
+function readPos(input: unknown): { surah: number | null; ayah: number | null } {
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const surah = Number(raw.surah);
+  const ayah = Number(raw.ayah);
+  return {
+    surah: Number.isFinite(surah) && raw.surah != null ? surah : null,
+    ayah: Number.isFinite(ayah) && raw.ayah != null ? ayah : null,
+  };
 }
 
-/** الطالب يرسل ورد اليوم — حفظه ومراجعته */
+/** يقرأ نطاق سورة/آية اختياري من الجسم ويحوّله لنطاق صفحات — يرمي برسالة دقيقة لو غير صحيح */
+function parseRange(input: unknown, label: string) {
+  if (input === null || input === undefined) return null;
+  if (typeof input !== "object") throw new Error(`أكمل اختيار السورة والآية بقسم ${label}`);
+  const raw = input as { from?: unknown; to?: unknown };
+  const range: AyahRangeInput = { from: readPos(raw.from), to: readPos(raw.to) };
+  return parseAyahRange(range, label);
+}
+
+/** الطالب يرسل ورد اليوم — حفظه ومراجعته، بالسورة والآية (STEP 49) */
 export async function POST(request: Request) {
   const student = await currentStudent();
   if (!student) return studentUnauthorized();
@@ -46,10 +47,12 @@ export async function POST(request: Request) {
 
     const log: NewWardLog = {
       date: new Date().toISOString().slice(0, 10),
-      hifzFrom: hifz?.from ?? null,
-      hifzTo: hifz?.to ?? null,
-      reviewFrom: review?.from ?? null,
-      reviewTo: review?.to ?? null,
+      hifzFrom: hifz?.pages.from ?? null,
+      hifzTo: hifz?.pages.to ?? null,
+      reviewFrom: review?.pages.from ?? null,
+      reviewTo: review?.pages.to ?? null,
+      hifzAyah: hifz?.ayah ?? null,
+      reviewAyah: review?.ayah ?? null,
       note,
     };
     const { previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
@@ -58,8 +61,8 @@ export async function POST(request: Request) {
     // إعادة إرسال بعد "طلب إعادة" سابق (previousAttemptId من الخادم نفسه)
     // — نفس آلية sendPushToHalaqah الموجودة، بلا أي بنية إشعار جديدة.
     const parts: string[] = [];
-    if (hifz) parts.push(`حفظ ${hifz.from}–${hifz.to}`);
-    if (review) parts.push(`مراجعة ${review.from}–${review.to}`);
+    if (hifz) parts.push(`حفظ ${hifz.pages.from}–${hifz.pages.to}`);
+    if (review) parts.push(`مراجعة ${review.pages.from}–${review.pages.to}`);
     await sendPushToHalaqah(student.teacherId, {
       title: previousAttemptId ? "أعاد طالب إرسال ورده بعد طلب المراجعة" : "أنجز طالب ورده",
       body: `${student.name}${parts.length ? " · " + parts.join(" · ") : ""}`,
