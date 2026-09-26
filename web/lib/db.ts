@@ -707,12 +707,17 @@ export async function updateWardLog(
   const client = await db().pool.connect();
   try {
     await client.query("BEGIN");
+    // status = 'new' دائماً: لو كانت 'seen' (اطّلع عليها المعلّم) قبل
+    // التعديل، تعديل الطالب يغيّر محتواها فعلياً فتحتاج اطّلاعاً جديداً —
+    // ولو كانت 'new' أصلاً فهذا بلا أثر (نفس القيمة). 'approved' و
+    // 'needs_revision' مستبعدتان أصلاً بشرط WHERE أسفله (لن يصل التنفيذ
+    // هنا لهما إطلاقاً)، فلا خطر من "التراجع عن اعتماد" بالغلط.
     const updated = await client.query(
       `UPDATE ward_logs SET
          date = $1, hifz_from = $2, hifz_to = $3, review_from = $4, review_to = $5,
          hifz_from_surah = $6, hifz_from_ayah = $7, hifz_to_surah = $8, hifz_to_ayah = $9,
          review_from_surah = $10, review_from_ayah = $11, review_to_surah = $12, review_to_ayah = $13,
-         note = $14
+         note = $14, status = 'new'
        WHERE id = $15 AND teacher_id = $16 AND student_id = $17 AND status IN ('new', 'seen')`,
       [
         log.date, log.hifzFrom, log.hifzTo, log.reviewFrom, log.reviewTo,
