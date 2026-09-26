@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
-import type { PageRange, WardLog, WardStatus } from "@/lib/types";
+import { formatAyahRange } from "@/lib/ward-ayah";
+import type { AyahRange, PageRange, WardLog, WardStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<WardStatus, string> = {
   new: "جديد",
@@ -19,7 +20,9 @@ function statusTone(status: WardStatus): "neutral" | "good" | "warn" {
   return "neutral";
 }
 
-function rangeText(range: PageRange | null): string | null {
+/** الأوراد الجديدة (STEP 49) تعرض السورة/الآية؛ القديمة (بلا سورة محفوظة) تظل تُعرض بالصفحات كما كانت دائماً */
+function rangeText(range: PageRange | null, ayahRange: AyahRange | null): string | null {
+  if (ayahRange) return formatAyahRange(ayahRange);
   if (!range) return null;
   return `صفحة ${range.from}–${range.to} · ${juzLabel(juzesOfRange(range.from, range.to))}`;
 }
@@ -177,8 +180,8 @@ export default function InboxPage() {
               )}
 
               <div className="mt-2 space-y-0.5 text-sm text-muted-foreground">
-                {rangeText(ward.hifz) && <p>حفظ: {rangeText(ward.hifz)}</p>}
-                {rangeText(ward.review) && <p>مراجعة: {rangeText(ward.review)}</p>}
+                {rangeText(ward.hifz, ward.hifzAyah) && <p>حفظ: {rangeText(ward.hifz, ward.hifzAyah)}</p>}
+                {rangeText(ward.review, ward.reviewAyah) && <p>مراجعة: {rangeText(ward.review, ward.reviewAyah)}</p>}
                 {ward.note && <p className="text-foreground">«{ward.note}»</p>}
                 {ward.status === "needs_revision" && ward.reviewNote && (
                   <p className="text-accent">سبب طلب الإعادة: «{ward.reviewNote}»</p>

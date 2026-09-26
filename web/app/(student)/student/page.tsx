@@ -3,10 +3,32 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Empty } from "@/components/ui";
 import { IslamicPattern } from "@/app/(teacher)/page";
+import { AyahRangeField } from "@/components/ayah-range-field";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { useStudentSession } from "@/components/student-gate";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
-import type { PageRange, WardLog, WardStatus } from "@/lib/types";
+import { formatAyahRange, parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
+import type { AyahRange, PageRange, WardLog, WardStatus } from "@/lib/types";
+
+const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
+
+function isRangeTouched(v: AyahRangeInput): boolean {
+  return v.from.surah != null || v.from.ayah != null || v.to.surah != null || v.to.ayah != null;
+}
+
+/** يحسب رسالة الخطأ الفورية ونص "≈ صفحة" لقسم واحد — يعيد استخدام parseAyahRange نفسها التي يستخدمها الخادم لاحقاً، فلا تتكرر قواعد التحقق بمكانين */
+function describeRange(value: AyahRangeInput, label: string): { error: string | null; pageLabel: string | null } {
+  const touched = isRangeTouched(value);
+  try {
+    const parsed = parseAyahRange(value, label);
+    if (!parsed) return { error: null, pageLabel: null };
+    const { from, to } = parsed.pages;
+    return { error: null, pageLabel: from === to ? `≈ صفحة ${from}` : `≈ صفحة ${from}–${to}` };
+  } catch (e) {
+    if (!touched) return { error: null, pageLabel: null };
+    return { error: e instanceof Error ? e.message : "قيمة غير صحيحة", pageLabel: null };
+  }
+}
 
 const STATUS_LABEL: Record<WardStatus, string> = {
   new: "بانتظار الاطّلاع",
@@ -26,7 +48,9 @@ function statusTone(status: WardStatus): string {
   return STATUS_STYLE[status];
 }
 
-function rangeText(range: PageRange | null): string | null {
+/** الأوراد الجديدة (STEP 49) تعرض السورة/الآية؛ القديمة (بلا سورة محفوظة) تظل تُعرض بالصفحات كما كانت دائماً */
+function rangeText(range: PageRange | null, ayahRange: AyahRange | null): string | null {
+  if (ayahRange) return formatAyahRange(ayahRange);
   if (!range) return null;
   const juz = juzLabel(juzesOfRange(range.from, range.to));
   return `صفحة ${range.from} إلى ${range.to} · ${juz}`;
@@ -49,10 +73,8 @@ function computeStreak(dates: string[]): number {
 
 export default function StudentWardPage() {
   const student = useStudentSession();
-  const [hifzFrom, setHifzFrom] = useState("");
-  const [hifzTo, setHifzTo] = useState("");
-  const [reviewFrom, setReviewFrom] = useState("");
-  const [reviewTo, setReviewTo] = useState("");
+  const [hifz, setHifz] = useState<AyahRangeInput>(EMPTY_RANGE);
+  const [review, setReview] = useState<AyahRangeInput>(EMPTY_RANGE);
   const [note, setNote] = useState("");
 
   const [busy, setBusy] = useState(false);
@@ -82,12 +104,11 @@ export default function StudentWardPage() {
     return { total: logs.length, approved, streak };
   }, [logs]);
 
-  function rangeBody(from: string, to: string): PageRange | null {
-    const f = Number(from);
-    const t = Number(to);
-    if (!from || !to || !Number.isFinite(f) || !Number.isFinite(t)) return null;
-    return { from: f, to: t };
-  }
+  const hifzInfo = useMemo(() => describeRange(hifz, "الحفظ"), [hifz]);
+  const reviewInfo = useMemo(() => describeRange(review, "المراجعة"), [review]);
+  const hasContent = isRangeTouched(hifz) || isRangeTouched(review) || note.trim().length > 0;
+  const hasBlockingError = !!hifzInfo.error || !!reviewInfo.error;
+  const submitDisabled = busy || !hasContent || hasBlockingError;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -99,8 +120,8 @@ export default function StudentWardPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hifz: rangeBody(hifzFrom, hifzTo),
-          review: rangeBody(reviewFrom, reviewTo),
+          hifz: isRangeTouched(hifz) ? hifz : null,
+          review: isRangeTouched(review) ? review : null,
           note: note.trim(),
         }),
       });
@@ -110,10 +131,8 @@ export default function StudentWardPage() {
         return;
       }
       setSent(true);
-      setHifzFrom("");
-      setHifzTo("");
-      setReviewFrom("");
-      setReviewTo("");
+      setHifz(EMPTY_RANGE);
+      setReview(EMPTY_RANGE);
       setNote("");
       loadLogs();
     } catch {
@@ -163,71 +182,27 @@ export default function StudentWardPage() {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <form onSubmit={submit} className="space-y-4">
-          <fieldset className="space-y-2">
-            <legend className="flex items-center gap-1.5 text-sm font-semibold text-emerald-700">
-              <BookIcon size={16} />
-              الحفظ الجديد
-            </legend>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-xs text-slate-500">من صفحة</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={604}
-                  inputMode="numeric"
-                  value={hifzFrom}
-                  onChange={(e) => setHifzFrom(e.target.value)}
-                  className={field}
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs text-slate-500">إلى صفحة</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={604}
-                  inputMode="numeric"
-                  value={hifzTo}
-                  onChange={(e) => setHifzTo(e.target.value)}
-                  className={field}
-                />
-              </label>
-            </div>
-          </fieldset>
+          <AyahRangeField
+            idPrefix="hifz"
+            label="الحفظ الجديد"
+            icon={<BookIcon size={16} />}
+            colorClass="text-emerald-700"
+            value={hifz}
+            onChange={setHifz}
+            error={hifzInfo.error}
+            pageLabel={hifzInfo.pageLabel}
+          />
 
-          <fieldset className="space-y-2">
-            <legend className="flex items-center gap-1.5 text-sm font-semibold text-blue-700">
-              <CalendarIcon size={16} />
-              المراجعة
-            </legend>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block">
-                <span className="text-xs text-slate-500">من صفحة</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={604}
-                  inputMode="numeric"
-                  value={reviewFrom}
-                  onChange={(e) => setReviewFrom(e.target.value)}
-                  className={field}
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs text-slate-500">إلى صفحة</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={604}
-                  inputMode="numeric"
-                  value={reviewTo}
-                  onChange={(e) => setReviewTo(e.target.value)}
-                  className={field}
-                />
-              </label>
-            </div>
-          </fieldset>
+          <AyahRangeField
+            idPrefix="review"
+            label="المراجعة"
+            icon={<CalendarIcon size={16} />}
+            colorClass="text-blue-700"
+            value={review}
+            onChange={setReview}
+            error={reviewInfo.error}
+            pageLabel={reviewInfo.pageLabel}
+          />
 
           <label className="block">
             <span className="text-xs text-slate-500">ملاحظة (اختياري)</span>
@@ -246,7 +221,7 @@ export default function StudentWardPage() {
 
           <button
             type="submit"
-            disabled={busy}
+            disabled={submitDisabled}
             className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-sm transition-shadow duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: "linear-gradient(90deg, #3B82F6, #1D4ED8)" }}
           >
@@ -278,8 +253,8 @@ export default function StudentWardPage() {
                 )}
 
                 <div className="mt-1 space-y-0.5 text-sm text-slate-500">
-                  {rangeText(log.hifz) && <p>حفظ: {rangeText(log.hifz)}</p>}
-                  {rangeText(log.review) && <p>مراجعة: {rangeText(log.review)}</p>}
+                  {rangeText(log.hifz, log.hifzAyah) && <p>حفظ: {rangeText(log.hifz, log.hifzAyah)}</p>}
+                  {rangeText(log.review, log.reviewAyah) && <p>مراجعة: {rangeText(log.review, log.reviewAyah)}</p>}
                   {log.note && <p className="text-slate-700">{log.note}</p>}
                 </div>
 

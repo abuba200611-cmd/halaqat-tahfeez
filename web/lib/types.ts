@@ -69,6 +69,12 @@ export type PairingSettings = {
 /** نطاق صفحات في الورد — من صفحة إلى صفحة */
 export type PageRange = { from: number; to: number };
 
+/**
+ * نطاق سورة/آية في الورد (STEP 49) — من (سورة، آية) إلى (سورة، آية)
+ * بترتيب المصحف، قد يمتد لأكثر من سورة (مفيد للمراجعة).
+ */
+export type AyahRange = { fromSurah: number; fromAyah: number; toSurah: number; toAyah: number };
+
 export type WardStatus = "new" | "seen" | "approved" | "needs_revision";
 
 /**
@@ -82,8 +88,12 @@ export type WardLog = {
   studentName: string;
   /** YYYY-MM-DD */
   date: string;
+  /** نطاق الصفحات — يظل يُحسب دائماً من السورة/الآية عند توفّرها، حتى تبقى كل الإحصائيات والتقارير القديمة شغّالة بلا تغيير */
   hifz: PageRange | null;
   review: PageRange | null;
+  /** نطاق السورة/الآية الأصلي (STEP 49) — null لأي ورد قديم أُرسل بالصفحات فقط قبل هذا التحديث */
+  hifzAyah: AyahRange | null;
+  reviewAyah: AyahRange | null;
   note: string;
   status: WardStatus;
   /** وقت الإرسال بتوقيت UTC: YYYY-MM-DD HH:MM:SS */
