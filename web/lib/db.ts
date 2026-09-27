@@ -853,6 +853,35 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
 }
 
 /**
+ * كل أوراد طالب بعينه بلا سقف (STEP 53) — لحساب السجلّ الشهري الذي
+ * يحتاج التاريخ الكامل، لا آخر ٣٠ ورداً فقط كما في listWardLogsForStudent
+ * (تلك مخصَّصة لقائمة "أورادي الأخيرة" بالواجهة).
+ */
+export async function listAllWardLogsForStudent(teacherId: number, studentId: string): Promise<WardLog[]> {
+  const rows = await db().sql`
+    SELECT w.id, w.student_id, s.name AS student_name, w.date,
+           w.hifz_from, w.hifz_to, w.review_from, w.review_to,
+               w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
+               w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
+           w.note, w.status, w.created_at,
+           w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+           (SELECT json_agg(
+              json_build_object(
+                'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
+                'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
+                'fromPage', rs.from_page, 'toPage', rs.to_page
+              ) ORDER BY rs.segment_order
+            )::text
+            FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
+           ) AS review_segments_json
+    FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
+    WHERE w.teacher_id = ${teacherId} AND w.student_id = ${studentId}
+    ORDER BY w.date DESC, w.id DESC
+  `;
+  return rows.map(rowToWard);
+}
+
+/**
  * يغيّر حالة ورد. عند needs_revision: يتطلّب ملاحظة غير فارغة، يسجّل
  * reviewed_by/reviewed_at، ويرفض التحويل لو كانت الحالة الحالية approved
  * (لا رجوع عن اعتماد). عند approved: يسجّل reviewed_by/reviewed_at أيضاً

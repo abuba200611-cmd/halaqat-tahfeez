@@ -5,6 +5,7 @@ import { Empty } from "@/components/ui";
 import { IslamicPattern } from "@/app/(teacher)/page";
 import { AyahRangeField } from "@/components/ayah-range-field";
 import { ReviewSegmentsField } from "@/components/review-segments-field";
+import { MonthlyHistorySection } from "@/components/monthly-history";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { useStudentSession } from "@/components/student-gate";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
@@ -15,6 +16,7 @@ import {
   parseAyahRange,
   type AyahRangeInput,
 } from "@/lib/ward-ayah";
+import type { MonthlySummary } from "@/lib/monthly-report";
 import type { AyahRange, PageRange, WardLog, WardStatus } from "@/lib/types";
 
 const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
@@ -144,6 +146,9 @@ export default function StudentWardPage() {
   const [logs, setLogs] = useState<WardLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
 
+  const [months, setMonths] = useState<MonthlySummary[]>([]);
+  const [loadingMonths, setLoadingMonths] = useState(true);
+
   const loadLogs = useCallback(() => {
     fetch("/api/wards/mine")
       .then((res) => (res.ok ? res.json() : null))
@@ -154,9 +159,20 @@ export default function StudentWardPage() {
       .finally(() => setLoadingLogs(false));
   }, []);
 
+  const loadMonths = useCallback(() => {
+    fetch("/api/wards/monthly")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { months?: MonthlySummary[] } | null) => {
+        if (data) setMonths(data.months ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMonths(false));
+  }, []);
+
   useEffect(() => {
     loadLogs();
-  }, [loadLogs]);
+    loadMonths();
+  }, [loadLogs, loadMonths]);
 
   const stats = useMemo(() => {
     const approved = logs.filter((l) => l.status === "approved").length;
@@ -211,6 +227,7 @@ export default function StudentWardPage() {
       }
       if (editingId === log.id) resetForm();
       loadLogs();
+      loadMonths();
     } catch {
       alert("تعذّر الاتصال بالخادم");
     }
@@ -245,6 +262,7 @@ export default function StudentWardPage() {
       setSent(true);
       resetForm();
       loadLogs();
+      loadMonths();
     } catch {
       setError("تعذّر الاتصال بالخادم");
     } finally {
@@ -424,6 +442,11 @@ export default function StudentWardPage() {
             })}
           </ul>
         )}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-sm font-semibold text-slate-700">سجلّي الشهري</h2>
+        <MonthlyHistorySection months={months} loading={loadingMonths} />
       </section>
     </div>
   );
