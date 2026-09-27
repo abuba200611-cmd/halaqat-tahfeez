@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { currentStudent, currentTeacher, studentUnauthorized, unauthorized } from "@/lib/auth";
 import {
   countNewWards,
@@ -9,7 +10,7 @@ import {
   type NewReviewSegment,
   type NewWardLog,
 } from "@/lib/db";
-import { sendPushToHalaqah } from "@/lib/push";
+import { sendPushToHalaqah, sendPushToStudent } from "@/lib/push";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import type { WardStatus } from "@/lib/types";
 
@@ -219,8 +220,10 @@ export async function PATCH(request: Request) {
     }
   }
 
+  let result: { studentId: string } | null;
   try {
-    if (!(await setWardLogStatus(teacher.halaqahId, id, status, teacher.id, note))) {
+    result = await setWardLogStatus(teacher.halaqahId, id, status, teacher.id, note);
+    if (!result) {
       return Response.json({ error: "الورد غير موجود أو لا يمكن تعديله" }, { status: 404 });
     }
   } catch (error) {
@@ -229,5 +232,31 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   }
+
+  // إشعار فوري للطالب عند قرار المعلّم — لا عند "اطّلع" (seen)، فذاك
+  // ليس قراراً بعد. after() (لا promise معلّق بلا await، يضيع لو أنهى
+  // Vercel الدالة فور إرسال الرد) يجدول الإرسال بعد إرجاع الرد — Next
+  // يبقي الدالة حيّة له. سقف ٣ ثوانٍ + try/catch يضمنان ألا يؤثر فشل أو
+  // تعليق الإشعار على نتيجة الاعتماد بأي حال (اطمئنان إضافي فوق كون
+  // sendPushToStudent نفسها لا ترمي أصلاً لكل اشتراك على حدة).
+  if (status === "approved" || status === "needs_revision") {
+    const notifyPayload = {
+      title: status === "approved" ? "تم اعتماد وردك ✅" : "وردك يحتاج مراجعة",
+      body: status === "approved" ? "أحسنت! معلّمك اعتمد وردك." : note ?? "",
+      url: "/student",
+      tag: "ward-status",
+    };
+    after(async () => {
+      try {
+        await Promise.race([
+          sendPushToStudent(teacher.halaqahId, result.studentId, notifyPayload),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      } catch {
+        // فشل الإشعار لا يغيّر نتيجة الاعتماد أبداً — الرد أُرسل مسبقاً بالفعل
+      }
+    });
+  }
+
   return Response.json({ ok: true, newCount: await countNewWards(teacher.halaqahId) });
 }

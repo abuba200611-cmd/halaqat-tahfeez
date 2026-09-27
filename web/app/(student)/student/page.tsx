@@ -6,6 +6,7 @@ import { IslamicPattern } from "@/app/(teacher)/page";
 import { AyahRangeField } from "@/components/ayah-range-field";
 import { ReviewSegmentsField } from "@/components/review-segments-field";
 import { MonthlyHistorySection } from "@/components/monthly-history";
+import { StudentPushToggle } from "@/components/student-push-toggle";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { useStudentSession } from "@/components/student-gate";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
@@ -306,6 +307,10 @@ export default function StudentWardPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+        <StudentPushToggle />
       </div>
 
       <div ref={formRef} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

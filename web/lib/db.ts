@@ -894,7 +894,7 @@ export async function setWardLogStatus(
   status: WardStatus,
   actingTeacherId?: number,
   reviewNote?: string,
-): Promise<boolean> {
+): Promise<{ studentId: string } | null> {
   if (status === "needs_revision") {
     const note = reviewNote?.trim();
     if (!note) throw new Error("ملاحظة المراجعة مطلوبة عند طلب الإعادة");
@@ -903,9 +903,9 @@ export async function setWardLogStatus(
       SET status = 'needs_revision', reviewed_by = ${actingTeacherId ?? null},
           reviewed_at = ${new Date().toISOString()}, review_note = ${note}
       WHERE teacher_id = ${teacherId} AND id = ${id} AND status <> 'approved'
-      RETURNING id
+      RETURNING student_id
     `;
-    return rows.length > 0;
+    return rows.length > 0 ? { studentId: rows[0].student_id as string } : null;
   }
 
   if (status === "approved") {
@@ -913,17 +913,17 @@ export async function setWardLogStatus(
       UPDATE ward_logs
       SET status = 'approved', reviewed_by = ${actingTeacherId ?? null}, reviewed_at = ${new Date().toISOString()}
       WHERE teacher_id = ${teacherId} AND id = ${id}
-      RETURNING id
+      RETURNING student_id
     `;
-    return rows.length > 0;
+    return rows.length > 0 ? { studentId: rows[0].student_id as string } : null;
   }
 
   const rows = await db().sql`
     UPDATE ward_logs SET status = ${status}
     WHERE teacher_id = ${teacherId} AND id = ${id}
-    RETURNING id
+    RETURNING student_id
   `;
-  return rows.length > 0;
+  return rows.length > 0 ? { studentId: rows[0].student_id as string } : null;
 }
 
 export async function countNewWards(teacherId: number): Promise<number> {
@@ -982,6 +982,82 @@ export async function setVapidKeys(publicKey: string, privateKey: string): Promi
     INSERT INTO app_settings (key, value) VALUES ('vapid_private', ${privateKey})
     ON CONFLICT (key) DO UPDATE SET value = excluded.value
   `;
+}
+
+// ————— اشتراكات إشعارات الطالب (STEP 54) — جدول مستقل عن push_subscriptions —————
+
+export async function saveStudentPushSubscription(
+  teacherId: number,
+  studentId: string,
+  sub: PushSubscriptionData,
+): Promise<void> {
+  await db().sql`
+    INSERT INTO student_push_subscriptions (teacher_id, student_id, endpoint, p256dh, auth)
+    VALUES (${teacherId}, ${studentId}, ${sub.endpoint}, ${sub.p256dh}, ${sub.auth})
+    ON CONFLICT (endpoint) DO UPDATE SET
+      teacher_id = excluded.teacher_id,
+      student_id = excluded.student_id,
+      p256dh = excluded.p256dh,
+      auth = excluded.auth
+  `;
+}
+
+export async function deleteStudentPushSubscription(endpoint: string): Promise<void> {
+  await db().sql`DELETE FROM student_push_subscriptions WHERE endpoint = ${endpoint}`;
+}
+
+/** اشتراكات جهاز طالب بعينه — لإشعار فوري عند اعتماد/رفض ورده */
+export async function listStudentPushSubscriptions(
+  teacherId: number,
+  studentId: string,
+): Promise<PushSubscriptionData[]> {
+  const rows = await db().sql`
+    SELECT endpoint, p256dh, auth FROM student_push_subscriptions
+    WHERE teacher_id = ${teacherId} AND student_id = ${studentId}
+  `;
+  return rows.map((r) => ({ endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }));
+}
+
+export async function markStudentPushSubscriptionSuccess(endpoint: string): Promise<void> {
+  await db().sql`
+    UPDATE student_push_subscriptions SET last_success_at = now() WHERE endpoint = ${endpoint}
+  `;
+}
+
+export type StudentPushReminderRow = {
+  teacherId: number;
+  studentId: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  hasWardToday: boolean;
+};
+
+/**
+ * كل اشتراكات الطلاب مع علامة هل لهذا الطالب ورد اليوم (بالتاريخ
+ * المُمرَّر — يُحسب بتوقيت الرياض في المستدعي، lib/riyadh-date.ts).
+ * تُرجَع الحالتان معاً (لا نُرشَّح مسبقاً) ليحسب المستدعي "sent/skipped"
+ * بدقة بدل مجرد قائمة من سيُرسَل لهم.
+ */
+export async function listStudentPushSubscriptionsForReminder(today: string): Promise<StudentPushReminderRow[]> {
+  const rows = await db().sql`
+    SELECT sps.teacher_id, sps.student_id, sps.endpoint, sps.p256dh, sps.auth,
+           EXISTS (
+             SELECT 1 FROM ward_logs w
+             WHERE w.teacher_id = sps.teacher_id AND w.student_id = sps.student_id AND w.date = ${today}
+           ) AS has_ward_today
+    FROM student_push_subscriptions sps
+    JOIN students s ON s.teacher_id = sps.teacher_id AND s.id = sps.student_id
+    WHERE s.active = TRUE AND s.deleted_at IS NULL
+  `;
+  return rows.map((r) => ({
+    teacherId: r.teacher_id as number,
+    studentId: r.student_id as string,
+    endpoint: r.endpoint as string,
+    p256dh: r.p256dh as string,
+    auth: r.auth as string,
+    hasWardToday: r.has_ward_today as boolean,
+  }));
 }
 
 // ————— ربط بنظام تسجيل الورد المستقل (tasjeel-tullab) —————

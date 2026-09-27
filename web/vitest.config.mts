@@ -13,6 +13,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "server-only": fileURLToPath(new URL("./lib/test/empty.ts", import.meta.url)),
+      // STEP 54: أول اختبار لمسار app/api/*/route.ts — تلك الملفات تستورد
+      // بصيغة "@/lib/..." (اختصار tsconfig.json)، وVitest لا يقرأ tsconfig
+      // paths تلقائياً بلا حزمة إضافية، فنطابقها يدوياً بمسار الجذر نفسه.
+      "@": fileURLToPath(new URL(".", import.meta.url)),
     },
   },
 });
