@@ -1047,6 +1047,8 @@ export async function listStudentPushSubscriptionsForReminder(today: string): Pr
              WHERE w.teacher_id = sps.teacher_id AND w.student_id = sps.student_id AND w.date = ${today}
            ) AS has_ward_today
     FROM student_push_subscriptions sps
+    JOIN students s ON s.teacher_id = sps.teacher_id AND s.id = sps.student_id
+    WHERE s.active = TRUE AND s.deleted_at IS NULL
   `;
   return rows.map((r) => ({
     teacherId: r.teacher_id as number,

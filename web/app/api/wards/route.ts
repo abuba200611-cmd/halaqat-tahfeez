@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { currentStudent, currentTeacher, studentUnauthorized, unauthorized } from "@/lib/auth";
 import {
   countNewWards,
@@ -233,14 +234,27 @@ export async function PATCH(request: Request) {
   }
 
   // إشعار فوري للطالب عند قرار المعلّم — لا عند "اطّلع" (seen)، فذاك
-  // ليس قراراً بعد. فشل الإشعار لا يُفشل تحديث الحالة (نفس مبدأ إشعار
-  // المعلّم أعلاه بـPOST).
+  // ليس قراراً بعد. after() (لا promise معلّق بلا await، يضيع لو أنهى
+  // Vercel الدالة فور إرسال الرد) يجدول الإرسال بعد إرجاع الرد — Next
+  // يبقي الدالة حيّة له. سقف ٣ ثوانٍ + try/catch يضمنان ألا يؤثر فشل أو
+  // تعليق الإشعار على نتيجة الاعتماد بأي حال (اطمئنان إضافي فوق كون
+  // sendPushToStudent نفسها لا ترمي أصلاً لكل اشتراك على حدة).
   if (status === "approved" || status === "needs_revision") {
-    await sendPushToStudent(teacher.halaqahId, result.studentId, {
+    const notifyPayload = {
       title: status === "approved" ? "تم اعتماد وردك ✅" : "وردك يحتاج مراجعة",
       body: status === "approved" ? "أحسنت! معلّمك اعتمد وردك." : note ?? "",
       url: "/student",
       tag: "ward-status",
+    };
+    after(async () => {
+      try {
+        await Promise.race([
+          sendPushToStudent(teacher.halaqahId, result.studentId, notifyPayload),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      } catch {
+        // فشل الإشعار لا يغيّر نتيجة الاعتماد أبداً — الرد أُرسل مسبقاً بالفعل
+      }
     });
   }
 
