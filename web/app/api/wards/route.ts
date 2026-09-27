@@ -9,7 +9,7 @@ import {
   type NewReviewSegment,
   type NewWardLog,
 } from "@/lib/db";
-import { sendPushToHalaqah } from "@/lib/push";
+import { sendPushToHalaqah, sendPushToStudent } from "@/lib/push";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import type { WardStatus } from "@/lib/types";
 
@@ -219,8 +219,10 @@ export async function PATCH(request: Request) {
     }
   }
 
+  let result: { studentId: string } | null;
   try {
-    if (!(await setWardLogStatus(teacher.halaqahId, id, status, teacher.id, note))) {
+    result = await setWardLogStatus(teacher.halaqahId, id, status, teacher.id, note);
+    if (!result) {
       return Response.json({ error: "الورد غير موجود أو لا يمكن تعديله" }, { status: 404 });
     }
   } catch (error) {
@@ -229,5 +231,18 @@ export async function PATCH(request: Request) {
       { status: 400 },
     );
   }
+
+  // إشعار فوري للطالب عند قرار المعلّم — لا عند "اطّلع" (seen)، فذاك
+  // ليس قراراً بعد. فشل الإشعار لا يُفشل تحديث الحالة (نفس مبدأ إشعار
+  // المعلّم أعلاه بـPOST).
+  if (status === "approved" || status === "needs_revision") {
+    await sendPushToStudent(teacher.halaqahId, result.studentId, {
+      title: status === "approved" ? "تم اعتماد وردك ✅" : "وردك يحتاج مراجعة",
+      body: status === "approved" ? "أحسنت! معلّمك اعتمد وردك." : note ?? "",
+      url: "/student",
+      tag: "ward-status",
+    });
+  }
+
   return Response.json({ ok: true, newCount: await countNewWards(teacher.halaqahId) });
 }
