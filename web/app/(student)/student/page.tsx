@@ -1,13 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Empty } from "@/components/ui";
 import { IslamicPattern } from "@/app/(teacher)/page";
 import { AyahRangeField } from "@/components/ayah-range-field";
+import { ReviewSegmentsField } from "@/components/review-segments-field";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { useStudentSession } from "@/components/student-gate";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
-import { formatAyahRange, parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
+import {
+  canEditWard,
+  formatAyahRange,
+  formatReviewSegments,
+  parseAyahRange,
+  type AyahRangeInput,
+} from "@/lib/ward-ayah";
 import type { AyahRange, PageRange, WardLog, WardStatus } from "@/lib/types";
 
 const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
@@ -16,7 +23,14 @@ function isRangeTouched(v: AyahRangeInput): boolean {
   return v.from.surah != null || v.from.ayah != null || v.to.surah != null || v.to.ayah != null;
 }
 
-/** يحسب رسالة الخطأ الفورية ونص "≈ صفحة" لقسم واحد — يعيد استخدام parseAyahRange نفسها التي يستخدمها الخادم لاحقاً، فلا تتكرر قواعد التحقق بمكانين */
+function ayahRangeToInput(range: AyahRange): AyahRangeInput {
+  return {
+    from: { surah: range.fromSurah, ayah: range.fromAyah },
+    to: { surah: range.toSurah, ayah: range.toAyah },
+  };
+}
+
+/** يحسب رسالة الخطأ الفورية ونص "≈ صفحة" لقسم الحفظ — يعيد استخدام parseAyahRange نفسها التي يستخدمها الخادم لاحقاً، فلا تتكرر قواعد التحقق بمكانين */
 function describeRange(value: AyahRangeInput, label: string): { error: string | null; pageLabel: string | null } {
   const touched = isRangeTouched(value);
   try {
@@ -28,6 +42,39 @@ function describeRange(value: AyahRangeInput, label: string): { error: string | 
     if (!touched) return { error: null, pageLabel: null };
     return { error: e instanceof Error ? e.message : "قيمة غير صحيحة", pageLabel: null };
   }
+}
+
+/**
+ * يتحقّق من كل مقاطع المراجعة معاً (لحساب "≈ المجموع" وتعطيل الإرسال)،
+ * ويرجع أيضاً رسالة خطأ لكل مقطع على حدة لعرضها تحت حقله مباشرة —
+ * parseReviewSegments نفسها ترمي عند أول مقطع خاطئ فقط، فنعيد استدعاءها
+ * تدريجياً (بادئة فمقطع فمقطع) لتحديد أي المقاطع بالضبط أخطأ الطالب فيها
+ * كلّها دفعة واحدة، بدل إظهار خطأ واحد وإخفاء البقية.
+ */
+function describeReviewSegments(
+  segments: AyahRangeInput[],
+): { errors: (string | null)[]; pagesTotal: number | null; blocking: boolean } {
+  const errors: (string | null)[] = segments.map(() => null);
+  let pagesTotal = 0;
+  let blocking = false;
+
+  segments.forEach((segment, i) => {
+    if (!isRangeTouched(segment)) {
+      // مقطع أُضيف لكن لم يُملأ بعد — لا نعرض خطأ فوراً (نفس منطق "لم يُلمس بعد")،
+      // لكنه يمنع الإرسال (فارغ صراحة، ليس اختيارياً كسياق قسم كامل)
+      blocking = true;
+      return;
+    }
+    try {
+      const parsed = parseAyahRange(segment, "المراجعة");
+      if (parsed) pagesTotal += parsed.pages.to - parsed.pages.from + 1;
+    } catch (e) {
+      errors[i] = e instanceof Error ? e.message : "قيمة غير صحيحة";
+      blocking = true;
+    }
+  });
+
+  return { errors, pagesTotal: segments.length > 0 ? pagesTotal : null, blocking };
 }
 
 const STATUS_LABEL: Record<WardStatus, string> = {
@@ -48,12 +95,21 @@ function statusTone(status: WardStatus): string {
   return STATUS_STYLE[status];
 }
 
-/** الأوراد الجديدة (STEP 49) تعرض السورة/الآية؛ القديمة (بلا سورة محفوظة) تظل تُعرض بالصفحات كما كانت دائماً */
-function rangeText(range: PageRange | null, ayahRange: AyahRange | null): string | null {
+/** الحفظ يبقى نطاقاً واحداً دائماً — الأوراد الجديدة تعرض السورة/الآية، القديمة (بلا سورة محفوظة) تُعرض بالصفحات كما كانت دائماً */
+function hifzRangeText(range: PageRange | null, ayahRange: AyahRange | null): string | null {
   if (ayahRange) return formatAyahRange(ayahRange);
   if (!range) return null;
   const juz = juzLabel(juzesOfRange(range.from, range.to));
   return `صفحة ${range.from} إلى ${range.to} · ${juz}`;
+}
+
+/** المراجعة: تفضّل مقاطع STEP 52 (مهما كان عددها)، ثم نطاق STEP 49 القديم بمقطع واحد، ثم الصفحات المجرّدة لأقدم الأوراد */
+function reviewRangeText(log: WardLog): string | null {
+  if (log.reviewSegments && log.reviewSegments.length > 0) return formatReviewSegments(log.reviewSegments);
+  if (log.reviewAyah) return formatAyahRange(log.reviewAyah);
+  if (!log.review) return null;
+  const juz = juzLabel(juzesOfRange(log.review.from, log.review.to));
+  return `صفحة ${log.review.from} إلى ${log.review.to} · ${juz}`;
 }
 
 /** أيام متتالية بها ورد مُرسل، عدّاً تنازلياً من آخر تاريخ إرسال — بيانات حقيقية من logs فقط */
@@ -73,8 +129,12 @@ function computeStreak(dates: string[]): number {
 
 export default function StudentWardPage() {
   const student = useStudentSession();
+  const formRef = useRef<HTMLDivElement>(null);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingDate, setEditingDate] = useState<string | null>(null);
   const [hifz, setHifz] = useState<AyahRangeInput>(EMPTY_RANGE);
-  const [review, setReview] = useState<AyahRangeInput>(EMPTY_RANGE);
+  const [reviewSegments, setReviewSegments] = useState<AyahRangeInput[]>([]);
   const [note, setNote] = useState("");
 
   const [busy, setBusy] = useState(false);
@@ -105,10 +165,56 @@ export default function StudentWardPage() {
   }, [logs]);
 
   const hifzInfo = useMemo(() => describeRange(hifz, "الحفظ"), [hifz]);
-  const reviewInfo = useMemo(() => describeRange(review, "المراجعة"), [review]);
-  const hasContent = isRangeTouched(hifz) || isRangeTouched(review) || note.trim().length > 0;
-  const hasBlockingError = !!hifzInfo.error || !!reviewInfo.error;
+  const reviewInfo = useMemo(() => describeReviewSegments(reviewSegments), [reviewSegments]);
+  const hasContent = isRangeTouched(hifz) || reviewSegments.length > 0 || note.trim().length > 0;
+  const hasBlockingError = !!hifzInfo.error || reviewInfo.blocking;
   const submitDisabled = busy || !hasContent || hasBlockingError;
+
+  function resetForm() {
+    setEditingId(null);
+    setEditingDate(null);
+    setHifz(EMPTY_RANGE);
+    setReviewSegments([]);
+    setNote("");
+    setError(null);
+  }
+
+  function startEdit(log: WardLog) {
+    setSent(false);
+    setError(null);
+    setEditingId(log.id);
+    setEditingDate(log.date);
+    setHifz(log.hifzAyah ? ayahRangeToInput(log.hifzAyah) : EMPTY_RANGE);
+    if (log.reviewSegments && log.reviewSegments.length > 0) {
+      setReviewSegments(log.reviewSegments.map(ayahRangeToInput));
+    } else if (log.reviewAyah) {
+      setReviewSegments([ayahRangeToInput(log.reviewAyah)]);
+    } else {
+      setReviewSegments([]);
+    }
+    setNote(log.note);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function deleteLog(log: WardLog) {
+    if (!confirm(`متأكد تحذف ورد يوم ${log.date}؟`)) return;
+    try {
+      const res = await fetch("/api/wards", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: log.id }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        alert(data.error ?? "تعذّر حذف الورد");
+        return;
+      }
+      if (editingId === log.id) resetForm();
+      loadLogs();
+    } catch {
+      alert("تعذّر الاتصال بالخادم");
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -116,24 +222,28 @@ export default function StudentWardPage() {
     setError(null);
     setSent(false);
     try {
+      const body: Record<string, unknown> = {
+        hifz: isRangeTouched(hifz) ? hifz : null,
+        review: reviewSegments.length > 0 ? reviewSegments : null,
+        note: note.trim(),
+      };
+      const isEditing = editingId !== null;
+      if (isEditing) {
+        body.id = editingId;
+        body.date = editingDate;
+      }
       const res = await fetch("/api/wards", {
-        method: "POST",
+        method: isEditing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hifz: isRangeTouched(hifz) ? hifz : null,
-          review: isRangeTouched(review) ? review : null,
-          note: note.trim(),
-        }),
+        body: JSON.stringify(body),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        setError(data.error ?? "تعذّر إرسال الورد");
+        setError(data.error ?? (isEditing ? "تعذّر حفظ التعديل" : "تعذّر إرسال الورد"));
         return;
       }
       setSent(true);
-      setHifz(EMPTY_RANGE);
-      setReview(EMPTY_RANGE);
-      setNote("");
+      resetForm();
       loadLogs();
     } catch {
       setError("تعذّر الاتصال بالخادم");
@@ -180,7 +290,19 @@ export default function StudentWardPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div ref={formRef} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {editingId !== null && (
+          <div className="mb-3 flex items-center justify-between rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+            <span>تعديل ورد يوم {editingDate}</span>
+            <button
+              type="button"
+              onClick={resetForm}
+              className="cursor-pointer font-semibold underline hover:no-underline"
+            >
+              إلغاء التعديل
+            </button>
+          </div>
+        )}
         <form onSubmit={submit} className="space-y-4">
           <AyahRangeField
             idPrefix="hifz"
@@ -193,15 +315,14 @@ export default function StudentWardPage() {
             pageLabel={hifzInfo.pageLabel}
           />
 
-          <AyahRangeField
-            idPrefix="review"
+          <ReviewSegmentsField
             label="المراجعة"
             icon={<CalendarIcon size={16} />}
             colorClass="text-blue-700"
-            value={review}
-            onChange={setReview}
-            error={reviewInfo.error}
-            pageLabel={reviewInfo.pageLabel}
+            segments={reviewSegments}
+            onChange={setReviewSegments}
+            segmentErrors={reviewInfo.errors}
+            pagesTotal={reviewInfo.pagesTotal}
           />
 
           <label className="block">
@@ -217,7 +338,7 @@ export default function StudentWardPage() {
           </label>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-          {sent && <p className="text-sm text-emerald-600">تم إرسال وردك إلى معلّمك ✓</p>}
+          {sent && <p className="text-sm text-emerald-600">{editingId !== null ? "تم حفظ التعديل ✓" : "تم إرسال وردك إلى معلّمك ✓"}</p>}
 
           <button
             type="submit"
@@ -225,9 +346,11 @@ export default function StudentWardPage() {
             className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-sm transition-shadow duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
             style={{ background: "linear-gradient(90deg, #3B82F6, #1D4ED8)" }}
           >
-            {busy ? "يُرسل…" : "أرسل وردي"}
+            {busy ? "يُحفظ…" : editingId !== null ? "حفظ التعديل" : "أرسل وردي"}
           </button>
-          <p className="text-center text-xs text-slate-400">سجّل حفظاً أو مراجعة أو كليهما، ثم أرسل.</p>
+          {editingId === null && (
+            <p className="text-center text-xs text-slate-400">سجّل حفظاً أو مراجعة أو كليهما، ثم أرسل.</p>
+          )}
         </form>
       </div>
 
@@ -239,37 +362,66 @@ export default function StudentWardPage() {
           <Empty title="لم ترسل أي ورد بعد." />
         ) : (
           <ul className="space-y-2">
-            {logs.map((log) => (
-              <li key={log.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
-                <div className="flex items-baseline justify-between">
-                  <span className="tabular text-sm font-medium text-slate-800">{log.date}</span>
-                  <span className={`tabular rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(log.status)}`}>
-                    {STATUS_LABEL[log.status]}
-                  </span>
-                </div>
-
-                {log.previousAttemptId && (
-                  <p className="mt-1 text-xs text-slate-400">↩ محاولة جديدة عن ورد سابق</p>
-                )}
-
-                <div className="mt-1 space-y-0.5 text-sm text-slate-500">
-                  {rangeText(log.hifz, log.hifzAyah) && <p>حفظ: {rangeText(log.hifz, log.hifzAyah)}</p>}
-                  {rangeText(log.review, log.reviewAyah) && <p>مراجعة: {rangeText(log.review, log.reviewAyah)}</p>}
-                  {log.note && <p className="text-slate-700">{log.note}</p>}
-                </div>
-
-                {log.status === "needs_revision" && (
-                  <div className="mt-2 space-y-1 rounded-xl border border-red-100 bg-red-50/60 p-2">
-                    {log.reviewNote && (
-                      <p className="text-sm text-red-700">ملاحظة معلّمك: «{log.reviewNote}»</p>
-                    )}
-                    <p className="text-xs text-slate-500">
-                      أرسل محاولة جديدة من النموذج أعلاه — هذه المحاولة لا يمكن تعديلها.
-                    </p>
+            {logs.map((log) => {
+              const editable = canEditWard(log.status);
+              return (
+                <li key={log.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="tabular text-sm font-medium text-slate-800">{log.date}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {editable && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(log)}
+                            className="cursor-pointer text-xs font-semibold text-blue-600 hover:underline"
+                          >
+                            تعديل
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteLog(log)}
+                            className="cursor-pointer text-xs font-semibold text-red-600 hover:underline"
+                          >
+                            حذف
+                          </button>
+                        </>
+                      )}
+                      <span className={`tabular rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(log.status)}`}>
+                        {STATUS_LABEL[log.status]}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </li>
-            ))}
+
+                  {log.previousAttemptId && (
+                    <p className="mt-1 text-xs text-slate-400">↩ محاولة جديدة عن ورد سابق</p>
+                  )}
+
+                  <div className="mt-1 space-y-0.5 text-sm text-slate-500">
+                    {hifzRangeText(log.hifz, log.hifzAyah) && <p>حفظ: {hifzRangeText(log.hifz, log.hifzAyah)}</p>}
+                    {reviewRangeText(log) && <p>مراجعة: {reviewRangeText(log)}</p>}
+                    {log.note && <p className="text-slate-700">{log.note}</p>}
+                  </div>
+
+                  {log.status === "approved" && (
+                    <p className="mt-2 flex items-center gap-1 text-xs text-slate-400">
+                      🔒 اعتمده المعلّم — للتعديل تواصل مع معلّمك
+                    </p>
+                  )}
+
+                  {log.status === "needs_revision" && (
+                    <div className="mt-2 space-y-1 rounded-xl border border-red-100 bg-red-50/60 p-2">
+                      {log.reviewNote && (
+                        <p className="text-sm text-red-700">ملاحظة معلّمك: «{log.reviewNote}»</p>
+                      )}
+                      <p className="text-xs text-slate-500">
+                        أرسل محاولة جديدة من النموذج أعلاه — هذه المحاولة لا يمكن تعديلها.
+                      </p>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

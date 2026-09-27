@@ -534,6 +534,9 @@ export async function findStudentAccount(
 
 // ————— سجلّات الورد اليومي —————
 
+/** مقطع مراجعة جاهز للتخزين — صفحاته محسوبة مسبقاً بالخادم (نفس نمط hifzFrom/hifzTo) */
+export type NewReviewSegment = AyahRange & { fromPage: number; toPage: number };
+
 export type NewWardLog = {
   date: string;
   hifzFrom: number | null;
@@ -542,7 +545,10 @@ export type NewWardLog = {
   reviewTo: number | null;
   /** موضع السورة/الآية الأصلي (STEP 49) — null لورد مُرسَل بالصفحات فقط (لا يوجد بعد هذا التحديث، لكن العمود يبقى اختيارياً) */
   hifzAyah: AyahRange | null;
+  /** يُترك null دائماً للإرسالات الجديدة (STEP 52 فصاعداً تستخدم reviewSegments) — يبقى فقط لصفوف قديمة محتملة */
   reviewAyah: AyahRange | null;
+  /** مقاطع المراجعة الجديدة (STEP 52، ١ إلى ١٠) — null لعدم وجود مراجعة اليوم */
+  reviewSegments: NewReviewSegment[] | null;
   note: string;
 };
 
@@ -562,11 +568,26 @@ function ayahRangeFromRow(
   return { fromSurah, fromAyah, toSurah, toAyah };
 }
 
+/** صف مقطع مراجعة كما يرجع من json_agg (نصاً — نحوّله صراحة، بلا اعتماد على تفسير السائق التلقائي لعمود json) */
+type ReviewSegmentJson = { fromSurah: number; fromAyah: number; toSurah: number; toAyah: number; fromPage: number; toPage: number };
+
 function rowToWard(row: Record<string, unknown>): WardLog {
   const hifzFrom = row.hifz_from as number | null;
   const hifzTo = row.hifz_to as number | null;
   const reviewFrom = row.review_from as number | null;
   const reviewTo = row.review_to as number | null;
+
+  const segmentsJson = row.review_segments_json as string | null;
+  const segmentsRaw: ReviewSegmentJson[] | null = segmentsJson ? JSON.parse(segmentsJson) : null;
+  const reviewSegments: AyahRange[] | null = segmentsRaw
+    ? segmentsRaw.map(({ fromSurah, fromAyah, toSurah, toAyah }) => ({ fromSurah, fromAyah, toSurah, toAyah }))
+    : null;
+  const reviewPagesTotal = segmentsRaw
+    ? segmentsRaw.reduce((sum, s) => sum + (s.toPage - s.fromPage + 1), 0)
+    : reviewFrom !== null && reviewTo !== null
+      ? reviewTo - reviewFrom + 1
+      : 0;
+
   return {
     id: row.id as number,
     studentId: row.student_id as string,
@@ -576,6 +597,8 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     review: reviewFrom !== null && reviewTo !== null ? { from: reviewFrom, to: reviewTo } : null,
     hifzAyah: ayahRangeFromRow(row, "hifz_from_surah", "hifz_from_ayah", "hifz_to_surah", "hifz_to_ayah"),
     reviewAyah: ayahRangeFromRow(row, "review_from_surah", "review_from_ayah", "review_to_surah", "review_to_ayah"),
+    reviewSegments,
+    reviewPagesTotal,
     note: row.note as string,
     status: row.status as WardStatus,
     createdAt: row.created_at as string,
@@ -617,24 +640,119 @@ export async function createWardLog(
   log: NewWardLog,
 ): Promise<{ id: number; previousAttemptId: number | null }> {
   const previousAttemptId = await findOpenRevisionAttempt(teacherId, studentId);
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO ward_logs
+        (teacher_id, student_id, date, hifz_from, hifz_to, review_from, review_to,
+         hifz_from_surah, hifz_from_ayah, hifz_to_surah, hifz_to_ayah,
+         review_from_surah, review_from_ayah, review_to_surah, review_to_ayah,
+         note, status, created_at, previous_attempt_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'new',$17,$18)
+       RETURNING id`,
+      [
+        teacherId, studentId, log.date, log.hifzFrom, log.hifzTo, log.reviewFrom, log.reviewTo,
+        log.hifzAyah?.fromSurah ?? null, log.hifzAyah?.fromAyah ?? null,
+        log.hifzAyah?.toSurah ?? null, log.hifzAyah?.toAyah ?? null,
+        log.reviewAyah?.fromSurah ?? null, log.reviewAyah?.fromAyah ?? null,
+        log.reviewAyah?.toSurah ?? null, log.reviewAyah?.toAyah ?? null,
+        log.note, new Date().toISOString(), previousAttemptId,
+      ],
+    );
+    const id = Number(inserted.rows[0].id);
+    await insertReviewSegments(client, id, log.reviewSegments);
+    await client.query("COMMIT");
+    return { id, previousAttemptId };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** يُدرج مقاطع مراجعة ورد — يُستدعى داخل ترانزاكشن قائمة فقط (createWardLog/updateWardLog) */
+async function insertReviewSegments(
+  client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
+  wardLogId: number,
+  segments: NewReviewSegment[] | null,
+): Promise<void> {
+  if (!segments) return;
+  let order = 1;
+  for (const seg of segments) {
+    await client.query(
+      `INSERT INTO ward_review_segments
+        (ward_log_id, segment_order, from_surah, from_ayah, to_surah, to_ayah, from_page, to_page)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [wardLogId, order++, seg.fromSurah, seg.fromAyah, seg.toSurah, seg.toAyah, seg.fromPage, seg.toPage],
+    );
+  }
+}
+
+/**
+ * يعدّل ورداً موجوداً — فقط لو كان يملكه هذا الطالب بالضبط (نفس الحلقة
+ * والمعرّف) وكانت حالته قابلة للتعديل (new أو seen، عبر lib/ward-ayah.ts
+ * canEditWard — نفس الشرط حرفياً). الشرط بالكامل داخل جملة UPDATE نفسها
+ * لا كتحقّق منفصل قبلها — لو رجعت صفر صفوف فإما الورد ليس ملك هذا
+ * الطالب أو صار مقفلاً بين قراءته وتعديله (سباق)، والفرق لا يهم الطالب:
+ * كلا الحالتين "لا يمكنك تعديل هذا الورد".
+ */
+export async function updateWardLog(
+  teacherId: number,
+  studentId: string,
+  id: number,
+  log: NewWardLog,
+): Promise<boolean> {
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    // status = 'new' دائماً: لو كانت 'seen' (اطّلع عليها المعلّم) قبل
+    // التعديل، تعديل الطالب يغيّر محتواها فعلياً فتحتاج اطّلاعاً جديداً —
+    // ولو كانت 'new' أصلاً فهذا بلا أثر (نفس القيمة). 'approved' و
+    // 'needs_revision' مستبعدتان أصلاً بشرط WHERE أسفله (لن يصل التنفيذ
+    // هنا لهما إطلاقاً)، فلا خطر من "التراجع عن اعتماد" بالغلط.
+    const updated = await client.query(
+      `UPDATE ward_logs SET
+         date = $1, hifz_from = $2, hifz_to = $3, review_from = $4, review_to = $5,
+         hifz_from_surah = $6, hifz_from_ayah = $7, hifz_to_surah = $8, hifz_to_ayah = $9,
+         review_from_surah = $10, review_from_ayah = $11, review_to_surah = $12, review_to_ayah = $13,
+         note = $14, status = 'new'
+       WHERE id = $15 AND teacher_id = $16 AND student_id = $17 AND status IN ('new', 'seen')`,
+      [
+        log.date, log.hifzFrom, log.hifzTo, log.reviewFrom, log.reviewTo,
+        log.hifzAyah?.fromSurah ?? null, log.hifzAyah?.fromAyah ?? null,
+        log.hifzAyah?.toSurah ?? null, log.hifzAyah?.toAyah ?? null,
+        log.reviewAyah?.fromSurah ?? null, log.reviewAyah?.fromAyah ?? null,
+        log.reviewAyah?.toSurah ?? null, log.reviewAyah?.toAyah ?? null,
+        log.note, id, teacherId, studentId,
+      ],
+    );
+    if ((updated.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    // استبدال كامل للمقاطع — أبسط وأصحّ من محاولة مطابقة/تحديث جزئي لقائمة أعيد إرسالها كاملة من الواجهة
+    await client.query(`DELETE FROM ward_review_segments WHERE ward_log_id = $1`, [id]);
+    await insertReviewSegments(client, id, log.reviewSegments);
+    await client.query("COMMIT");
+    return true;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** يحذف ورداً — فقط لو كان يملكه هذا الطالب وكانت حالته قابلة للتعديل (نفس شرط updateWardLog). CASCADE يزيل مقاطع مراجعته تلقائياً */
+export async function deleteWardLog(teacherId: number, studentId: string, id: number): Promise<boolean> {
   const rows = await db().sql`
-    INSERT INTO ward_logs
-      (teacher_id, student_id, date, hifz_from, hifz_to, review_from, review_to,
-       hifz_from_surah, hifz_from_ayah, hifz_to_surah, hifz_to_ayah,
-       review_from_surah, review_from_ayah, review_to_surah, review_to_ayah,
-       note, status, created_at, previous_attempt_id)
-    VALUES (
-      ${teacherId}, ${studentId}, ${log.date}, ${log.hifzFrom}, ${log.hifzTo},
-      ${log.reviewFrom}, ${log.reviewTo},
-      ${log.hifzAyah?.fromSurah ?? null}, ${log.hifzAyah?.fromAyah ?? null},
-      ${log.hifzAyah?.toSurah ?? null}, ${log.hifzAyah?.toAyah ?? null},
-      ${log.reviewAyah?.fromSurah ?? null}, ${log.reviewAyah?.fromAyah ?? null},
-      ${log.reviewAyah?.toSurah ?? null}, ${log.reviewAyah?.toAyah ?? null},
-      ${log.note}, 'new', ${new Date().toISOString()}, ${previousAttemptId}
-    )
+    DELETE FROM ward_logs
+    WHERE id = ${id} AND teacher_id = ${teacherId} AND student_id = ${studentId} AND status IN ('new', 'seen')
     RETURNING id
   `;
-  return { id: Number(rows[0].id), previousAttemptId };
+  return rows.length > 0;
 }
 
 /** وارد المعلّم — كل الأوراد أو الجديدة فقط، الأحدث أولاً */
@@ -646,7 +764,16 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
                w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
-               w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
+               w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+           (SELECT json_agg(
+              json_build_object(
+                'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
+                'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
+                'fromPage', rs.from_page, 'toPage', rs.to_page
+              ) ORDER BY rs.segment_order
+            )::text
+            FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
+           ) AS review_segments_json
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
         WHERE w.teacher_id = ${teacherId} AND w.status = 'new'
         ORDER BY w.created_at DESC, w.id DESC
@@ -657,7 +784,16 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
                w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
-               w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
+               w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+           (SELECT json_agg(
+              json_build_object(
+                'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
+                'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
+                'fromPage', rs.from_page, 'toPage', rs.to_page
+              ) ORDER BY rs.segment_order
+            )::text
+            FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
+           ) AS review_segments_json
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
         WHERE w.teacher_id = ${teacherId}
         ORDER BY w.created_at DESC, w.id DESC
@@ -673,7 +809,16 @@ export async function listApprovedWardLogs(teacherId: number): Promise<WardLog[]
                w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
-           w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
+           w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+           (SELECT json_agg(
+              json_build_object(
+                'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
+                'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
+                'fromPage', rs.from_page, 'toPage', rs.to_page
+              ) ORDER BY rs.segment_order
+            )::text
+            FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
+           ) AS review_segments_json
     FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
     WHERE w.teacher_id = ${teacherId} AND w.status = 'approved'
     ORDER BY w.created_at DESC, w.id DESC
@@ -689,7 +834,16 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
                w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
-           w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note
+           w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+           (SELECT json_agg(
+              json_build_object(
+                'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
+                'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
+                'fromPage', rs.from_page, 'toPage', rs.to_page
+              ) ORDER BY rs.segment_order
+            )::text
+            FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
+           ) AS review_segments_json
     FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
     WHERE w.teacher_id = ${teacherId} AND w.student_id = ${studentId}
     ORDER BY w.created_at DESC, w.id DESC

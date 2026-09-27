@@ -52,7 +52,12 @@ export async function GET() {
   for (const w of legacyWards) {
     const e = entry(monthKey(w.date));
     if (w.hifz) e.hifzPages += w.hifz.to - w.hifz.from + 1;
-    if (w.review) e.reviewPages += w.review.to - w.review.from + 1;
+    // reviewPagesTotal لا w.review.to-w.review.from: الأخير عرض النطاق الكامل
+    // من أول مقطع مراجعة لآخره (STEP 52)، فيبالغ بالعدّ لو كانت هناك فجوة
+    // بين المقاطع (مثال: مراجعة صفحة واحدة من الفاتحة + ٣ صفحات من الملك
+    // تُحسب ٥٦٤ صفحة بالخطأ بدل ٤ الصحيحة). reviewPagesTotal يجمع كل مقطع
+    // على حدة، ويتوافق مع الأوراد القديمة بمقطع واحد تلقائياً (نفس القيمة).
+    e.reviewPages += w.reviewPagesTotal;
     e.active.add(`l:${w.studentId}`);
   }
 

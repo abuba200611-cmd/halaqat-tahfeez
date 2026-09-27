@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAyahRange, parseAyahRange } from "./ward-ayah";
+import { canEditWard, formatAyahRange, formatReviewSegments, parseAyahRange, parseReviewSegments } from "./ward-ayah";
 
 const pos = (surah: number | null, ayah: number | null) => ({ surah, ayah });
 
@@ -78,5 +78,102 @@ describe("formatAyahRange", () => {
 
   it("نطاق يمتد لأكثر من سورة: «الفاتحة 1 – البقرة 5»", () => {
     expect(formatAyahRange({ fromSurah: 1, fromAyah: 1, toSurah: 2, toAyah: 5 })).toBe("الفاتحة 1 – البقرة 5");
+  });
+});
+
+describe("parseReviewSegments (STEP 52)", () => {
+  it("يرجع null لقائمة فارغة أو غير موجودة (لا مراجعة اليوم)", () => {
+    expect(parseReviewSegments(null)).toBeNull();
+    expect(parseReviewSegments(undefined)).toBeNull();
+    expect(parseReviewSegments([])).toBeNull();
+  });
+
+  it("يقبل مقطعاً واحداً ويحسب صفحاته ومجموعها", () => {
+    const result = parseReviewSegments([{ from: pos(67, 1), to: pos(67, 30) }]);
+    expect(result).not.toBeNull();
+    expect(result!.segments).toEqual([{ fromSurah: 67, fromAyah: 1, toSurah: 67, toAyah: 30 }]);
+    expect(result!.pagesTotal).toBe(result!.pages[0].to - result!.pages[0].from + 1);
+  });
+
+  it("يجمع صفحات عدة مقاطع منفصلة بدقة (لا يحسب فجوة بينها)", () => {
+    // الفاتحة (صفحة واحدة تقريباً) + الملك كاملة (٣ صفحات: ٥٦٢-٥٦٤) — لا نطاق واحد يمتد بينهما
+    const result = parseReviewSegments([
+      { from: pos(1, 1), to: pos(1, 7) },
+      { from: pos(67, 1), to: pos(67, 30) },
+    ]);
+    expect(result).not.toBeNull();
+    expect(result!.segments.length).toBe(2);
+    const expectedTotal =
+      result!.pages[0].to - result!.pages[0].from + 1 + (result!.pages[1].to - result!.pages[1].from + 1);
+    expect(result!.pagesTotal).toBe(expectedTotal);
+    // يجب ألا يساوي عرض النطاق الكامل من أول صفحة لآخر صفحة (ذاك خطأ الحساب القديم الذي نتفاداه)
+    const wrongSpanWidth = result!.pages[1].to - result!.pages[0].from + 1;
+    expect(result!.pagesTotal).toBeLessThan(wrongSpanWidth);
+  });
+
+  it("يرفض أكثر من 10 مقاطع", () => {
+    const segments = Array.from({ length: 11 }, () => ({ from: pos(1, 1), to: pos(1, 1) }));
+    expect(() => parseReviewSegments(segments)).toThrow("أقصى عدد مقاطع للمراجعة هو 10");
+  });
+
+  it("يقبل بالضبط 10 مقاطع", () => {
+    const segments = Array.from({ length: 10 }, () => ({ from: pos(1, 1), to: pos(1, 1) }));
+    const result = parseReviewSegments(segments);
+    expect(result).not.toBeNull();
+    expect(result!.segments.length).toBe(10);
+  });
+
+  it("يرفض مقطعاً ناقصاً برسالة تحدّد رقم المقطع بالضبط", () => {
+    expect(() =>
+      parseReviewSegments([
+        { from: pos(1, 1), to: pos(1, 7) },
+        { from: pos(67, null), to: pos(67, 30) },
+      ]),
+    ).toThrow("المقطع 2: أكمل اختيار السورة والآية");
+  });
+
+  it("يرفض مقطعاً مُضافاً صراحة لكنه فارغ تماماً (لا يُسقَط صامتاً)", () => {
+    expect(() => parseReviewSegments([{ from: pos(null, null), to: pos(null, null) }])).toThrow(
+      "المقطع 1: أكمل اختيار السورة والآية",
+    );
+  });
+
+  it("يرفض ترتيباً معكوساً داخل مقطع واحد برسالة تحدّد رقمه", () => {
+    expect(() =>
+      parseReviewSegments([
+        { from: pos(1, 1), to: pos(1, 7) },
+        { from: pos(2, 10), to: pos(2, 1) },
+      ]),
+    ).toThrow("المقطع 2: نهاية الورد لازم تكون بعد بدايته في ترتيب المصحف");
+  });
+});
+
+describe("formatReviewSegments (STEP 52)", () => {
+  it("يضع «(كاملة)» للمقطع اللي يغطّي السورة من أول آية لآخرها", () => {
+    expect(formatReviewSegments([{ fromSurah: 67, fromAyah: 1, toSurah: 67, toAyah: 30 }])).toBe("الملك (كاملة)");
+  });
+
+  it("يعرض عدة مقاطع مفصولة بفاصلة عربية: «البقرة 1–20، الملك (كاملة)»", () => {
+    const text = formatReviewSegments([
+      { fromSurah: 2, fromAyah: 1, toSurah: 2, toAyah: 20 },
+      { fromSurah: 67, fromAyah: 1, toSurah: 67, toAyah: 30 },
+    ]);
+    expect(text).toBe("البقرة 1–20، الملك (كاملة)");
+  });
+
+  it("مقطع جزئي من سورة لا يأخذ «(كاملة)»", () => {
+    expect(formatReviewSegments([{ fromSurah: 67, fromAyah: 1, toSurah: 67, toAyah: 15 }])).toBe("الملك 1–15");
+  });
+});
+
+describe("canEditWard (STEP 52 — قفل التعديل بعد قرار المعلّم)", () => {
+  it("قابل للتعديل: new و seen (لم يقرر المعلّم بعد)", () => {
+    expect(canEditWard("new")).toBe(true);
+    expect(canEditWard("seen")).toBe(true);
+  });
+
+  it("مقفل: approved و needs_revision (المعلّم اتخذ قراراً)", () => {
+    expect(canEditWard("approved")).toBe(false);
+    expect(canEditWard("needs_revision")).toBe(false);
   });
 });

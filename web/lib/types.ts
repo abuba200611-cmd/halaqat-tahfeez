@@ -93,7 +93,12 @@ export type WardLog = {
   review: PageRange | null;
   /** نطاق السورة/الآية الأصلي (STEP 49) — null لأي ورد قديم أُرسل بالصفحات فقط قبل هذا التحديث */
   hifzAyah: AyahRange | null;
+  /** نطاق مراجعة قديم بمقطع واحد (قبل STEP 52) — null لأي ورد جديد يستخدم reviewSegments بدلاً منه */
   reviewAyah: AyahRange | null;
+  /** مقاطع المراجعة (STEP 52، ١ إلى ١٠ مقاطع) — null لورد قديم بمقطع واحد (reviewAyah) أو بلا مراجعة إطلاقاً */
+  reviewSegments: AyahRange[] | null;
+  /** صفحات المراجعة الفعلية: مجموع كل مقطع على حدة لو وُجدت مقاطع، وإلا الفرق القديم من review — المصدر الوحيد الصحيح لأي تجميع مستقبلي (لا تُعِد حساب review.to-review.from يدوياً، يبالغ بالعدّ لو كانت هناك فجوة بين المقاطع) */
+  reviewPagesTotal: number;
   note: string;
   status: WardStatus;
   /** وقت الإرسال بتوقيت UTC: YYYY-MM-DD HH:MM:SS */
