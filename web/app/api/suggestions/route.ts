@@ -1,6 +1,6 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { addSuggestion, type SuggestionType } from "@/lib/db";
-import { readAndProcessAttachments } from "@/lib/image-processing";
+import { isRequestTooLarge, readAndProcessAttachments } from "@/lib/image-processing";
 
 const MAX_LENGTH = 1000;
 
@@ -8,6 +8,13 @@ const MAX_LENGTH = 1000;
 export async function POST(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
+
+  // فحص رخيص بالترويسة قبل قراءة الجسم إطلاقاً — حد Vercel 4.5MB لكامل
+  // الطلب يُطبَّق قبل وصوله للكود أصلاً؛ هذا الفحص هنا رسالة عربية
+  // واضحة لو نجح جزئياً وصول شيء أقل من ذلك لكن أكبر من حدّنا نحن (4MB)
+  if (isRequestTooLarge(request)) {
+    return Response.json({ error: "حجم الطلب أكبر من 4 ميغابايت" }, { status: 413 });
+  }
 
   const formData = await request.formData().catch(() => null);
   if (!formData) return Response.json({ error: "طلب غير صحيح" }, { status: 400 });

@@ -10,7 +10,10 @@ const dbMocks = vi.hoisted(() => ({ addSuggestion: vi.fn() }));
 vi.mock("@/lib/db", () => dbMocks);
 
 const imageMocks = vi.hoisted(() => ({ readAndProcessAttachments: vi.fn() }));
-vi.mock("@/lib/image-processing", () => imageMocks);
+vi.mock("@/lib/image-processing", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/image-processing")>()),
+  ...imageMocks,
+}));
 
 const { POST } = await import("./route");
 
@@ -56,5 +59,17 @@ describe("POST /api/suggestions (المعلّم، STEP 55ب)", () => {
 
     expect(res.status).toBe(200);
     expect(dbMocks.addSuggestion).toHaveBeenCalledWith(2, "حلقة (u)", "عندي مشكلة", "problem", [processed]);
+  });
+
+  it("طلب أكبر من 4 ميغابايت (Content-Length): 413 برسالة عربية، قبل حتى قراءة الجسم", async () => {
+    const req = new Request("http://localhost/api/suggestions", {
+      method: "POST",
+      headers: { "content-length": String(4 * 1024 * 1024 + 1) },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toContain("4 ميغابايت");
+    expect(dbMocks.addSuggestion).not.toHaveBeenCalled();
   });
 });

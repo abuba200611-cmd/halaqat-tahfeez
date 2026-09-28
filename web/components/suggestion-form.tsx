@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, Card } from "@/components/ui";
+import { resizeImageForUpload } from "@/lib/client-image-resize";
 
 const COPY = {
   suggestion: {
@@ -103,7 +104,17 @@ export function SuggestionForm({ endpoint, maxLength }: { endpoint: string; maxL
       const body = new FormData();
       body.set("message", message);
       body.set("type", type);
-      images.forEach((img) => body.append("images", img.file));
+      // تصغير كل صورة بالمتصفح قبل الإرسال — حد Vercel 4.5MB لكامل الطلب
+      // يُطبَّق قبل وصوله للخادم إطلاقاً، فلا يكفي الاعتماد على sharp هناك وحده
+      for (const img of images) {
+        try {
+          const resized = await resizeImageForUpload(img.file);
+          body.append("images", resized);
+        } catch {
+          setError("تعذّرت معالجة إحدى الصور — جرّب صورة أخرى");
+          return;
+        }
+      }
 
       const res = await fetch(endpoint, { method: "POST", body });
       const data = (await res.json().catch(() => ({}))) as { error?: string };

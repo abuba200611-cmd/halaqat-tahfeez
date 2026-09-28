@@ -14,10 +14,18 @@ const MAX_DIMENSION = 1600;
 const WEBP_QUALITY = 80;
 
 export const MAX_ATTACHMENTS_PER_SUGGESTION = 3;
-/** حجم الملف الخام قبل المعالجة — حد أولي رخيص لمنع رفع ملفات ضخمة قبل حتى قراءتها */
+/** حجم الملف الخام قبل المعالجة — حد أولي رخيص لمنع رفع ملفات ضخمة قبل حتى قراءتها. المتصفح يصغّر الصور فعلياً قبل الوصول هنا (lib/client-image-resize.ts)، فهذا حارس دفاعي إضافي لا الحد الفعلي المتوقَّع */
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 /** حجم الناتج بعد إعادة الترميز — يطابق قيد size_bytes بقاعدة البيانات */
 export const MAX_PROCESSED_BYTES = 1024 * 1024;
+/** حد Vercel لجسم الطلب كاملاً هو 4.5MB — نتحقق منه صراحة قبل حتى قراءة FormData، برسالة عربية واضحة بدل خطأ منصة مبهم */
+export const MAX_REQUEST_BYTES = 4 * 1024 * 1024;
+
+/** فحص رخيص عبر ترويسة Content-Length — لا يقرأ الجسم إطلاقاً. يرجع false لو الترويسة غائبة (لا نحجب طلباً بلا دليل على حجمه) */
+export function isRequestTooLarge(request: Request): boolean {
+  const len = Number(request.headers.get("content-length"));
+  return Number.isFinite(len) && len > 0 && len > MAX_REQUEST_BYTES;
+}
 
 export type DetectedImageType = "image/jpeg" | "image/png" | "image/webp";
 

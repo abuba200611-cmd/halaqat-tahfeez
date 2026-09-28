@@ -2,7 +2,9 @@ import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import {
   detectImageType,
+  isRequestTooLarge,
   MAX_ATTACHMENTS_PER_SUGGESTION,
+  MAX_REQUEST_BYTES,
   MAX_UPLOAD_BYTES,
   processSuggestionImage,
   readAndProcessAttachments,
@@ -100,5 +102,38 @@ describe("readAndProcessAttachments (STEP 55ب)", () => {
     const results = await readAndProcessAttachments(form, "images");
     expect(results.length).toBe(MAX_ATTACHMENTS_PER_SUGGESTION);
     results.forEach((r) => expect(r.mime).toBe("image/webp"));
+  });
+});
+
+/*
+  حد Vercel 4.5MB (STEP 55 — تعديل ما بعد المراجعة): "٣ صور كبيرة (٥
+  ميغابايت لكل واحدة قبل التصغير) تُرفَع بنجاح بطلب أقل من ٤ ميغابايت"
+  يعني عملياً: بعد تصغير المتصفح (lib/client-image-resize.ts، غير قابل
+  للاختبار هنا لاعتماده على canvas/createImageBitmap الحقيقيين — بيئة
+  متصفح لا Vitest node)، الطلب الواصل فعلياً يكون أقل من ٤MB فيمرّ هذا
+  الفحص، بينما طلب لم يُصغَّر (أو صُغِّر بشكل غير كافٍ) يُرفض برسالة
+  عربية واضحة قبل حتى قراءة الجسم.
+*/
+describe("isRequestTooLarge (STEP 55 — حد 4MB لجسم الطلب)", () => {
+  function reqWithLength(bytes: number | null): Request {
+    const headers = new Headers();
+    if (bytes !== null) headers.set("content-length", String(bytes));
+    return new Request("http://localhost/api/suggestions", { headers });
+  }
+
+  it("طلب يحاكي ٣ صور مُصغَّرة (٩٠٠ كيلوبايت لكل واحدة ≈ 2.7MB إجمالاً): يمرّ", () => {
+    expect(isRequestTooLarge(reqWithLength(3 * 900 * 1024))).toBe(false);
+  });
+
+  it("طلب أكبر من 4 ميغابايت: يُرفض", () => {
+    expect(isRequestTooLarge(reqWithLength(MAX_REQUEST_BYTES + 1))).toBe(true);
+  });
+
+  it("طلب بالضبط عند الحد: يمرّ (الرفض عند التجاوز لا عند المساواة)", () => {
+    expect(isRequestTooLarge(reqWithLength(MAX_REQUEST_BYTES))).toBe(false);
+  });
+
+  it("بلا ترويسة Content-Length إطلاقاً: يمرّ (لا دليل على تجاوزه)", () => {
+    expect(isRequestTooLarge(reqWithLength(null))).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 import { currentStudent, studentUnauthorized } from "@/lib/auth";
 import { addStudentSuggestion, checkStudentSuggestionRateLimit, type StudentSuggestionKind } from "@/lib/db";
-import { readAndProcessAttachments } from "@/lib/image-processing";
+import { isRequestTooLarge, readAndProcessAttachments } from "@/lib/image-processing";
 
 const MAX_LENGTH = 2000;
 
@@ -12,6 +12,10 @@ const MAX_LENGTH = 2000;
 export async function POST(request: Request) {
   const student = await currentStudent();
   if (!student) return studentUnauthorized();
+
+  if (isRequestTooLarge(request)) {
+    return Response.json({ error: "حجم الطلب أكبر من 4 ميغابايت" }, { status: 413 });
+  }
 
   const formData = await request.formData().catch(() => null);
   if (!formData) return Response.json({ error: "طلب غير صحيح" }, { status: 400 });
