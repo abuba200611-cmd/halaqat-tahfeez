@@ -16,3 +16,16 @@ export function safeEqual(a: string, b: string): boolean {
   const bufB = Buffer.from(b);
   return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
 }
+
+/**
+ * ADMIN_SECRET من البيئة، بعد trim() — مقارنة بايت-لبايت (safeEqual
+ * أعلاه) تفشل كلياً لو حملت قيمة متغيّر البيئة مسافة أو سطراً جديداً
+ * زائداً بآخرها (شائع جداً عند اللصق من واجهة Vercel أو من أداة توليد
+ * سرّ)، رغم أن كلمة السر المكتوبة صحيحة تماماً. مصدر وحيد يُستخدَم في
+ * الثلاثة مواضع التي تقرأ ADMIN_SECRET (admin/login،
+ * admin/suggestions، admin/suggestions/attachments/[id]) فيبقى
+ * التعريف — ومعه أي إصلاح مستقبلي — بمكان واحد لا ثلاثة.
+ */
+export function expectedAdminSecret(): string {
+  return (process.env.ADMIN_SECRET ?? "").trim();
+}

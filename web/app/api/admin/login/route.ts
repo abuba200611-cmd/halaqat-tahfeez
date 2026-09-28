@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { checkAdminLoginRateLimit, recordFailedAdminLoginAttempt } from "@/lib/db";
-import { safeEqual } from "@/lib/safe-equal";
+import { expectedAdminSecret, safeEqual } from "@/lib/safe-equal";
 
 export const ADMIN_COOKIE = "admin_session";
 
@@ -16,8 +16,11 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as { secret?: unknown };
-  const secret = String(body.secret ?? "");
-  const expected = process.env.ADMIN_SECRET ?? "";
+  // trim() على المُدخَل أيضاً — لصق كلمة السر من مدير كلمات مرور أو
+  // ملاحظة غالباً يجلب مسافة أو سطراً جديداً زائداً، ونفس منطق البيئة
+  // أدناه (expectedAdminSecret) يستحق نفس التسامح لا مقارنة صارمة مؤذية
+  const secret = String(body.secret ?? "").trim();
+  const expected = expectedAdminSecret();
 
   if (!expected || !secret || !safeEqual(secret, expected)) {
     await recordFailedAdminLoginAttempt(ip);
