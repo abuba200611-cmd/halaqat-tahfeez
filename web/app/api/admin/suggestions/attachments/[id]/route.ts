@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { getSuggestionAttachmentImage } from "@/lib/db";
-import { safeEqual } from "@/lib/safe-equal";
+import { expectedAdminSecret, safeEqual } from "@/lib/safe-equal";
 import { ADMIN_COOKIE } from "../../../login/route";
 
 /**
@@ -11,7 +11,7 @@ import { ADMIN_COOKIE } from "../../../login/route";
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const store = await cookies();
   const session = store.get(ADMIN_COOKIE)?.value;
-  const expected = process.env.ADMIN_SECRET ?? "";
+  const expected = expectedAdminSecret();
 
   if (!expected || !session || !safeEqual(session, expected)) {
     return new Response(null, { status: 404 });
