@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { listSuggestions, type Suggestion } from "@/lib/db";
+import { listNativeStudentSuggestions, listSuggestions, type Suggestion } from "@/lib/db";
 import { listStudentSuggestions } from "@/lib/tasjeel-db";
 import { safeEqual } from "@/lib/safe-equal";
 import { ADMIN_COOKIE } from "../login/route";
@@ -13,16 +13,20 @@ export async function GET() {
     return Response.json({ error: "غير مصرّح" }, { status: 401 });
   }
 
-  // اقتراحات الطلاب اختيارية — لو TASJEEL_DB_URL غير مضبوط، نعرض اقتراحات
-  // المعلّمين وحدها بدل ما نكسر الصفحة كاملة.
-  const [teacherSuggestions, studentSuggestions] = await Promise.all([
+  // اقتراحات tasjeel-tullab اختيارية — لو TASJEEL_DB_URL غير مضبوط أو
+  // تعذّر الاتصال، نعرض بقية المصادر بدل ما نكسر الصفحة كاملة. اقتراحات
+  // الطلاب الأصلية (STEP 55، جدول student_suggestions بقاعدة هذا
+  // التطبيق نفسها) ليست اختيارية بنفس الشكل — لو فشلت فهذا خطأ حقيقي.
+  const [teacherSuggestions, nativeStudentSuggestions, tasjeelStudentSuggestions] = await Promise.all([
     listSuggestions(),
+    listNativeStudentSuggestions(),
     listStudentSuggestions().catch(() => [] as Suggestion[]),
   ]);
 
   const merged: Suggestion[] = [
     ...teacherSuggestions.map((s) => ({ ...s, source: "teacher" as const })),
-    ...studentSuggestions.map((s) => ({ ...s, source: "student" as const })),
+    ...nativeStudentSuggestions.map((s) => ({ ...s, source: "student" as const })),
+    ...tasjeelStudentSuggestions.map((s) => ({ ...s, source: "student" as const })),
   ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
   return Response.json({ suggestions: merged });
