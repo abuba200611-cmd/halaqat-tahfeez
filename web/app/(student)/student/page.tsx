@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Empty } from "@/components/ui";
 import { IslamicPattern } from "@/app/(teacher)/page";
 import { AyahRangeField } from "@/components/ayah-range-field";
@@ -453,6 +454,13 @@ export default function StudentWardPage() {
         <h2 className="text-sm font-semibold text-slate-700">سجلّي الشهري</h2>
         <MonthlyHistorySection months={months} loading={loadingMonths} />
       </section>
+
+      <Link
+        href="/student/suggest"
+        className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-blue-700 hover:bg-slate-50"
+      >
+        💬 اقتراح أو بلاغ عن مشكلة
+      </Link>
     </div>
   );
 }

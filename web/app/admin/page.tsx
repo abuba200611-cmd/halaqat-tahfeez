@@ -10,6 +10,7 @@ type Suggestion = {
   createdAt: string;
   source: "teacher" | "student";
   type: "suggestion" | "problem";
+  attachments: { id: number; sizeBytes: number }[];
 };
 
 type Filter = "all" | "problem" | "suggestion";
@@ -102,6 +103,26 @@ export default function AdminPage() {
                   <span className="tabular">{s.createdAt.slice(0, 16).replace("T", " ")}</span>
                 </div>
                 <p className="whitespace-pre-wrap text-sm">{s.message}</p>
+                {s.attachments.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {s.attachments.map((a) => (
+                      <a
+                        key={a.id}
+                        href={`/api/admin/suggestions/attachments/${a.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block h-16 w-16 overflow-hidden rounded-md border border-border"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- صورة أدمن محمية بجلسة، لا حاجة لتحسين next/image */}
+                        <img
+                          src={`/api/admin/suggestions/attachments/${a.id}`}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </Card>
             </li>
           ))}

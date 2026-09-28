@@ -2,6 +2,7 @@ import "server-only";
 
 import { getDatabase } from "@netlify/database";
 import { createHash, randomBytes } from "node:crypto";
+import type { ProcessedImage } from "./image-processing";
 import { juzesOfRange } from "./quran";
 import type {
   AyahRange,
@@ -171,6 +172,8 @@ export async function findTeacherById(id: number): Promise<Teacher | null> {
 
 export type SuggestionType = "suggestion" | "problem";
 
+export type SuggestionAttachmentMeta = { id: number; sizeBytes: number };
+
 export type Suggestion = {
   id: number;
   senderLabel: string;
@@ -179,23 +182,55 @@ export type Suggestion = {
   type: SuggestionType;
   /** من أرسله — يُضاف عند دمج اقتراحات النظامين بلوحة المطوّر، اختياري هنا */
   source?: "teacher" | "student";
+  /** بيانات وصفية فقط (id وsize_bytes) — لا BYTEA إطلاقاً بقائمة الاقتراحات (STEP 55ب) */
+  attachments: SuggestionAttachmentMeta[];
 };
 
+/** يستخرج {id, sizeBytes}[] من عمود JSON نصّي (json_agg مُجمَّع بالاستعلام) — [] لعدم وجود أي مرفق */
+function parseAttachmentsJson(raw: unknown): SuggestionAttachmentMeta[] {
+  if (!raw) return [];
+  const parsed = JSON.parse(raw as string) as { id: number; sizeBytes: number }[];
+  return parsed.map((a) => ({ id: a.id, sizeBytes: a.sizeBytes }));
+}
+
+/**
+ * ينشئ اقتراح/بلاغ معلّم بمرفقاته معاً في ترانزاكشن واحد — فشل أي مرفق
+ * (صيغة مرفوضة، تعذّر معالجة) يُلغي البلاغ كله (ROLLBACK)، لا يُنشئ
+ * بلاغاً بلا الصور التي ظنّ المرسل أنها أُرفقت.
+ */
 export async function addSuggestion(
   senderId: number,
   senderLabel: string,
   message: string,
   type: SuggestionType = "suggestion",
-): Promise<void> {
-  await db().sql`
-    INSERT INTO suggestions (sender_id, sender_label, message, type, created_at)
-    VALUES (${senderId}, ${senderLabel}, ${message}, ${type}, ${new Date().toISOString()})
-  `;
+  images: ProcessedImage[] = [],
+): Promise<number> {
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO suggestions (sender_id, sender_label, message, type, created_at)
+       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [senderId, senderLabel, message, type, new Date().toISOString()],
+    );
+    const id = Number(inserted.rows[0].id);
+    await insertSuggestionAttachments(client, { teacherSuggestionId: id }, images);
+    await client.query("COMMIT");
+    return id;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function listSuggestions(): Promise<Suggestion[]> {
   const rows = await db().sql`
-    SELECT id, sender_label, message, type, created_at FROM suggestions ORDER BY created_at DESC
+    SELECT s.id, s.sender_label, s.message, s.type, s.created_at,
+    (SELECT json_agg(json_build_object('id', a.id, 'sizeBytes', a.size_bytes) ORDER BY a.id)::text
+     FROM suggestion_attachments a WHERE a.teacher_suggestion_id = s.id) AS attachments_json
+    FROM suggestions s ORDER BY s.created_at DESC
   `;
   return rows.map((row) => ({
     id: row.id as number,
@@ -203,7 +238,107 @@ export async function listSuggestions(): Promise<Suggestion[]> {
     message: row.message as string,
     createdAt: row.created_at as string,
     type: (row.type as SuggestionType) ?? "suggestion",
+    attachments: parseAttachmentsJson(row.attachments_json),
   }));
+}
+
+// ————— اقتراح/بلاغ الطالب + مرفقات صور البلاغات (STEP 55) —————
+
+export type StudentSuggestionKind = "suggestion" | "bug";
+
+const STUDENT_SUGGESTION_LIMIT = 5;
+const STUDENT_SUGGESTION_WINDOW_MINUTES = 60;
+
+/** هل ما زال هذا الطالب دون سقف ٥ اقتراحات/بلاغات بالساعة الماضية؟ فحص فقط بلا تسجيل — العدّاد هو الجدول نفسه، لا جدول محاولات منفصل (كل صف هنا محتوى حقيقي يستحق الاحتفاظ به، لا محاولة فاشلة) */
+export async function checkStudentSuggestionRateLimit(teacherId: number, studentId: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT COUNT(*) AS n FROM student_suggestions
+    WHERE teacher_id = ${teacherId} AND student_id = ${studentId}
+      AND created_at > now() - (${STUDENT_SUGGESTION_WINDOW_MINUTES} || ' minutes')::interval
+  `;
+  return Number(rows[0]?.n ?? 0) < STUDENT_SUGGESTION_LIMIT;
+}
+
+
+/** يُدرج مرفقات بلاغ — يُستدعى داخل ترانزاكشن قائمة فقط. الحد الأقصى (٣) يُتحقَّق منه قبل استدعائها في مسار الـAPI */
+async function insertSuggestionAttachments(
+  client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
+  target: { teacherSuggestionId?: number; studentSuggestionId?: number },
+  images: ProcessedImage[],
+): Promise<void> {
+  for (const img of images) {
+    await client.query(
+      `INSERT INTO suggestion_attachments
+        (teacher_suggestion_id, student_suggestion_id, mime, bytes, size_bytes, width, height)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [
+        target.teacherSuggestionId ?? null,
+        target.studentSuggestionId ?? null,
+        img.mime,
+        img.bytes,
+        img.sizeBytes,
+        img.width,
+        img.height,
+      ],
+    );
+  }
+}
+
+/** ينشئ اقتراح/بلاغ طالب بمرفقاته معاً في ترانزاكشن واحد — نفس مبدأ addSuggestion تماماً */
+export async function addStudentSuggestion(
+  teacherId: number,
+  studentId: string,
+  kind: StudentSuggestionKind,
+  body: string,
+  images: ProcessedImage[] = [],
+): Promise<number> {
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO student_suggestions (teacher_id, student_id, kind, body) VALUES ($1,$2,$3,$4) RETURNING id`,
+      [teacherId, studentId, kind, body],
+    );
+    const id = Number(inserted.rows[0].id);
+    await insertSuggestionAttachments(client, { studentSuggestionId: id }, images);
+    await client.query("COMMIT");
+    return id;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** اقتراحات/بلاغات الطلاب — لدمجها بلوحة المطوّر (source: "student") مع اسم الطالب وحلقته الفعليين وقت العرض، لا نسخة محفوظة وقت الإرسال */
+export async function listNativeStudentSuggestions(): Promise<Suggestion[]> {
+  const rows = await db().sql`
+    SELECT ss.id, ss.kind, ss.body, ss.created_at, st.name AS student_name, h.name AS halaqah_name,
+    (SELECT json_agg(json_build_object('id', a.id, 'sizeBytes', a.size_bytes) ORDER BY a.id)::text
+     FROM suggestion_attachments a WHERE a.student_suggestion_id = ss.id) AS attachments_json
+    FROM student_suggestions ss
+    JOIN students st ON st.teacher_id = ss.teacher_id AND st.id = ss.student_id
+    JOIN halaqahs h ON h.id = ss.teacher_id
+    ORDER BY ss.created_at DESC
+  `;
+  return rows.map((row) => ({
+    id: row.id as number,
+    senderLabel: `${row.student_name as string} (${row.halaqah_name as string})`,
+    message: row.body as string,
+    createdAt: row.created_at as string,
+    type: (row.kind as StudentSuggestionKind) === "bug" ? "problem" : "suggestion",
+    attachments: parseAttachmentsJson(row.attachments_json),
+  }));
+}
+
+/** بيانات صورة مرفق واحدة (bytea) — للأدمن فقط، عبر id فريد بلا حاجة لمعرفة مصدرها (معلّم أو طالب) */
+export async function getSuggestionAttachmentImage(id: number): Promise<{ mime: string; bytes: Buffer } | null> {
+  const rows = await db().sql`
+    SELECT mime, bytes FROM suggestion_attachments WHERE id = ${id}
+  `;
+  if (rows.length === 0) return null;
+  return { mime: rows[0].mime as string, bytes: rows[0].bytes as Buffer };
 }
 
 // ————— استرجاع كلمة المرور —————
