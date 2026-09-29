@@ -98,6 +98,13 @@ export async function processSuggestionImage(buffer: Buffer): Promise<ProcessedI
   let info: { width: number; height: number };
   try {
     const result = await sharp(buffer)
+      // .rotate() بلا معاملات: يطبّق دوران EXIF Orientation فعلياً على
+      // البكسلات نفسها قبل أي تصغير، ثم لا حاجة لحفظ الوسم لاحقاً —
+      // حذف الـmetadata بعدها (السلوك الافتراضي، لم نستدعِ withMetadata)
+      // يحذف وسم الاتجاه بأمان لأن الصورة صارت بالاتجاه الصحيح فعلياً.
+      // بدونها: حذف الـmetadata كان يحذف الوسم بلا تطبيقه أولاً، فتطلع
+      // الصورة مقلوبة/مُدارة لأي هاتف يصوّر بغير الوضع الافتراضي.
+      .rotate()
       .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: "inside", withoutEnlargement: true })
       .webp({ quality: WEBP_QUALITY })
       .toBuffer({ resolveWithObject: true });
