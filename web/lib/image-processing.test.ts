@@ -23,6 +23,14 @@ async function makeJpegWithExif(): Promise<Buffer> {
     .toBuffer();
 }
 
+/** صورة أفقية (عرض > طول) موسومة EXIF Orientation=6 ("أدرها 90° لعرضها بشكل صحيح") بلا تدوير فعلي للبكسلات — بالضبط كما تُخرجها كاميرا جوال ممسوكة عمودياً */
+async function makeJpegWithOrientation6(width: number, height: number): Promise<Buffer> {
+  const base = await sharp({ create: { width, height, channels: 3, background: { r: 10, g: 20, b: 30 } } })
+    .jpeg()
+    .toBuffer();
+  return sharp(base).withMetadata({ orientation: 6 }).jpeg().toBuffer();
+}
+
 const SVG_BUFFER = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
 const GIF_BUFFER = Buffer.from("GIF89a" + "\x00".repeat(20));
 const PLAIN_TEXT_BUFFER = Buffer.from("this is not an image, just text pretending to be a .png");
@@ -68,6 +76,23 @@ describe("processSuggestionImage (STEP 55ب)", () => {
     expect(detectImageType(result.bytes)).toBe("image/webp");
 
     const outputMeta = await sharp(result.bytes).metadata();
+    expect(outputMeta.exif).toBeUndefined();
+  });
+
+  it("يطبّق دوران EXIF Orientation=6 فعلياً على البكسلات، وبلا أي EXIF بالناتج (إصلاح: الصور المقلوبة من الجوال)", async () => {
+    const tagged = await makeJpegWithOrientation6(100, 50);
+    const rawMeta = await sharp(tagged).metadata();
+    expect(rawMeta.width).toBe(100);
+    expect(rawMeta.height).toBe(50);
+    expect(rawMeta.orientation).toBe(6);
+
+    const result = await processSuggestionImage(tagged);
+    // orientation=6 يعني دوران 90° — الطول والعرض يتبادلان بعد التصحيح الفعلي
+    expect(result.width).toBe(50);
+    expect(result.height).toBe(100);
+
+    const outputMeta = await sharp(result.bytes).metadata();
+    expect(outputMeta.orientation).toBeUndefined();
     expect(outputMeta.exif).toBeUndefined();
   });
 
