@@ -162,3 +162,28 @@ export function pageRangeOfAyahRange(
 ): { from: number; to: number } {
   return { from: pageOfAyah(fromSurah, fromAyah), to: pageOfAyah(toSurah, toAyah) };
 }
+
+/**
+ * رقم سورة آخر آية تقع بصفحة معيّنة (١..٦٠٤) — لعرض "وصلت لسورة كذا"
+ * بلوحة الطالب (STEP 58): صفحة الحفظ التي وصلها الطالب قد تحوي أكثر
+ * من سورة قصيرة (مثال: ٦٠٤ تحوي الإخلاص والفلق والناس معاً)، فنأخذ آخر
+ * سورة عليها لا أولها — هي الأقرب لتمثيل "أين هو الآن". صفحة خارج
+ * الحدود تُقرَّب لأقرب طرف صالح بدل رمي خطأ — تُستخدَم لعرض تقدّم فقط.
+ */
+export function surahAtPage(page: number): number {
+  const clamped = Math.min(Math.max(Math.round(page), 1), TOTAL_MUSHAF_PAGES);
+  const lastGlobalIdOnPage = clamped < TOTAL_MUSHAF_PAGES ? PAGE_START_GLOBAL_ID[clamped] - 1 : TOTAL_AYAHS;
+  let lo = 0;
+  let hi = SURAH_FIRST_GLOBAL_ID.length - 1;
+  let ans = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (SURAH_FIRST_GLOBAL_ID[mid] <= lastGlobalIdOnPage) {
+      ans = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return ans + 1;
+}
