@@ -11,6 +11,7 @@ import {
   isValidSurah,
   pageOfAyah,
   pageRangeOfAyahRange,
+  surahAtPage,
   surahAyahCount,
   surahName,
 } from "./quran-surahs";
@@ -89,5 +90,16 @@ describe("بيانات المصحف الثابتة", () => {
     const range = pageRangeOfAyahRange(67, 1, 67, 30);
     expect(range.from).toBe(562);
     expect(range.to).toBeGreaterThanOrEqual(562);
+  });
+
+  it("surahAtPage (STEP 58) — عكس pageOfAyah لنفس النقاط المرجعية", () => {
+    expect(surahAtPage(1)).toBe(1); // الفاتحة
+    expect(surahAtPage(562)).toBe(67); // الملك
+    expect(surahAtPage(604)).toBe(114); // الناس
+  });
+
+  it("surahAtPage يقرّب صفحة خارج الحدود لأقرب طرف صالح", () => {
+    expect(surahAtPage(0)).toBe(1);
+    expect(surahAtPage(700)).toBe(114);
   });
 });

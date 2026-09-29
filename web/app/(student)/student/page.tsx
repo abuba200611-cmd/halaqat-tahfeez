@@ -1,281 +1,74 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Empty } from "@/components/ui";
+import { useRouter } from "next/navigation";
 import { IslamicPattern } from "@/app/(teacher)/page";
-import { AyahRangeField } from "@/components/ayah-range-field";
-import { ReviewSegmentsField } from "@/components/review-segments-field";
-import { MonthlyHistorySection } from "@/components/monthly-history";
-import { StudentPushToggle } from "@/components/student-push-toggle";
-import { BookIcon, CalendarIcon } from "@/components/icons";
+import { WardListItem } from "@/components/ward-list";
+import { useStudentWards } from "@/components/use-student-wards";
 import { useStudentSession } from "@/components/student-gate";
-import { juzLabel, juzesOfRange } from "@/lib/quran";
-import {
-  canEditWard,
-  formatAyahRange,
-  formatReviewSegments,
-  parseAyahRange,
-  type AyahRangeInput,
-} from "@/lib/ward-ayah";
-import type { MonthlySummary } from "@/lib/monthly-report";
-import type { AyahRange, PageRange, WardLog, WardStatus } from "@/lib/types";
+import { canEditWard } from "@/lib/ward-ayah";
+import { riyadhTodayISO } from "@/lib/riyadh-date";
+import { surahName, TOTAL_MUSHAF_PAGES } from "@/lib/quran-surahs";
+import { computeStreak, hifzPagesCovered, latestHifzProgress, STATUS_LABEL } from "@/lib/student-ward-display";
 
-const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
+const MOTIVATIONS = [
+  "كل صفحة تحفظها اليوم خطوة أقرب لختم القرآن.",
+  "المراجعة اليوم تثبّت حفظ الأمس — استمر.",
+  "«خيركم من تعلّم القرآن وعلّمه» — واصل وردك.",
+];
 
-function isRangeTouched(v: AyahRangeInput): boolean {
-  return v.from.surah != null || v.from.ayah != null || v.to.surah != null || v.to.ayah != null;
+/** يختار عبارة تحفيزية ثابتة ليوم واحد (لا تتغيّر عند كل إعادة عرض) — بذرة من تاريخ اليوم نفسه */
+function motivationForToday(): string {
+  const day = Number(riyadhTodayISO().replaceAll("-", ""));
+  return MOTIVATIONS[day % MOTIVATIONS.length];
 }
 
-function ayahRangeToInput(range: AyahRange): AyahRangeInput {
-  return {
-    from: { surah: range.fromSurah, ayah: range.fromAyah },
-    to: { surah: range.toSurah, ayah: range.toAyah },
-  };
-}
-
-/** يحسب رسالة الخطأ الفورية ونص "≈ صفحة" لقسم الحفظ — يعيد استخدام parseAyahRange نفسها التي يستخدمها الخادم لاحقاً، فلا تتكرر قواعد التحقق بمكانين */
-function describeRange(value: AyahRangeInput, label: string): { error: string | null; pageLabel: string | null } {
-  const touched = isRangeTouched(value);
-  try {
-    const parsed = parseAyahRange(value, label);
-    if (!parsed) return { error: null, pageLabel: null };
-    const { from, to } = parsed.pages;
-    return { error: null, pageLabel: from === to ? `≈ صفحة ${from}` : `≈ صفحة ${from}–${to}` };
-  } catch (e) {
-    if (!touched) return { error: null, pageLabel: null };
-    return { error: e instanceof Error ? e.message : "قيمة غير صحيحة", pageLabel: null };
-  }
-}
-
-/**
- * يتحقّق من كل مقاطع المراجعة معاً (لحساب "≈ المجموع" وتعطيل الإرسال)،
- * ويرجع أيضاً رسالة خطأ لكل مقطع على حدة لعرضها تحت حقله مباشرة —
- * parseReviewSegments نفسها ترمي عند أول مقطع خاطئ فقط، فنعيد استدعاءها
- * تدريجياً (بادئة فمقطع فمقطع) لتحديد أي المقاطع بالضبط أخطأ الطالب فيها
- * كلّها دفعة واحدة، بدل إظهار خطأ واحد وإخفاء البقية.
- */
-function describeReviewSegments(
-  segments: AyahRangeInput[],
-): { errors: (string | null)[]; pagesTotal: number | null; blocking: boolean } {
-  const errors: (string | null)[] = segments.map(() => null);
-  let pagesTotal = 0;
-  let blocking = false;
-
-  segments.forEach((segment, i) => {
-    if (!isRangeTouched(segment)) {
-      // مقطع أُضيف لكن لم يُملأ بعد — لا نعرض خطأ فوراً (نفس منطق "لم يُلمس بعد")،
-      // لكنه يمنع الإرسال (فارغ صراحة، ليس اختيارياً كسياق قسم كامل)
-      blocking = true;
-      return;
-    }
-    try {
-      const parsed = parseAyahRange(segment, "المراجعة");
-      if (parsed) pagesTotal += parsed.pages.to - parsed.pages.from + 1;
-    } catch (e) {
-      errors[i] = e instanceof Error ? e.message : "قيمة غير صحيحة";
-      blocking = true;
-    }
-  });
-
-  return { errors, pagesTotal: segments.length > 0 ? pagesTotal : null, blocking };
-}
-
-const STATUS_LABEL: Record<WardStatus, string> = {
-  new: "بانتظار الاطّلاع",
-  seen: "اطّلع المعلّم",
-  approved: "معتمد",
-  needs_revision: "يحتاج إعادة",
-};
-
-const STATUS_STYLE: Record<WardStatus, string> = {
-  new: "bg-amber-50 text-amber-700",
-  seen: "bg-slate-100 text-slate-600",
-  approved: "bg-emerald-50 text-emerald-600",
-  needs_revision: "bg-red-50 text-red-600",
-};
-
-function statusTone(status: WardStatus): string {
-  return STATUS_STYLE[status];
-}
-
-/** الحفظ يبقى نطاقاً واحداً دائماً — الأوراد الجديدة تعرض السورة/الآية، القديمة (بلا سورة محفوظة) تُعرض بالصفحات كما كانت دائماً */
-function hifzRangeText(range: PageRange | null, ayahRange: AyahRange | null): string | null {
-  if (ayahRange) return formatAyahRange(ayahRange);
-  if (!range) return null;
-  const juz = juzLabel(juzesOfRange(range.from, range.to));
-  return `صفحة ${range.from} إلى ${range.to} · ${juz}`;
-}
-
-/** المراجعة: تفضّل مقاطع STEP 52 (مهما كان عددها)، ثم نطاق STEP 49 القديم بمقطع واحد، ثم الصفحات المجرّدة لأقدم الأوراد */
-function reviewRangeText(log: WardLog): string | null {
-  if (log.reviewSegments && log.reviewSegments.length > 0) return formatReviewSegments(log.reviewSegments);
-  if (log.reviewAyah) return formatAyahRange(log.reviewAyah);
-  if (!log.review) return null;
-  const juz = juzLabel(juzesOfRange(log.review.from, log.review.to));
-  return `صفحة ${log.review.from} إلى ${log.review.to} · ${juz}`;
-}
-
-/** أيام متتالية بها ورد مُرسل، عدّاً تنازلياً من آخر تاريخ إرسال — بيانات حقيقية من logs فقط */
-function computeStreak(dates: string[]): number {
-  const uniqueSorted = [...new Set(dates)].sort().reverse();
-  if (uniqueSorted.length === 0) return 0;
-  let streak = 1;
-  for (let i = 0; i < uniqueSorted.length - 1; i++) {
-    const cur = new Date(uniqueSorted[i]);
-    const next = new Date(uniqueSorted[i + 1]);
-    const diffDays = Math.round((cur.getTime() - next.getTime()) / 86400000);
-    if (diffDays === 1) streak++;
-    else break;
-  }
-  return streak;
-}
-
-export default function StudentWardPage() {
-  const student = useStudentSession();
-  const formRef = useRef<HTMLDivElement>(null);
-
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [hifz, setHifz] = useState<AyahRangeInput>(EMPTY_RANGE);
-  const [reviewSegments, setReviewSegments] = useState<AyahRangeInput[]>([]);
-  const [note, setNote] = useState("");
-
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
-
-  const [logs, setLogs] = useState<WardLog[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(true);
-
-  const [months, setMonths] = useState<MonthlySummary[]>([]);
-  const [loadingMonths, setLoadingMonths] = useState(true);
-
-  const loadLogs = useCallback(() => {
-    fetch("/api/wards/mine")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { wards?: WardLog[] } | null) => {
-        if (data) setLogs(data.wards ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingLogs(false));
-  }, []);
-
-  const loadMonths = useCallback(() => {
-    fetch("/api/wards/monthly")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { months?: MonthlySummary[] } | null) => {
-        if (data) setMonths(data.months ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingMonths(false));
-  }, []);
-
+/** هل إشعارات المتصفّح مفعّلة فعلياً على هذا الجهاز؟ فحص فقط، بلا أي زرّ (الزرّ الكامل بصفحة الإعدادات) */
+function useReminderEnabled(): boolean | null {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
   useEffect(() => {
-    loadLogs();
-    loadMonths();
-  }, [loadLogs, loadMonths]);
-
-  const stats = useMemo(() => {
-    const approved = logs.filter((l) => l.status === "approved").length;
-    const streak = computeStreak(logs.map((l) => l.date));
-    return { total: logs.length, approved, streak };
-  }, [logs]);
-
-  const hifzInfo = useMemo(() => describeRange(hifz, "الحفظ"), [hifz]);
-  const reviewInfo = useMemo(() => describeReviewSegments(reviewSegments), [reviewSegments]);
-  const hasContent = isRangeTouched(hifz) || reviewSegments.length > 0 || note.trim().length > 0;
-  const hasBlockingError = !!hifzInfo.error || reviewInfo.blocking;
-  const submitDisabled = busy || !hasContent || hasBlockingError;
-
-  function resetForm() {
-    setEditingId(null);
-    setEditingDate(null);
-    setHifz(EMPTY_RANGE);
-    setReviewSegments([]);
-    setNote("");
-    setError(null);
-  }
-
-  function startEdit(log: WardLog) {
-    setSent(false);
-    setError(null);
-    setEditingId(log.id);
-    setEditingDate(log.date);
-    setHifz(log.hifzAyah ? ayahRangeToInput(log.hifzAyah) : EMPTY_RANGE);
-    if (log.reviewSegments && log.reviewSegments.length > 0) {
-      setReviewSegments(log.reviewSegments.map(ayahRangeToInput));
-    } else if (log.reviewAyah) {
-      setReviewSegments([ayahRangeToInput(log.reviewAyah)]);
-    } else {
-      setReviewSegments([]);
-    }
-    setNote(log.note);
-    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  async function deleteLog(log: WardLog) {
-    if (!confirm(`متأكد تحذف ورد يوم ${log.date}؟`)) return;
-    try {
-      const res = await fetch("/api/wards", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: log.id }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        alert(data.error ?? "تعذّر حذف الورد");
+    let cancelled = false;
+    async function check() {
+      if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        if (!cancelled) setEnabled(false);
         return;
       }
-      if (editingId === log.id) resetForm();
-      loadLogs();
-      loadMonths();
-    } catch {
-      alert("تعذّر الاتصال بالخادم");
-    }
-  }
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    setSent(false);
-    try {
-      const body: Record<string, unknown> = {
-        hifz: isRangeTouched(hifz) ? hifz : null,
-        review: reviewSegments.length > 0 ? reviewSegments : null,
-        note: note.trim(),
-      };
-      const isEditing = editingId !== null;
-      if (isEditing) {
-        body.id = editingId;
-        body.date = editingDate;
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg ? await reg.pushManager.getSubscription() : null;
+        if (!cancelled) setEnabled(!!sub);
+      } catch {
+        if (!cancelled) setEnabled(false);
       }
-      const res = await fetch("/api/wards", {
-        method: isEditing ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        setError(data.error ?? (isEditing ? "تعذّر حفظ التعديل" : "تعذّر إرسال الورد"));
-        return;
-      }
-      setSent(true);
-      resetForm();
-      loadLogs();
-      loadMonths();
-    } catch {
-      setError("تعذّر الاتصال بالخادم");
-    } finally {
-      setBusy(false);
     }
-  }
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return enabled;
+}
 
-  const field =
-    "tabular mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-colors duration-200 focus-visible:border-blue-400 focus-visible:bg-white";
+export default function StudentDashboardPage() {
+  const router = useRouter();
+  const student = useStudentSession();
+  const { logs, loadingLogs, months, loadingMonths } = useStudentWards();
+  const reminderEnabled = useReminderEnabled();
 
-  const gregorian = new Intl.DateTimeFormat("ar", { day: "numeric", month: "long", weekday: "long" }).format(new Date());
+  const today = riyadhTodayISO();
+  const thisMonthKey = today.slice(0, 7);
+  const thisMonth = months.find((m) => m.key === thisMonthKey) ?? null;
+
+  const streak = useMemo(() => computeStreak(logs.map((l) => l.date), today), [logs, today]);
+  const loggedToday = logs.some((l) => l.date === today);
+  const lastLog = logs[0] ?? null;
+  const pagesCovered = useMemo(() => hifzPagesCovered(logs), [logs]);
+  const lastHifz = useMemo(() => latestHifzProgress(logs), [logs]);
+  const editableLastLogs = logs.slice(0, 5);
+
+  const loading = loadingLogs || loadingMonths;
+  const isNewStudent = !loading && logs.length === 0;
 
   return (
     <div className="space-y-5">
@@ -286,181 +79,130 @@ export default function StudentWardPage() {
         <IslamicPattern />
         <div className="relative">
           <h1 className="font-naskh text-xl font-bold">
-            {student ? `حيّاك الله يا ${student.name}` : "ورد اليوم"}
+            {student ? `السلام عليكم يا ${student.name}` : "أهلاً بك"}
           </h1>
-          <p className="mt-1 text-xs text-white/80">
-            {gregorian}
-            {student?.halaqahName ? ` · ${student.halaqahName}` : ""}
-          </p>
-
-          <div className="mt-4 grid grid-cols-3 gap-2.5">
-            <div className="rounded-xl bg-white/10 px-3 py-2.5 text-center backdrop-blur-sm">
-              <div className="tabular text-lg font-bold">{stats.total}</div>
-              <div className="mt-0.5 text-[11px] text-white/75">إجمالي الأوراد</div>
-            </div>
-            <div className="rounded-xl bg-white/10 px-3 py-2.5 text-center backdrop-blur-sm">
-              <div className="tabular text-lg font-bold">{stats.approved}</div>
-              <div className="mt-0.5 text-[11px] text-white/75">معتمد</div>
-            </div>
-            <div className="rounded-xl bg-white/10 px-3 py-2.5 text-center backdrop-blur-sm">
-              <div className="tabular text-lg font-bold">{stats.streak}</div>
-              <div className="mt-0.5 text-[11px] text-white/75">أيام متتالية</div>
-            </div>
-          </div>
+          <p className="mt-1 text-xs text-white/80">{motivationForToday()}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-        <StudentPushToggle />
-      </div>
-
-      <div ref={formRef} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        {editingId !== null && (
-          <div className="mb-3 flex items-center justify-between rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
-            <span>تعديل ورد يوم {editingDate}</span>
-            <button
-              type="button"
-              onClick={resetForm}
-              className="cursor-pointer font-semibold underline hover:no-underline"
-            >
-              إلغاء التعديل
-            </button>
-          </div>
-        )}
-        <form onSubmit={submit} className="space-y-4">
-          <AyahRangeField
-            idPrefix="hifz"
-            label="الحفظ الجديد"
-            icon={<BookIcon size={16} />}
-            colorClass="text-emerald-700"
-            value={hifz}
-            onChange={setHifz}
-            error={hifzInfo.error}
-            pageLabel={hifzInfo.pageLabel}
-          />
-
-          <ReviewSegmentsField
-            label="المراجعة"
-            icon={<CalendarIcon size={16} />}
-            colorClass="text-blue-700"
-            segments={reviewSegments}
-            onChange={setReviewSegments}
-            segmentErrors={reviewInfo.errors}
-            pagesTotal={reviewInfo.pagesTotal}
-          />
-
-          <label className="block">
-            <span className="text-xs text-slate-500">ملاحظة (اختياري)</span>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              maxLength={500}
-              placeholder="مثال: تعثّرت في آخر صفحة"
-              className={field}
-            />
-          </label>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {sent && <p className="text-sm text-emerald-600">{editingId !== null ? "تم حفظ التعديل ✓" : "تم إرسال وردك إلى معلّمك ✓"}</p>}
-
-          <button
-            type="submit"
-            disabled={submitDisabled}
-            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-sm transition-shadow duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+      {isNewStudent ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+          <p className="mb-1 text-2xl">📖</p>
+          <p className="mb-1 font-naskh text-lg font-bold text-slate-800">لم ترسل أي ورد بعد</p>
+          <p className="mb-4 text-sm text-slate-500">سجّل حفظك ومراجعتك الأولى، ويصل معلّمك مباشرة أنك بدأت.</p>
+          <Link
+            href="/student/log"
+            className="inline-block cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm"
             style={{ background: "linear-gradient(90deg, #3B82F6, #1D4ED8)" }}
           >
-            {busy ? "يُحفظ…" : editingId !== null ? "حفظ التعديل" : "أرسل وردي"}
-          </button>
-          {editingId === null && (
-            <p className="text-center text-xs text-slate-400">سجّل حفظاً أو مراجعة أو كليهما، ثم أرسل.</p>
+            سجّل أول وردي
+          </Link>
+        </div>
+      ) : (
+        <>
+          {!loading && !loggedToday && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              📖 ما سجّلت وردك اليوم بعد —{" "}
+              <Link href="/student/log" className="font-semibold underline hover:no-underline">
+                سجّله الآن
+              </Link>
+            </div>
           )}
-        </form>
-      </div>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">أورادي الأخيرة</h2>
-        {loadingLogs ? (
-          <p className="text-sm text-slate-400">جارٍ التحميل…</p>
-        ) : logs.length === 0 ? (
-          <Empty title="لم ترسل أي ورد بعد." />
-        ) : (
-          <ul className="space-y-2">
-            {logs.map((log) => {
-              const editable = canEditWard(log.status);
-              return (
-                <li key={log.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="tabular text-sm font-medium text-slate-800">{log.date}</span>
-                    <div className="flex shrink-0 items-center gap-2">
-                      {editable && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => startEdit(log)}
-                            className="cursor-pointer text-xs font-semibold text-blue-600 hover:underline"
-                          >
-                            تعديل
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteLog(log)}
-                            className="cursor-pointer text-xs font-semibold text-red-600 hover:underline"
-                          >
-                            حذف
-                          </button>
-                        </>
-                      )}
-                      <span className={`tabular rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusTone(log.status)}`}>
-                        {STATUS_LABEL[log.status]}
-                      </span>
-                    </div>
-                  </div>
+          {reminderEnabled === false && (
+            <Link
+              href="/student/settings"
+              className="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              🔔 فعّل التذكير اليومي حتى لا يفوتك ورد
+            </Link>
+          )}
 
-                  {log.previousAttemptId && (
-                    <p className="mt-1 text-xs text-slate-400">↩ محاولة جديدة عن ورد سابق</p>
-                  )}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
+              <div className="tabular text-xl font-bold text-emerald-700">{thisMonth?.hifzPages ?? 0}</div>
+              <div className="mt-0.5 text-[11px] text-slate-500">صفحات حفظ هذا الشهر</div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
+              <div className="tabular text-xl font-bold text-blue-700">{thisMonth?.reviewPages ?? 0}</div>
+              <div className="mt-0.5 text-[11px] text-slate-500">صفحات مراجعة هذا الشهر</div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
+              <div className="tabular text-xl font-bold text-orange-600">{streak}</div>
+              <div className="mt-0.5 text-[11px] text-slate-500">أيام متتالية</div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
+              <div className="text-sm font-bold text-slate-800">{lastLog ? STATUS_LABEL[lastLog.status] : "—"}</div>
+              <div className="mt-0.5 text-[11px] text-slate-500">حالة آخر ورد</div>
+            </div>
+          </div>
 
-                  <div className="mt-1 space-y-0.5 text-sm text-slate-500">
-                    {hifzRangeText(log.hifz, log.hifzAyah) && <p>حفظ: {hifzRangeText(log.hifz, log.hifzAyah)}</p>}
-                    {reviewRangeText(log) && <p>مراجعة: {reviewRangeText(log)}</p>}
-                    {log.note && <p className="text-slate-700">{log.note}</p>}
-                  </div>
+          {pagesCovered > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-1.5 flex items-baseline justify-between">
+                <h2 className="text-sm font-semibold text-slate-700">تقدّم الحفظ</h2>
+                <span className="tabular text-xs text-slate-500">
+                  {pagesCovered} من {TOTAL_MUSHAF_PAGES} صفحة
+                </span>
+              </div>
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${Math.min(100, (pagesCovered / TOTAL_MUSHAF_PAGES) * 100)}%`,
+                    background: "linear-gradient(90deg, #10B981, #059669)",
+                  }}
+                />
+              </div>
+              {lastHifz && (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  آخر ما وصلت: سورة {surahName(lastHifz.surah)} (صفحة {lastHifz.page})
+                </p>
+              )}
+            </div>
+          )}
 
-                  {log.status === "approved" && (
-                    <p className="mt-2 flex items-center gap-1 text-xs text-slate-400">
-                      🔒 اعتمده المعلّم — للتعديل تواصل مع معلّمك
-                    </p>
-                  )}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Link
+              href="/student/log"
+              className="cursor-pointer rounded-xl px-3 py-3 text-center text-sm font-bold text-white shadow-sm transition-shadow duration-200 hover:shadow-lg sm:col-span-1"
+              style={{ background: "linear-gradient(90deg, #3B82F6, #1D4ED8)" }}
+            >
+              سجّل وردي اليوم
+            </Link>
+            <Link
+              href="/student/monthly"
+              className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              التقرير الشهري
+            </Link>
+            <Link
+              href="/student/suggest"
+              className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              اقتراح أو بلاغ
+            </Link>
+          </div>
 
-                  {log.status === "needs_revision" && (
-                    <div className="mt-2 space-y-1 rounded-xl border border-red-100 bg-red-50/60 p-2">
-                      {log.reviewNote && (
-                        <p className="text-sm text-red-700">ملاحظة معلّمك: «{log.reviewNote}»</p>
-                      )}
-                      <p className="text-xs text-slate-500">
-                        أرسل محاولة جديدة من النموذج أعلاه — هذه المحاولة لا يمكن تعديلها.
-                      </p>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">سجلّي الشهري</h2>
-        <MonthlyHistorySection months={months} loading={loadingMonths} />
-      </section>
-
-      <Link
-        href="/student/suggest"
-        className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm font-semibold text-blue-700 hover:bg-slate-50"
-      >
-        💬 اقتراح أو بلاغ عن مشكلة
-      </Link>
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-700">آخر أوراد</h2>
+              <Link href="/student/wards" className="text-xs font-semibold text-blue-600 hover:underline">
+                كل أورادي
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {editableLastLogs.map((log) => (
+                <WardListItem
+                  key={log.id}
+                  log={log}
+                  onEdit={canEditWard(log.status) ? () => router.push(`/student/log?edit=${log.id}`) : undefined}
+                />
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
     </div>
   );
 }
