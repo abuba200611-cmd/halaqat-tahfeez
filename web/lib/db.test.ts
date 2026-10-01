@@ -36,7 +36,8 @@ vi.mock("@netlify/database", () => ({
   }),
 }));
 
-const { updateWardLog } = await import("./db");
+const { createWardLog, updateWardLog, listHalaqahMates, listPendingBuddyRequestsForStudent, respondToBuddyRequest } =
+  await import("./db");
 
 const sampleLog: NewWardLog = {
   date: "2026-09-27",
@@ -94,6 +95,154 @@ describe("updateWardLog — الذرّية وقفل الورد المعتمد (S
     const updateCall = client.calls.find((c) => c.text.trim().startsWith("UPDATE ward_logs"));
     expect(updateCall?.text).toContain("status = 'new'");
     expect(updateCall?.text).toContain("status IN ('new', 'seen')");
+  });
+});
+
+/*
+  STEP 56 — زميل المراجعة: الفحص هنا على طبقة التطبيق (assertValidBuddy
+  وما يبنيه createWardLog/updateWardLog من استعلامات) — "نفس الحلقة
+  فقط" مضمونة فعلياً من قيدَي FK بقاعدة البيانات نفسها (migration.sql)،
+  لا من هذا الفحص وحده؛ هذي الطبقة فقط رسالة خطأ عربية واضحة قبل وصول
+  أي شيء لقاعدة البيانات، وتُثبت أن طلباً غير صالح لا يفتح حتى اتصالاً
+  بقاعدة البيانات (pool.connect لا يُستدعى إطلاقاً).
+*/
+function buddySampleLog(buddyStudentId: string | null): NewWardLog {
+  return { ...sampleLog, buddyStudentId };
+}
+
+/** sqlMock يميّز بين استعلام "هل الزميل صالح" واستعلام "محاولة إعادة مفتوحة" بنص الاستعلام نفسه */
+function mockBuddyValidation(buddyExists: boolean) {
+  sqlMock.mockImplementation((strings: TemplateStringsArray) => {
+    const text = strings.join("");
+    if (text.includes("FROM students")) return Promise.resolve(buddyExists ? [{ x: 1 }] : []);
+    return Promise.resolve([]); // findOpenRevisionAttempt وغيره — لا محاولة سابقة مفتوحة
+  });
+}
+
+describe("createWardLog / updateWardLog — زميل المراجعة (STEP 56)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+    connectMock.mockReset();
+  });
+
+  it("اختيار النفس: يفشل قبل فتح أي اتصال بقاعدة البيانات", async () => {
+    mockBuddyValidation(true);
+    await expect(createWardLog(2, "student-1", buddySampleLog("student-1"))).rejects.toThrow(
+      "لا يمكن اختيار نفسك زميلاً",
+    );
+    expect(connectMock).not.toHaveBeenCalled();
+  });
+
+  it("زميل غير موجود/محذوف/غير نشط (الاستعلام يرجع صفراً): يفشل، ولا اتصال بقاعدة البيانات", async () => {
+    mockBuddyValidation(false);
+    await expect(createWardLog(2, "student-1", buddySampleLog("ghost"))).rejects.toThrow("هذا الزميل غير متاح");
+    expect(connectMock).not.toHaveBeenCalled();
+  });
+
+  it("زميل صالح (نفس الحلقة، نشِط): يُدرج صفّ زميل بحالة pending داخل نفس الترانزاكشن", async () => {
+    mockBuddyValidation(true);
+    const client = makeFakeClient(1);
+    connectMock.mockResolvedValue(client);
+    client.query.mockImplementation(async (text: string, params?: unknown[]) => {
+      client.calls.push({ text, params });
+      if (text.trim().startsWith("INSERT INTO ward_logs")) return { rows: [{ id: 42 }] };
+      return { rowCount: 1, rows: [] };
+    });
+
+    await createWardLog(2, "student-1", buddySampleLog("buddy-1"));
+
+    const insertCall = client.calls.find((c) => c.text.trim().startsWith("INSERT INTO ward_review_buddies"));
+    expect(insertCall).toBeDefined();
+    expect(insertCall?.text).toContain("'pending'");
+    expect(insertCall?.params).toEqual([42, 2, "student-1", "buddy-1"]);
+  });
+
+  it("بلا زميل: لا يُدرج أي صفّ بـward_review_buddies", async () => {
+    mockBuddyValidation(true);
+    const client = makeFakeClient(1);
+    connectMock.mockResolvedValue(client);
+    client.query.mockImplementation(async (text: string, params?: unknown[]) => {
+      client.calls.push({ text, params });
+      if (text.trim().startsWith("INSERT INTO ward_logs")) return { rows: [{ id: 42 }] };
+      return { rowCount: 1, rows: [] };
+    });
+
+    await createWardLog(2, "student-1", buddySampleLog(null));
+
+    expect(client.calls.some((c) => c.text.trim().startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
+  });
+
+  it("تعديل الزميل (أو حتى نفس الزميل): يحذف صفّ الزميل القديم ثم يُدرج صفّاً جديداً بحالة pending — إعادة فعلية للحالة", async () => {
+    mockBuddyValidation(true);
+    const client = makeFakeClient(1);
+    connectMock.mockResolvedValue(client);
+
+    await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-2"));
+
+    const texts = client.calls.map((c) => c.text.trim());
+    const deleteIdx = texts.findIndex((t) => t.startsWith("DELETE FROM ward_review_buddies"));
+    const insertIdx = texts.findIndex((t) => t.startsWith("INSERT INTO ward_review_buddies"));
+    expect(deleteIdx).toBeGreaterThanOrEqual(0);
+    expect(insertIdx).toBeGreaterThan(deleteIdx);
+    expect(texts[insertIdx]).toContain("'pending'");
+  });
+
+  it("إزالة الزميل (buddyStudentId=null) من ورد له زميل سابقاً: يحذف فقط، بلا إدراج جديد", async () => {
+    mockBuddyValidation(true);
+    const client = makeFakeClient(1);
+    connectMock.mockResolvedValue(client);
+
+    await updateWardLog(2, "student-1", 17, buddySampleLog(null));
+
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_buddies"))).toBe(true);
+    expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
+  });
+
+  it("ورد مقفَل (UPDATE الرئيسية ترجع صفر صفوف): لا يلمس ward_review_buddies إطلاقاً", async () => {
+    mockBuddyValidation(true);
+    const client = makeFakeClient(0);
+    connectMock.mockResolvedValue(client);
+
+    await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-2"));
+
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.some((t) => t.includes("ward_review_buddies"))).toBe(false);
+  });
+});
+
+describe("listHalaqahMates / listPendingBuddyRequestsForStudent / respondToBuddyRequest (STEP 56)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+  });
+
+  it("listHalaqahMates يرجع الاسم والمعرّف فقط — بلا أي حقل آخر", async () => {
+    sqlMock.mockResolvedValue([{ id: "s2", name: "محمد" }]);
+    expect(await listHalaqahMates(1, "s1")).toEqual([{ id: "s2", name: "محمد" }]);
+  });
+
+  it("listPendingBuddyRequestsForStudent يرجع اسم الطالب الطالب والتاريخ فقط", async () => {
+    sqlMock.mockResolvedValue([{ ward_log_id: 5, requester_name: "أحمد", date: "2026-09-29" }]);
+    expect(await listPendingBuddyRequestsForStudent(1, "s2")).toEqual([
+      { wardLogId: 5, requesterName: "أحمد", date: "2026-09-29" },
+    ]);
+  });
+
+  it("respondToBuddyRequest: تأكيد ينجح لصاحب الطلب الصحيح (status='pending' → صف واحد)", async () => {
+    sqlMock.mockResolvedValue([{ id: 9 }]);
+    expect(await respondToBuddyRequest(1, "s2", 5, true)).toBe(true);
+  });
+
+  it("طالب ثالث (buddy_student_id لا يطابق جلسته) أو ورد غير موجود: صفر صفوف → false", async () => {
+    sqlMock.mockResolvedValue([]);
+    expect(await respondToBuddyRequest(1, "s3", 5, true)).toBe(false);
+  });
+
+  it("تأكيد مرتين: الثانية لا تجد صفاً بحالة pending بعد الآن → false", async () => {
+    // المحاولة الأولى نجحت (status صار confirmed) — محاكاة الثانية مباشرة:
+    // الاستعلام بشرط status='pending' صار يرجع صفراً لأن الصف تغيّرت حالته فعلياً
+    sqlMock.mockResolvedValue([]);
+    expect(await respondToBuddyRequest(1, "s2", 5, true)).toBe(false);
   });
 });
 

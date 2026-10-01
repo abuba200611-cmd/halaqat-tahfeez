@@ -48,12 +48,19 @@ function parseReviewBody(input: unknown): ReturnType<typeof parseReviewSegments>
   return parseReviewSegments(input.map(readRangeInput));
 }
 
+/** يقرأ معرّف زميل المراجعة الاختياري من الجسم — نص غير فارغ فقط، وإلا null (STEP 56) */
+function readBuddyId(input: unknown): string | null {
+  const value = String(input ?? "").trim();
+  return value || null;
+}
+
 /** يبني NewWardLog من نتيجتَي تحقّق الحفظ والمراجعة — مشترك بين POST وPUT */
 function buildLog(
   date: string,
   hifz: ReturnType<typeof parseAyahRange>,
   review: ReturnType<typeof parseReviewSegments>,
   note: string,
+  buddyStudentId: string | null,
 ): NewWardLog {
   const reviewSegments: NewReviewSegment[] | null = review
     ? review.segments.map((seg, i) => ({ ...seg, fromPage: review.pages[i].from, toPage: review.pages[i].to }))
@@ -72,6 +79,7 @@ function buildLog(
     reviewAyah: null,
     reviewSegments,
     note,
+    buddyStudentId,
   };
 }
 
@@ -89,12 +97,13 @@ export async function POST(request: Request) {
     const hifz = parseRange(body.hifz, "الحفظ");
     const review = parseReviewBody(body.review);
     const note = String(body.note ?? "").trim().slice(0, 500);
+    const buddyStudentId = readBuddyId(body.buddyStudentId);
 
     if (!hifz && !review && !note) {
       throw new Error("سجّل حفظاً أو مراجعة قبل الإرسال");
     }
 
-    const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, note);
+    const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, note, buddyStudentId);
     const { previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
 
     // إشعار المعلّم — لا يُفشل الحفظ إن تعذّر. عنوان مختلف لو كانت هذي
@@ -109,6 +118,26 @@ export async function POST(request: Request) {
       url: "/inbox",
       tag: "ward",
     });
+
+    // إشعار الزميل بطلب التأكيد (STEP 56) — اختياري، لا يُفشل الحفظ إن
+    // تعذّر أو تأخّر. نفس نمط after() + سقف ٣ ثوانٍ المستخدَم بالفعل بـPATCH أدناه.
+    if (buddyStudentId) {
+      after(async () => {
+        try {
+          await Promise.race([
+            sendPushToStudent(student.teacherId, buddyStudentId, {
+              title: "طلب تأكيد مراجعة",
+              body: `${student.name} سجّل أنه راجع معك — أكّد؟`,
+              url: "/student",
+              tag: "buddy-request",
+            }),
+            new Promise((resolve) => setTimeout(resolve, 3000)),
+          ]);
+        } catch {
+          // فشل الإشعار لا يغيّر نتيجة إرسال الورد أبداً — الرد أُرسل مسبقاً
+        }
+      });
+    }
 
     return Response.json({ ok: true });
   } catch (error) {
@@ -140,12 +169,13 @@ export async function PUT(request: Request) {
     const hifz = parseRange(body.hifz, "الحفظ");
     const review = parseReviewBody(body.review);
     const note = String(body.note ?? "").trim().slice(0, 500);
+    const buddyStudentId = readBuddyId(body.buddyStudentId);
 
     if (!hifz && !review && !note) {
       throw new Error("سجّل حفظاً أو مراجعة قبل الحفظ");
     }
 
-    const log = buildLog(date, hifz, review, note);
+    const log = buildLog(date, hifz, review, note, buddyStudentId);
     const ok = await updateWardLog(student.teacherId, student.id, id, log);
     if (!ok) {
       return Response.json(

@@ -9,7 +9,7 @@ import { WardListItem } from "@/components/ward-list";
 import { useStudentWards } from "@/components/use-student-wards";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
-import type { AyahRange, WardLog } from "@/lib/types";
+import type { AyahRange, HalaqahMate, WardLog } from "@/lib/types";
 
 const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
 
@@ -80,10 +80,20 @@ export default function StudentLogPage() {
   const [hifz, setHifz] = useState<AyahRangeInput>(EMPTY_RANGE);
   const [reviewSegments, setReviewSegments] = useState<AyahRangeInput[]>([]);
   const [note, setNote] = useState("");
+  const [buddyId, setBuddyId] = useState("");
+  const [mates, setMates] = useState<HalaqahMate[]>([]);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+
+  // STEP 56: زملاء الحلقة لاختيار "راجعت معه" — الاسم فقط، تحميل مرة واحدة
+  useEffect(() => {
+    fetch("/api/wards/buddies")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { mates?: HalaqahMate[] } | null) => setMates(data?.mates ?? []))
+      .catch(() => {});
+  }, []);
 
   function applyEditValues(log: WardLog) {
     setSent(false);
@@ -99,6 +109,7 @@ export default function StudentLogPage() {
       setReviewSegments([]);
     }
     setNote(log.note);
+    setBuddyId(log.buddy?.studentId ?? "");
   }
 
   /** زرّ "تعديل" بقائمة الأوراد — استدعاء مباشر من معالج نقر، لا من أثر جانبي */
@@ -153,9 +164,14 @@ export default function StudentLogPage() {
     setHifz(EMPTY_RANGE);
     setReviewSegments([]);
     setNote("");
+    setBuddyId("");
     setError(null);
   }
 
+  const editingBuddy = useMemo(
+    () => (editingId !== null ? (logs.find((l) => l.id === editingId)?.buddy ?? null) : null),
+    [logs, editingId],
+  );
   const hifzInfo = useMemo(() => describeRange(hifz, "الحفظ"), [hifz]);
   const reviewInfo = useMemo(() => describeReviewSegments(reviewSegments), [reviewSegments]);
   const hasContent = isRangeTouched(hifz) || reviewSegments.length > 0 || note.trim().length > 0;
@@ -172,6 +188,7 @@ export default function StudentLogPage() {
         hifz: isRangeTouched(hifz) ? hifz : null,
         review: reviewSegments.length > 0 ? reviewSegments : null,
         note: note.trim(),
+        buddyStudentId: buddyId || null,
       };
       const isEditing = editingId !== null;
       if (isEditing) {
@@ -235,6 +252,29 @@ export default function StudentLogPage() {
             segmentErrors={reviewInfo.errors}
             pagesTotal={reviewInfo.pagesTotal}
           />
+
+          <label className="block">
+            <span className="text-xs text-slate-500">راجعت مع زميل؟ (اختياري)</span>
+            <select
+              value={buddyId}
+              onChange={(e) => setBuddyId(e.target.value)}
+              className={field}
+            >
+              <option value="">بلا زميل</option>
+              {mates.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+            {editingId !== null && editingBuddy && (
+              <span className="mt-1 block text-xs text-slate-400">
+                {editingBuddy.status === "confirmed" && "✓ أكّد الزميل المراجعة معك"}
+                {editingBuddy.status === "pending" && "بانتظار تأكيد الزميل"}
+                {editingBuddy.status === "declined" && "رفض الزميل — اختر غيره أو احذفه"}
+              </span>
+            )}
+          </label>
 
           <label className="block">
             <span className="text-xs text-slate-500">ملاحظة (اختياري)</span>

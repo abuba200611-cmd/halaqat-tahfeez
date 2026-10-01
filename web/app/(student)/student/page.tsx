@@ -11,6 +11,7 @@ import { canEditWard } from "@/lib/ward-ayah";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { surahName, TOTAL_MUSHAF_PAGES } from "@/lib/quran-surahs";
 import { computeStreak, hifzPagesCovered, latestHifzProgress, STATUS_LABEL } from "@/lib/student-ward-display";
+import type { BuddyRequest } from "@/lib/types";
 
 const MOTIVATIONS = [
   "كل صفحة تحفظها اليوم خطوة أقرب لختم القرآن.",
@@ -50,6 +51,73 @@ function useReminderEnabled(): boolean | null {
   return enabled;
 }
 
+/**
+ * بطاقة "فلان قال إنه راجع معك" — تأكيد خفيف لطلب واحد محدَّد، لا علاقة
+ * مستمرة (STEP 56). لا تكشف أي شيء من ورد الطالب الآخر غير الاسم
+ * والتاريخ (نفس ما يرجعه /api/wards/buddy-requests بالضبط).
+ */
+function BuddyRequestsCard() {
+  const [requests, setRequests] = useState<BuddyRequest[]>([]);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const load = () => {
+    fetch("/api/wards/buddy-requests")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { requests?: BuddyRequest[] } | null) => setRequests(data?.requests ?? []))
+      .catch(() => {});
+  };
+
+  useEffect(load, []);
+
+  async function respond(wardLogId: number, action: "confirm" | "decline") {
+    setBusyId(wardLogId);
+    try {
+      await fetch("/api/wards/buddy-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wardLogId, action }),
+      });
+      setRequests((prev) => prev.filter((r) => r.wardLogId !== wardLogId));
+    } catch {
+      load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (requests.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {requests.map((r) => (
+        <div key={r.wardLogId} className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-sm text-blue-900">
+            🤝 <span className="font-semibold">{r.requesterName}</span> قال إنه راجع معك يوم {r.date}
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              disabled={busyId === r.wardLogId}
+              onClick={() => respond(r.wardLogId, "confirm")}
+              className="cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              تأكيد
+            </button>
+            <button
+              type="button"
+              disabled={busyId === r.wardLogId}
+              onClick={() => respond(r.wardLogId, "decline")}
+              className="cursor-pointer rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              تجاهل
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function StudentDashboardPage() {
   const router = useRouter();
   const student = useStudentSession();
@@ -84,6 +152,8 @@ export default function StudentDashboardPage() {
           <p className="mt-1 text-xs text-white/80">{motivationForToday()}</p>
         </div>
       </div>
+
+      <BuddyRequestsCard />
 
       {isNewStudent ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
