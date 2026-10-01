@@ -10,12 +10,28 @@ function toLinkPage(origin: string, params: Record<string, string>): Response {
   return Response.redirect(url.toString());
 }
 
+/** يرجع لصفحة دخول الطالب العادية مع حالة خطأ توضّح للواجهة ماذا تعرض (مسار mode=login فقط) */
+function toStudentLoginPage(origin: string, params: Record<string, string>): Response {
+  const url = new URL("/student", origin);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  return Response.redirect(url.toString());
+}
+
 /**
- * مسار STEP 6B فقط: ربط طالب موجود مسبقاً. لا يُنشئ أي student أو
- * student_accounts هنا مباشرة. إن كان الـsub مرتبطاً بحساب فعلاً، هذا
- * تسجيل دخول عادي — نفتح جلسة الطالب مباشرة (خلافاً لمسار "طالب جديد"
- * الذي يوقف المسار برسالة فقط). إن لم يوجد، نحفظ هوية جوجل مؤقتاً
- * بكوكي مستقل عن STEP 6A وننتقل لخطوة إدخال رمز الربط.
+ * مسار STEP 6B: ربط طالب موجود مسبقاً، أو (mode=login) إعادة دخول
+ * طالب مربوط مسبقاً من صفحة دخول الطالب العادية. لا يُنشئ أي student
+ * أو student_accounts هنا مباشرة بأي حال.
+ *
+ * mode يأتي من consumeStudentGoogleLinkState حصراً (محفوظ بكوكي
+ * الـstate الموقَّعة وقت /start) — لا يُقرأ أبداً من معامل مستقل بهذا
+ * الرابط، فتعديل الرابط يدوياً لا يغيّر أي سلوك.
+ *
+ * - أيّ mode + حساب مربوط: تسجيل دخول عادي — نفتح جلسة الطالب مباشرة
+ *   (خلافاً لمسار "طالب جديد" STEP 6A الذي يوقف المسار برسالة فقط).
+ * - mode=login + حساب غير مربوط: رسالة واضحة على صفحة دخول الطالب —
+ *   لا نموذج رمز ربط، لا إنشاء، لا ربط تلقائي بلا دعوة أو رمز.
+ * - mode=link (الافتراضي، STEP 6B الأصلي) + حساب غير مربوط: نحفظ هوية
+ *   جوجل مؤقتاً وننتقل لخطوة إدخال رمز الربط — بلا تغيير عن السابق.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -23,8 +39,14 @@ export async function GET(request: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
 
-  if (!code || !state || !(await consumeStudentGoogleLinkState(state))) {
+  if (!code || !state) {
     return toLinkPage(origin, { error: "تعذّر التحقق من طلب الدخول — حاول مرة ثانية" });
+  }
+  const { ok, mode } = await consumeStudentGoogleLinkState(state);
+  if (!ok) {
+    return mode === "login"
+      ? toStudentLoginPage(origin, { googleError: "failed" })
+      : toLinkPage(origin, { error: "تعذّر التحقق من طلب الدخول — حاول مرة ثانية" });
   }
 
   try {
@@ -36,9 +58,14 @@ export async function GET(request: Request) {
       return Response.redirect(`${origin}/student`);
     }
 
+    if (mode === "login") {
+      return toStudentLoginPage(origin, { googleError: "not_linked" });
+    }
+
     await setStudentGoogleLinkPendingCookie(profile.sub, profile.email);
     return toLinkPage(origin, { step: "code" });
   } catch (error) {
-    return toLinkPage(origin, { error: error instanceof Error ? error.message : "تعذّر الدخول بحساب جوجل" });
+    const message = error instanceof Error ? error.message : "تعذّر الدخول بحساب جوجل";
+    return mode === "login" ? toStudentLoginPage(origin, { googleError: "failed" }) : toLinkPage(origin, { error: message });
   }
 }

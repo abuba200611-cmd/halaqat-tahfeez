@@ -155,26 +155,48 @@ const LINK_STATE_COOKIE = "student_google_link_oauth_state";
 const LINK_PENDING_COOKIE = "student_google_link_pending";
 const LINK_PENDING_TAG = "student_google_link_pending";
 
-/** يولّد state جديداً لمسار الربط، بكوكي مستقل تماماً عن مسار الطالب الجديد */
-export async function createStudentGoogleLinkState(): Promise<string> {
-  const state = randomBytes(16).toString("hex");
+/**
+ * "link": مسار STEP 6B الأصلي (ربط طالب موجود برمز من المعلّم).
+ * "login": دخول عادي بزر "الدخول بحساب Google" بصفحة دخول الطالب —
+ * نفس تسجيل الدخول المباشر عند وجود الحساب، لكن عدم وجوده لا يفتح
+ * نموذج رمز ربط بل رسالة خطأ فقط (lib/student-google-auth.ts caller).
+ */
+export type StudentGoogleLinkMode = "link" | "login";
+
+/**
+ * يولّد state جديداً لمسار الربط، بكوكي مستقل تماماً عن مسار الطالب
+ * الجديد. mode يُحفظ داخل الكوكي نفسها (httpOnly، لا يصل لجافاسكربت
+ * العميل ولا لرابط Google الظاهر) لا كمعامل منفصل بالـcallback —
+ * فتبديل مسار "دخول عادي" و"ربط برمز" يتقرّر فقط وقت /start، ولا يملك
+ * أي طرف خارجي طريقة لتغييره لاحقاً بتعديل رابط الـcallback يدوياً.
+ */
+export async function createStudentGoogleLinkState(mode: StudentGoogleLinkMode = "link"): Promise<string> {
+  const nonce = randomBytes(16).toString("hex");
   const store = await cookies();
-  store.set(LINK_STATE_COOKIE, state, {
+  store.set(LINK_STATE_COOKIE, `${nonce}:${mode}`, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 600,
   });
-  return state;
+  return nonce;
 }
 
-/** يتحقق من تطابق state مع كوكي مسار الربط، ويحذفها فوراً بأي حال */
-export async function consumeStudentGoogleLinkState(state: string): Promise<boolean> {
+/**
+ * يتحقق من تطابق state مع كوكي مسار الربط، ويحذفها فوراً بأي حال.
+ * يرجع mode المحفوظ بالكوكي وقت /start — الـcallback يثق بهذا فقط،
+ * لا بأي معامل "mode" قد يُضاف يدوياً برابط الطلب نفسه.
+ */
+export async function consumeStudentGoogleLinkState(
+  state: string,
+): Promise<{ ok: boolean; mode: StudentGoogleLinkMode }> {
   const store = await cookies();
-  const expected = store.get(LINK_STATE_COOKIE)?.value;
+  const raw = store.get(LINK_STATE_COOKIE)?.value;
   store.delete(LINK_STATE_COOKIE);
-  return !!expected && expected === state;
+  if (!raw) return { ok: false, mode: "link" };
+  const [nonce, mode] = raw.split(":");
+  return { ok: !!nonce && nonce === state, mode: mode === "login" ? "login" : "link" };
 }
 
 function linkPendingPayload(sub: string, email: string, issuedAt: number): string {
