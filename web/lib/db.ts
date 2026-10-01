@@ -879,12 +879,21 @@ export async function updateWardLog(
     // استبدال كامل للمقاطع — أبسط وأصحّ من محاولة مطابقة/تحديث جزئي لقائمة أعيد إرسالها كاملة من الواجهة
     await client.query(`DELETE FROM ward_review_segments WHERE ward_log_id = $1`, [id]);
     await insertReviewSegments(client, id, log.reviewSegments);
-    // STEP 56: حذف زميل سابق دائماً، ثم إعادة إدراج لو اختار زميلاً جديداً
-    // أو نفس الزميل — إعادة الإدراج status='pending' دائماً، فأي تغيير
-    // على محتوى الورد (لو كان الزميل نفسه) يحتاج تأكيداً جديداً من
-    // الزميل أيضاً، نفس منطق إعادة "new" لاطّلاع المعلّم أعلاه بالضبط.
-    await client.query(`DELETE FROM ward_review_buddies WHERE ward_log_id = $1`, [id]);
-    await insertBuddy(client, id, teacherId, studentId, log.buddyStudentId ?? null);
+    // STEP 56 (تصحيح): الزميل نفسه بلا تغيير → لا نلمس الصف إطلاقاً،
+    // تبقى حالته كما هي (confirmed تبقى confirmed) — إعادة الإدراج
+    // لأي سبب آخر (حتى لو نفس الزميل) كانت تصفّر تأكيداً سابقاً بلا
+    // داعٍ. الحذف+الإدراج (وبالتالي العودة لـpending) فقط لو تغيّر
+    // الزميل فعلياً (زميل آخر أو إزالته بالكامل).
+    const existingBuddy = await client.query(
+      `SELECT buddy_student_id FROM ward_review_buddies WHERE ward_log_id = $1`,
+      [id],
+    );
+    const existingBuddyId = (existingBuddy.rows[0]?.buddy_student_id as string | undefined) ?? null;
+    const newBuddyId = log.buddyStudentId ?? null;
+    if (existingBuddyId !== newBuddyId) {
+      await client.query(`DELETE FROM ward_review_buddies WHERE ward_log_id = $1`, [id]);
+      await insertBuddy(client, id, teacherId, studentId, newBuddyId);
+    }
     await client.query("COMMIT");
     return true;
   } catch (error) {

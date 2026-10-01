@@ -172,9 +172,23 @@ describe("createWardLog / updateWardLog — زميل المراجعة (STEP 56)"
     expect(client.calls.some((c) => c.text.trim().startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
   });
 
-  it("تعديل الزميل (أو حتى نفس الزميل): يحذف صفّ الزميل القديم ثم يُدرج صفّاً جديداً بحالة pending — إعادة فعلية للحالة", async () => {
+  /** عميل تعديل يحاكي أيضاً SELECT buddy_student_id الحالي قبل أي حذف/إدراج (STEP 56 تصحيح) */
+  function makeFakeClientWithExistingBuddy(updateRowCount: number, existingBuddyId: string | null) {
+    const client = makeFakeClient(updateRowCount);
+    const original = client.query.getMockImplementation() as (text: string, params?: unknown[]) => Promise<unknown>;
+    client.query.mockImplementation(async (text: string, params?: unknown[]) => {
+      if (text.trim().startsWith("SELECT buddy_student_id")) {
+        client.calls.push({ text, params });
+        return { rows: existingBuddyId ? [{ buddy_student_id: existingBuddyId }] : [], rowCount: existingBuddyId ? 1 : 0 };
+      }
+      return original(text, params);
+    });
+    return client;
+  }
+
+  it("تغيير الزميل لزميل آخر: يحذف صفّ الزميل القديم ثم يُدرج صفّاً جديداً بحالة pending — إعادة فعلية للحالة", async () => {
     mockBuddyValidation(true);
-    const client = makeFakeClient(1);
+    const client = makeFakeClientWithExistingBuddy(1, "buddy-1");
     connectMock.mockResolvedValue(client);
 
     await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-2"));
@@ -187,9 +201,21 @@ describe("createWardLog / updateWardLog — زميل المراجعة (STEP 56)"
     expect(texts[insertIdx]).toContain("'pending'");
   });
 
+  it("نفس الزميل بلا تغيير (buddy-1 → buddy-1): لا حذف ولا إدراج إطلاقاً — الحالة تبقى كما هي (confirmed تبقى confirmed)", async () => {
+    mockBuddyValidation(true);
+    const client = makeFakeClientWithExistingBuddy(1, "buddy-1");
+    connectMock.mockResolvedValue(client);
+
+    await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-1"));
+
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_buddies"))).toBe(false);
+    expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
+  });
+
   it("إزالة الزميل (buddyStudentId=null) من ورد له زميل سابقاً: يحذف فقط، بلا إدراج جديد", async () => {
     mockBuddyValidation(true);
-    const client = makeFakeClient(1);
+    const client = makeFakeClientWithExistingBuddy(1, "buddy-1");
     connectMock.mockResolvedValue(client);
 
     await updateWardLog(2, "student-1", 17, buddySampleLog(null));
@@ -197,6 +223,17 @@ describe("createWardLog / updateWardLog — زميل المراجعة (STEP 56)"
     const texts = client.calls.map((c) => c.text.trim());
     expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_buddies"))).toBe(true);
     expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
+  });
+
+  it("إضافة زميل لورد لم يكن له زميل سابقاً (null → buddy-1): يُدرج بحالة pending", async () => {
+    mockBuddyValidation(true);
+    const client = makeFakeClientWithExistingBuddy(1, null);
+    connectMock.mockResolvedValue(client);
+
+    await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-1"));
+
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(true);
   });
 
   it("ورد مقفَل (UPDATE الرئيسية ترجع صفر صفوف): لا يلمس ward_review_buddies إطلاقاً", async () => {
