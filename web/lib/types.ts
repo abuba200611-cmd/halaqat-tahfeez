@@ -110,6 +110,30 @@ export type WardLog = {
   reviewedAt: string | null;
   /** ملاحظة المعلّم — إلزامية فقط عند status = needs_revision */
   reviewNote: string | null;
+  /** زميل المراجعة (STEP 56) — اختياري، null لورد بلا زميل أو ورد أقدم من هذي الميزة */
+  buddy?: WardReviewBuddy | null;
+};
+
+export type WardReviewBuddyStatus = "pending" | "confirmed" | "declined";
+
+/** زميل المراجعة المرفق بورد — الاسم فقط، بلا أي بيانات أخرى عن الزميل (STEP 56) */
+export type WardReviewBuddy = {
+  studentId: string;
+  name: string;
+  status: WardReviewBuddyStatus;
+};
+
+/** زميل صالح للاختيار بنموذج "سجّل وردي" — من نفس الحلقة، نشِط، الاسم فقط (STEP 56) */
+export type HalaqahMate = {
+  id: string;
+  name: string;
+};
+
+/** طلب تأكيد مراجعة بانتظار ردّ الطالب الحالي (STEP 56) — لبطاقة الرئيسية */
+export type BuddyRequest = {
+  wardLogId: number;
+  requesterName: string;
+  date: string;
 };
 
 /** هوية الطالب في جلسته — للعرض والربط بالمعلّم */

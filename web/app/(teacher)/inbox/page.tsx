@@ -14,6 +14,13 @@ const STATUS_LABEL: Record<WardStatus, string> = {
   needs_revision: "يحتاج إعادة",
 };
 
+/** زميل المراجعة (STEP 56) — تسمية حالة التأكيد */
+const BUDDY_STATUS_LABEL: Record<"pending" | "confirmed" | "declined", string> = {
+  pending: "بانتظار",
+  confirmed: "مؤكَّد",
+  declined: "مرفوض",
+};
+
 function statusTone(status: WardStatus): "neutral" | "good" | "warn" {
   if (status === "approved") return "good";
   if (status === "new") return "warn";
@@ -182,6 +189,12 @@ export default function InboxPage() {
               {ward.previousAttemptId && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   ↩ محاولة معادة بعد طلب إعادة سابق
+                </p>
+              )}
+
+              {ward.buddy && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  🤝 مع: {ward.buddy.name} ({BUDDY_STATUS_LABEL[ward.buddy.status]})
                 </p>
               )}
 

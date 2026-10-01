@@ -6,11 +6,14 @@ import type { ProcessedImage } from "./image-processing";
 import { juzesOfRange } from "./quran";
 import type {
   AyahRange,
+  BuddyRequest,
+  HalaqahMate,
   MemorizedRange,
   PushSubscriptionData,
   Student,
   StudentAccount,
   WardLog,
+  WardReviewBuddy,
   WardStatus,
 } from "./types";
 import type { SavedSchedule, SavedScheduleInfo, SavedScheduleRecord } from "./schedule";
@@ -685,6 +688,8 @@ export type NewWardLog = {
   /** مقاطع المراجعة الجديدة (STEP 52، ١ إلى ١٠) — null لعدم وجود مراجعة اليوم */
   reviewSegments: NewReviewSegment[] | null;
   note: string;
+  /** زميل المراجعة المختار (STEP 56) — undefined/null لعدم اختيار زميل */
+  buddyStudentId?: string | null;
 };
 
 /** يبني نطاق سورة/آية من أربعة أعمدة متجاورة، أو null لو أيّ منها فارغ (ورد قديم بالصفحات فقط) */
@@ -741,6 +746,7 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     reviewedBy: (row.reviewed_by as number | null) ?? null,
     reviewedAt: (row.reviewed_at as string | null) ?? null,
     reviewNote: (row.review_note as string | null) ?? null,
+    buddy: row.buddy_json ? (JSON.parse(row.buddy_json as string) as WardReviewBuddy) : null,
   };
 }
 
@@ -774,6 +780,7 @@ export async function createWardLog(
   studentId: string,
   log: NewWardLog,
 ): Promise<{ id: number; previousAttemptId: number | null }> {
+  if (log.buddyStudentId) await assertValidBuddy(teacherId, studentId, log.buddyStudentId);
   const previousAttemptId = await findOpenRevisionAttempt(teacherId, studentId);
   const client = await db().pool.connect();
   try {
@@ -797,6 +804,7 @@ export async function createWardLog(
     );
     const id = Number(inserted.rows[0].id);
     await insertReviewSegments(client, id, log.reviewSegments);
+    await insertBuddy(client, id, teacherId, studentId, log.buddyStudentId ?? null);
     await client.query("COMMIT");
     return { id, previousAttemptId };
   } catch (error) {
@@ -839,6 +847,7 @@ export async function updateWardLog(
   id: number,
   log: NewWardLog,
 ): Promise<boolean> {
+  if (log.buddyStudentId) await assertValidBuddy(teacherId, studentId, log.buddyStudentId);
   const client = await db().pool.connect();
   try {
     await client.query("BEGIN");
@@ -870,6 +879,21 @@ export async function updateWardLog(
     // استبدال كامل للمقاطع — أبسط وأصحّ من محاولة مطابقة/تحديث جزئي لقائمة أعيد إرسالها كاملة من الواجهة
     await client.query(`DELETE FROM ward_review_segments WHERE ward_log_id = $1`, [id]);
     await insertReviewSegments(client, id, log.reviewSegments);
+    // STEP 56 (تصحيح): الزميل نفسه بلا تغيير → لا نلمس الصف إطلاقاً،
+    // تبقى حالته كما هي (confirmed تبقى confirmed) — إعادة الإدراج
+    // لأي سبب آخر (حتى لو نفس الزميل) كانت تصفّر تأكيداً سابقاً بلا
+    // داعٍ. الحذف+الإدراج (وبالتالي العودة لـpending) فقط لو تغيّر
+    // الزميل فعلياً (زميل آخر أو إزالته بالكامل).
+    const existingBuddy = await client.query(
+      `SELECT buddy_student_id FROM ward_review_buddies WHERE ward_log_id = $1`,
+      [id],
+    );
+    const existingBuddyId = (existingBuddy.rows[0]?.buddy_student_id as string | undefined) ?? null;
+    const newBuddyId = log.buddyStudentId ?? null;
+    if (existingBuddyId !== newBuddyId) {
+      await client.query(`DELETE FROM ward_review_buddies WHERE ward_log_id = $1`, [id]);
+      await insertBuddy(client, id, teacherId, studentId, newBuddyId);
+    }
     await client.query("COMMIT");
     return true;
   } catch (error) {
@@ -885,6 +909,90 @@ export async function deleteWardLog(teacherId: number, studentId: string, id: nu
   const rows = await db().sql`
     DELETE FROM ward_logs
     WHERE id = ${id} AND teacher_id = ${teacherId} AND student_id = ${studentId} AND status IN ('new', 'seen')
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+// ————— زميل المراجعة (STEP 56) —————
+// نفس الحلقة فقط مضمونة من قاعدة البيانات نفسها (مفتاحان مركّبان
+// بـward_review_buddies)، لا من هذا الملف وحده — الفحوص هنا لرسالة خطأ
+// عربية واضحة بدل رمي خطأ Postgres الخام عند انتهاك قيد، لا كحارس وحيد.
+
+/** زملاء صالحون للاختيار بنموذج "سجّل وردي": نفس الحلقة، نشِطون، بلا الطالب نفسه — الاسم فقط */
+export async function listHalaqahMates(teacherId: number, excludeStudentId: string): Promise<HalaqahMate[]> {
+  const rows = await db().sql`
+    SELECT id, name FROM students
+    WHERE teacher_id = ${teacherId} AND id <> ${excludeStudentId}
+      AND active = TRUE AND deleted_at IS NULL
+    ORDER BY name
+  `;
+  return rows.map((r) => ({ id: r.id as string, name: r.name as string }));
+}
+
+/** يتحقّق أن الزميل المرشَّح صالح فعلاً قبل أي إدراج — رسالة عربية واضحة؛ قيد القاعدة (FK/CHECK) يبقى الحارس الأخير الفعلي */
+async function assertValidBuddy(teacherId: number, requesterId: string, buddyId: string): Promise<void> {
+  if (buddyId === requesterId) throw new Error("لا يمكن اختيار نفسك زميلاً");
+  const rows = await db().sql`
+    SELECT 1 FROM students
+    WHERE teacher_id = ${teacherId} AND id = ${buddyId} AND active = TRUE AND deleted_at IS NULL
+  `;
+  if (!rows[0]) throw new Error("هذا الزميل غير متاح");
+}
+
+/** يُدرج صفّ زميل مراجعة بحالة pending — يُستدعى داخل ترانزاكشن قائمة فقط (createWardLog/updateWardLog)، بعد assertValidBuddy مسبقاً */
+async function insertBuddy(
+  client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
+  wardLogId: number,
+  teacherId: number,
+  requesterStudentId: string,
+  buddyStudentId: string | null,
+): Promise<void> {
+  if (!buddyStudentId) return;
+  await client.query(
+    `INSERT INTO ward_review_buddies (ward_log_id, teacher_id, requester_student_id, buddy_student_id, status)
+     VALUES ($1,$2,$3,$4,'pending')`,
+    [wardLogId, teacherId, requesterStudentId, buddyStudentId],
+  );
+}
+
+/** طلبات تأكيد مراجعة بانتظار ردّ هذا الطالب — لبطاقة الرئيسية. اسم الطالب الذي طلب + التاريخ فقط، لا شيء من ورده */
+export async function listPendingBuddyRequestsForStudent(
+  teacherId: number,
+  studentId: string,
+): Promise<BuddyRequest[]> {
+  const rows = await db().sql`
+    SELECT b.ward_log_id, rs.name AS requester_name, w.date
+    FROM ward_review_buddies b
+    JOIN ward_logs w ON w.id = b.ward_log_id
+    JOIN students rs ON rs.teacher_id = b.teacher_id AND rs.id = b.requester_student_id
+    WHERE b.teacher_id = ${teacherId} AND b.buddy_student_id = ${studentId} AND b.status = 'pending'
+    ORDER BY w.date DESC, b.id DESC
+  `;
+  return rows.map((r) => ({
+    wardLogId: r.ward_log_id as number,
+    requesterName: r.requester_name as string,
+    date: r.date as string,
+  }));
+}
+
+/**
+ * يؤكّد أو يرفض الزميل المقصود طلب مراجعة — مقفل بالضبط على
+ * (buddy_student_id = هذا الطالب) و(status = 'pending') داخل جملة
+ * UPDATE نفسها: أي طالب ثالث أو طلب مستجاب عليه مسبقاً يرجع false (404
+ * بالمسار)، لا 403/400 يكشف وجود الصف من عدمه.
+ */
+export async function respondToBuddyRequest(
+  teacherId: number,
+  studentId: string,
+  wardLogId: number,
+  accept: boolean,
+): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE ward_review_buddies
+    SET status = ${accept ? "confirmed" : "declined"}, responded_at = now()
+    WHERE ward_log_id = ${wardLogId} AND teacher_id = ${teacherId}
+      AND buddy_student_id = ${studentId} AND status = 'pending'
     RETURNING id
   `;
   return rows.length > 0;
@@ -908,7 +1016,11 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
-           ) AS review_segments_json
+           ) AS review_segments_json,
+           (SELECT json_build_object('studentId', b.buddy_student_id, 'name', bs.name, 'status', b.status)::text
+            FROM ward_review_buddies b JOIN students bs ON bs.teacher_id = b.teacher_id AND bs.id = b.buddy_student_id
+            WHERE b.ward_log_id = w.id
+           ) AS buddy_json
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
         WHERE w.teacher_id = ${teacherId} AND w.status = 'new'
         ORDER BY w.created_at DESC, w.id DESC
@@ -928,7 +1040,11 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
-           ) AS review_segments_json
+           ) AS review_segments_json,
+           (SELECT json_build_object('studentId', b.buddy_student_id, 'name', bs.name, 'status', b.status)::text
+            FROM ward_review_buddies b JOIN students bs ON bs.teacher_id = b.teacher_id AND bs.id = b.buddy_student_id
+            WHERE b.ward_log_id = w.id
+           ) AS buddy_json
         FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
         WHERE w.teacher_id = ${teacherId}
         ORDER BY w.created_at DESC, w.id DESC
@@ -978,7 +1094,11 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
-           ) AS review_segments_json
+           ) AS review_segments_json,
+           (SELECT json_build_object('studentId', b.buddy_student_id, 'name', bs.name, 'status', b.status)::text
+            FROM ward_review_buddies b JOIN students bs ON bs.teacher_id = b.teacher_id AND bs.id = b.buddy_student_id
+            WHERE b.ward_log_id = w.id
+           ) AS buddy_json
     FROM ward_logs w JOIN students s ON s.teacher_id = w.teacher_id AND s.id = w.student_id
     WHERE w.teacher_id = ${teacherId} AND w.student_id = ${studentId}
     ORDER BY w.created_at DESC, w.id DESC
