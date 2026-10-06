@@ -526,6 +526,12 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
             </>
           )}
         </p>
+        <p className="mt-2 text-center text-xs text-white/60">
+          أنت طالب؟{" "}
+          <Link href="/student" className="font-semibold text-white hover:underline">
+            ادخل من صفحة الطلاب
+          </Link>
+        </p>
       </AuthCard>
     </AuthShell>
   );
