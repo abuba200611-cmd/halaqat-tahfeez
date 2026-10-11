@@ -9,7 +9,7 @@ import { timingSafeEqual } from "node:crypto";
  * اختلاف الأطوال بدل إرجاع false بأمان.
  *
  * مصدر وحيد لكل مقارنة سرّ بالمشروع (STEP 37 — F-04): LINK_SECRET
- * بـlib/link-auth.ts، وADMIN_SECRET بـadmin/login وadmin/suggestions.
+ * بـlib/link-auth.ts، وADMIN_SECRET بـadmin/login وlib/admin-session.ts.
  */
 export function safeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a);
@@ -22,9 +22,8 @@ export function safeEqual(a: string, b: string): boolean {
  * أعلاه) تفشل كلياً لو حملت قيمة متغيّر البيئة مسافة أو سطراً جديداً
  * زائداً بآخرها (شائع جداً عند اللصق من واجهة Vercel أو من أداة توليد
  * سرّ)، رغم أن كلمة السر المكتوبة صحيحة تماماً. مصدر وحيد يُستخدَم في
- * الثلاثة مواضع التي تقرأ ADMIN_SECRET (admin/login،
- * admin/suggestions، admin/suggestions/attachments/[id]) فيبقى
- * التعريف — ومعه أي إصلاح مستقبلي — بمكان واحد لا ثلاثة.
+ * المواضع التي تقرأ ADMIN_SECRET (admin/login وlib/admin-session.ts)
+ * فيبقى التعريف — ومعه أي إصلاح مستقبلي — بمكان واحد.
  */
 export function expectedAdminSecret(): string {
   return (process.env.ADMIN_SECRET ?? "").trim();

@@ -1,15 +1,14 @@
 import { cookies } from "next/headers";
 import { listNativeStudentSuggestions, listSuggestions, type Suggestion } from "@/lib/db";
 import { listStudentSuggestions } from "@/lib/tasjeel-db";
-import { expectedAdminSecret, safeEqual } from "@/lib/safe-equal";
+import { verifyAdminToken } from "@/lib/admin-session";
 import { ADMIN_COOKIE } from "../login/route";
 
 export async function GET() {
   const store = await cookies();
   const session = store.get(ADMIN_COOKIE)?.value;
-  const expected = expectedAdminSecret();
 
-  if (!expected || !session || !safeEqual(session, expected)) {
+  if (!session || !verifyAdminToken(session)) {
     return Response.json({ error: "غير مصرّح" }, { status: 401 });
   }
 

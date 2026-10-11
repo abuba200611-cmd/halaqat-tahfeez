@@ -71,7 +71,7 @@ export async function sendPushToTeacher(teacherId: number, payload: PushPayload)
         );
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) await deletePushSubscription(sub.endpoint);
+        if (status === 404 || status === 410) await deletePushSubscription(teacherId, sub.endpoint);
       }
     }),
   );
@@ -106,7 +106,9 @@ export async function sendPushToStudent(teacherId: number, studentId: string, pa
         await markStudentPushSubscriptionSuccess(sub.endpoint);
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) await deleteStudentPushSubscription(sub.endpoint);
+        if (status === 404 || status === 410) {
+          await deleteStudentPushSubscription(teacherId, studentId, sub.endpoint);
+        }
       }
     }),
   );
@@ -149,7 +151,7 @@ export async function runStudentDailyReminder(today: string): Promise<ReminderRe
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
-          await deleteStudentPushSubscription(row.endpoint);
+          await deleteStudentPushSubscription(row.teacherId, row.studentId, row.endpoint);
           result.removed++;
         } else {
           result.failed++;

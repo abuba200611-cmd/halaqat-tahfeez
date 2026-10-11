@@ -333,6 +333,15 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
           </p>
         )}
 
+        {googleError === "not_linked" && (
+          <p className="mb-3 text-center text-xs text-white/70">
+            إذا كنت معلّماً، ادخل من{" "}
+            <Link href="/" className="font-semibold text-white hover:underline">
+              صفحة المعلّمين
+            </Link>
+          </p>
+        )}
+
         <a
           href="/api/student-auth/google/link/start?mode=login"
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-3 text-sm font-medium text-white transition-colors duration-200 hover:bg-white/10"
@@ -398,6 +407,12 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
 
         <p className="mt-4 text-center text-xs text-white/60">
           لا تملك حساباً؟ اطلب من معلّم حلقتك أن ينشئ لك اسم مستخدم وكلمة مرور.
+        </p>
+        <p className="mt-2 text-center text-xs text-white/60">
+          أنت معلّم؟{" "}
+          <Link href="/" className="font-semibold text-white hover:underline">
+            ادخل من صفحة المعلّمين
+          </Link>
         </p>
       </AuthCard>
     </AuthShell>
