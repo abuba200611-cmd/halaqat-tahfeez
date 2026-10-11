@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 
 // يثبّت سرّ الجلسة عبر البيئة قبل الاستيراد، فيتفادى sessionSecret() أي
@@ -31,13 +32,13 @@ describe("hashPassword / verifyPassword", () => {
 });
 
 describe("createSessionToken / readSessionToken", () => {
-  it("يقرأ نفس معرّف المعلّم الذي وُقّع به الرمز", async () => {
-    const token = await createSessionToken(42);
-    expect(await readSessionToken(token)).toBe(42);
+  it("يقرأ نفس معرّف المعلّم ونسخة الجلسة التي وُقّع بها الرمز", async () => {
+    const token = await createSessionToken(42, 3);
+    expect(await readSessionToken(token)).toEqual({ teacherId: 42, sessionVersion: 3 });
   });
 
   it("يرفض رمزاً موقّعاً بسرّ مختلف (توقيع غير صالح)", async () => {
-    const token = await createSessionToken(1);
+    const token = await createSessionToken(1, 0);
     const tampered = token.slice(0, -4) + "0000";
     expect(await readSessionToken(tampered)).toBeNull();
   });
@@ -45,5 +46,16 @@ describe("createSessionToken / readSessionToken", () => {
   it("يرفض رمزاً بصيغة ناقصة", async () => {
     expect(await readSessionToken("not.a.valid.token.format")).toBeNull();
     expect(await readSessionToken("")).toBeNull();
+  });
+
+  it("رمز قديم بلا نسخة جلسة (٣ أجزاء) يُقبل كنسخة ٠ — لا يُخرج مستخدمي اليوم", async () => {
+    const payload = `42.${Date.now()}`;
+    const signature = createHmac("sha256", process.env.SESSION_SECRET!).update(payload).digest("hex");
+    expect(await readSessionToken(`${payload}.${signature}`)).toEqual({ teacherId: 42, sessionVersion: 0 });
+  });
+
+  it("رمز جديد بنسخة ٠ يُقبل أيضاً (حساب لم تُبطل جلساته أبداً)", async () => {
+    const token = await createSessionToken(42, 0);
+    expect(await readSessionToken(token)).toEqual({ teacherId: 42, sessionVersion: 0 });
   });
 });

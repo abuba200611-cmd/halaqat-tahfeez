@@ -9,6 +9,12 @@ vi.mock("@/lib/auth", () => authMocks);
 const dbMocks = vi.hoisted(() => ({ addSuggestion: vi.fn() }));
 vi.mock("@/lib/db", () => dbMocks);
 
+const rateLimitMocks = vi.hoisted(() => ({
+  checkRateLimit: vi.fn(async () => true),
+  rateLimited: vi.fn(() => Response.json({ error: "محاولات كثيرة، حاول لاحقاً" }, { status: 429 })),
+}));
+vi.mock("@/lib/rate-limit", () => rateLimitMocks);
+
 const imageMocks = vi.hoisted(() => ({ readAndProcessAttachments: vi.fn() }));
 vi.mock("@/lib/image-processing", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/image-processing")>()),
@@ -70,6 +76,16 @@ describe("POST /api/suggestions (المعلّم، STEP 55ب)", () => {
     expect(res.status).toBe(413);
     const data = (await res.json()) as { error: string };
     expect(data.error).toContain("4 ميغابايت");
+    expect(dbMocks.addSuggestion).not.toHaveBeenCalled();
+  });
+
+  it("تجاوز سقف الإرسال (20/يوم): 429 قبل قراءة الجسم أو معالجة الصور", async () => {
+    rateLimitMocks.checkRateLimit.mockResolvedValueOnce(false);
+    const res = await POST(postReq({ message: "اقتراح", type: "suggestion" }));
+    expect(res.status).toBe(429);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toBe("محاولات كثيرة، حاول لاحقاً");
+    expect(imageMocks.readAndProcessAttachments).not.toHaveBeenCalled();
     expect(dbMocks.addSuggestion).not.toHaveBeenCalled();
   });
 });

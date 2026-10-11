@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { currentStudent, currentTeacher, studentUnauthorized, unauthorized } from "@/lib/auth";
+import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import {
   countNewWards,
   createWardLog,
@@ -91,6 +92,11 @@ function isValidDate(value: string): boolean {
 export async function POST(request: Request) {
   const student = await currentStudent();
   if (!student) return studentUnauthorized();
+
+  // سقف إرسال لكل طالب: ٣٠ ورداً بالساعة — يكبح السبام دون المستخدم الشرعي
+  if (!(await checkRateLimit(`ward:${student.teacherId}:${student.id}`, 30, 3600))) {
+    return rateLimited();
+  }
 
   try {
     const body = (await request.json()) as Record<string, unknown>;

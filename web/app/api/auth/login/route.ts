@@ -1,5 +1,6 @@
 import { checkLoginRateLimit, findTeacherByUsername, recordFailedLoginAttempt } from "@/lib/db";
 import { setSessionCookie, verifyPassword } from "@/lib/auth";
+import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
 function clientIp(request: Request): string {
@@ -15,6 +16,11 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const username = String(body.username ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
+
+  // سقف إضافي لكل بريد — يكبح التخمين الموزّع عبر عناوين متعددة، فوق حدّ الـIP أعلاه
+  if (!(await checkRateLimit(`login:email:${username}`, 10, 900))) {
+    return rateLimited();
+  }
 
   const teacher = await findTeacherByUsername(username);
   // رسالة واحدة للحالتين حتى لا تكشف أي بريد إلكتروني مسجّل من عدمه

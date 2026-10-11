@@ -34,6 +34,12 @@ const dbMocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/db", () => dbMocks);
 
+const rateLimitMocks = vi.hoisted(() => ({
+  checkRateLimit: vi.fn(async () => true),
+  rateLimited: vi.fn(() => Response.json({ error: "محاولات كثيرة، حاول لاحقاً" }, { status: 429 })),
+}));
+vi.mock("@/lib/rate-limit", () => rateLimitMocks);
+
 const pushMocks = vi.hoisted(() => ({ sendPushToHalaqah: vi.fn(), sendPushToStudent: vi.fn() }));
 vi.mock("@/lib/push", () => pushMocks);
 
@@ -164,5 +170,16 @@ describe("POST /api/wards — زميل المراجعة (STEP 56)", () => {
     expect(res.status).toBe(400);
     expect(data.error).toBe("هذا الزميل غير متاح");
     expect(afterMocks.after).not.toHaveBeenCalled();
+  });
+
+  it("تجاوز سقف الإرسال (30/ساعة): 429 ولا يُنشأ الورد أصلاً", async () => {
+    rateLimitMocks.checkRateLimit.mockResolvedValueOnce(false);
+
+    const res = await POST(postReq({ hifz: { from: { surah: 1, ayah: 1 }, to: { surah: 1, ayah: 7 } } }));
+    const data = (await res.json()) as { error: string };
+
+    expect(res.status).toBe(429);
+    expect(data.error).toBe("محاولات كثيرة، حاول لاحقاً");
+    expect(dbMocks.createWardLog).not.toHaveBeenCalled();
   });
 });

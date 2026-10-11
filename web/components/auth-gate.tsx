@@ -358,9 +358,10 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
           joinCode: mode === "register" ? joinCode : undefined,
         }),
       });
-      const data = (await res.json()) as { teacher?: Teacher; error?: string };
+      const data = (await res.json()) as { teacher?: Teacher; error?: string; message?: string };
       if (!res.ok || !data.teacher) {
-        setError(data.error ?? "تعذّر إتمام العملية");
+        // رسالة التسجيل الموحّدة (بريد موجود مسبقاً) تُعرض كما هي — لا تكشف شيئاً
+        setError(data.error ?? data.message ?? "تعذّر إتمام العملية");
         return;
       }
       markAccountKnown();

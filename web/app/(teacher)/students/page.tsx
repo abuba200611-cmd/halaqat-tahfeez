@@ -268,6 +268,35 @@ function CopyLinkField({ link }: { link: string }) {
   );
 }
 
+/** زر تجديد رابط دعوة الطلاب — مع تأكيد لأنه يُبطل الرابط الحالي فوراً */
+function RotateInviteButton({ onRotated }: { onRotated: (link: string) => void }) {
+  const [busy, setBusy] = useState(false);
+
+  async function rotate() {
+    if (!confirm("تجديد الرابط يُبطل الرابط الحالي — الطلاب الذين لم يسجّلوا بعد سيحتاجون الرابط الجديد. المتابعة؟")) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/teacher/invite/rotate", { method: "POST" });
+      if (res.ok) {
+        const data = (await res.json()) as { link?: string };
+        if (data.link) onRotated(data.link);
+      }
+    } catch {
+      // فشل التجديد لا يغيّر الرابط المعروض — الرابط القديم ما زال صالحاً
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button variant="ghost" onClick={rotate} disabled={busy} className="shrink-0">
+      {busy ? "…" : "تجديد رابط الدعوة"}
+    </Button>
+  );
+}
+
 /**
  * قسم واحد يجمع كل روابط دعوة الحلقة — بدل ما تكون بطاقات متفرّقة يصعب
  * تمييزها، كل نوع رابط له أيقونة وعنوان واضح يفرّقه عن الثاني فوراً:
@@ -312,7 +341,12 @@ function InviteLinksSection() {
               شاركه مع طلابك (بقروب واتساب مثلاً) — كل من يفتحه ويسجّل بحساب جوجل ويكتب اسمه
               ينضم لحلقتك تلقائياً، بلا ما تحتاج تضيفه أو تربطه يدوياً.
             </p>
-            <CopyLinkField link={studentLink} />
+            <div className="flex gap-2">
+              <div className="min-w-0 flex-1">
+                <CopyLinkField link={studentLink} />
+              </div>
+              <RotateInviteButton onRotated={setStudentLink} />
+            </div>
           </div>
         )}
 
