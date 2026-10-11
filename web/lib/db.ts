@@ -34,6 +34,7 @@ export type Teacher = {
   halaqahName: string;
   role: TeacherRole;
   emailVerified: boolean;
+  sessionVersion: number;
 };
 
 /*
@@ -42,7 +43,7 @@ export type Teacher = {
   Netlify حقيقية بعد). نؤجّل الإنشاء لأول استخدام فعلي داخل كل دالة.
 */
 let dbInstance: ReturnType<typeof getDatabase> | null = null;
-function db(): ReturnType<typeof getDatabase> {
+export function db(): ReturnType<typeof getDatabase> {
   if (!dbInstance) dbInstance = getDatabase();
   return dbInstance;
 }
@@ -77,6 +78,7 @@ function rowToTeacherAccount(row: Record<string, unknown>): Teacher & { password
     halaqahName: row.halaqah_name as string,
     role: (row.role as TeacherRole) ?? "supervisor",
     emailVerified: !!row.email_verified,
+    sessionVersion: Number(row.session_version ?? 0),
   };
 }
 
@@ -131,7 +133,7 @@ export async function findTeacherByUsername(
   username: string,
 ): Promise<(Teacher & { passwordHash: string }) | null> {
   const rows = await db().sql`
-    SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role,
+    SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role, t.session_version,
            h.id AS halaqah_id, h.name AS halaqah_name
     FROM teachers t JOIN halaqahs h ON h.id = t.halaqah_id
     WHERE t.username = ${username}
@@ -151,8 +153,10 @@ export async function findOrCreateTeacherByEmail(email: string, name = ""): Prom
     // دخول جوجل يثبت ملكية البريد: حساب غير موثّق قد يسجّله منتحل بكلمة
     // مرور يعرفها، فنُبطِلها فوراً (بصمة بلا ":" لا يتحقق منها verifyPassword أبداً)
     if (!existing.emailVerified) {
+      // رفع نسخة الجلسة مع إبطال كلمة المرور — الجلسات القديمة تسقط معها
       await db().sql`
-        UPDATE teachers SET password_hash = ${randomBytes(32).toString("hex")}, email_verified = true
+        UPDATE teachers SET password_hash = ${randomBytes(32).toString("hex")}, email_verified = true,
+                            session_version = session_version + 1
         WHERE id = ${existing.id} AND email_verified = false
       `;
     }
@@ -166,7 +170,7 @@ export async function findOrCreateTeacherByEmail(email: string, name = ""): Prom
 
 export async function findTeacherById(id: number): Promise<Teacher | null> {
   const rows = await db().sql`
-    SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role,
+    SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role, t.session_version,
            h.id AS halaqah_id, h.name AS halaqah_name
     FROM teachers t JOIN halaqahs h ON h.id = t.halaqah_id
     WHERE t.id = ${id}
@@ -179,6 +183,19 @@ export async function findTeacherById(id: number): Promise<Teacher | null> {
   const { passwordHash, ...teacher } = rowToTeacherAccount(row);
   void passwordHash;
   return teacher;
+}
+
+// ————— نسخة الجلسة (إبطال فوري لكل الجلسات) —————
+
+/** نسخة جلسة الحساب الحالية — قراءة واحدة بمفتاح أساسي، لإصدار رمز جديد */
+export async function teacherSessionVersion(id: number): Promise<number> {
+  const rows = await db().sql`SELECT session_version FROM teachers WHERE id = ${id}`;
+  return Number(rows[0]?.session_version ?? 0);
+}
+
+/** يرفع نسخة الجلسة فيُبطل فوراً كل رموز الجلسة الصادرة سابقاً لهذا الحساب */
+export async function bumpTeacherSessionVersion(id: number): Promise<void> {
+  await db().sql`UPDATE teachers SET session_version = session_version + 1 WHERE id = ${id}`;
 }
 
 // ————— اقتراحات تطوير من المعلّم (تصل للمطوّر فقط) —————
@@ -381,7 +398,9 @@ export async function consumePasswordReset(token: string): Promise<number | null
 }
 
 export async function updateTeacherPassword(teacherId: number, passwordHash: string): Promise<void> {
-  await db().sql`UPDATE teachers SET password_hash = ${passwordHash} WHERE id = ${teacherId}`;
+  // رفع نسخة الجلسة بإطلاق كلمة المرور: كل جلسات الأجهزة الأخرى تسقط فوراً
+  await db().sql`UPDATE teachers SET password_hash = ${passwordHash}, session_version = session_version + 1
+    WHERE id = ${teacherId}`;
 }
 
 // ————— تأكيد البريد الإلكتروني —————
@@ -633,7 +652,7 @@ export async function setStudentCredentials(
   if (taken.length > 0) throw new Error("اسم المستخدم مستخدم من قبل");
 
   await db().sql`
-    UPDATE students SET username = ${username}, password_hash = ${passwordHash}
+    UPDATE students SET username = ${username}, password_hash = ${passwordHash}, session_version = session_version + 1
     WHERE teacher_id = ${teacherId} AND id = ${studentId}
   `;
 }
@@ -651,14 +670,20 @@ export async function studentUsernames(teacherId: number): Promise<Record<string
 /** يجد الطالب باسم مستخدمه (فريد عالمياً) للتحقق عند الدخول */
 export async function findStudentByUsername(
   username: string,
-): Promise<{ teacherId: number; id: string; name: string; passwordHash: string } | null> {
+): Promise<{ teacherId: number; id: string; name: string; passwordHash: string; sessionVersion: number } | null> {
   const rows = await db().sql`
-    SELECT teacher_id, id, name, password_hash FROM students
+    SELECT teacher_id, id, name, password_hash, session_version FROM students
     WHERE username = ${username} AND deleted_at IS NULL
   `;
   const row = rows[0];
   if (!row || !row.password_hash) return null;
-  return { teacherId: row.teacher_id, id: row.id, name: row.name, passwordHash: row.password_hash };
+  return {
+    teacherId: row.teacher_id,
+    id: row.id,
+    name: row.name,
+    passwordHash: row.password_hash,
+    sessionVersion: Number(row.session_version ?? 0),
+  };
 }
 
 /**
@@ -669,15 +694,29 @@ export async function findStudentByUsername(
 export async function findStudentAccount(
   halaqahId: number,
   studentId: string,
-): Promise<StudentAccount | null> {
+): Promise<(StudentAccount & { sessionVersion: number }) | null> {
   const rows = await db().sql`
-    SELECT s.id, s.name, h.name AS halaqah_name
+    SELECT s.id, s.name, s.session_version, h.name AS halaqah_name
     FROM students s JOIN halaqahs h ON h.id = s.teacher_id
     WHERE s.teacher_id = ${halaqahId} AND s.id = ${studentId} AND s.deleted_at IS NULL
   `;
   const row = rows[0];
   if (!row) return null;
-  return { teacherId: halaqahId, id: row.id, name: row.name, halaqahName: row.halaqah_name };
+  return {
+    teacherId: halaqahId,
+    id: row.id,
+    name: row.name,
+    halaqahName: row.halaqah_name,
+    sessionVersion: Number(row.session_version ?? 0),
+  };
+}
+
+/** نسخة جلسة الطالب الحالية — قراءة واحدة بمفتاح أساسي مركّب، لإصدار رمز جديد */
+export async function studentSessionVersion(halaqahId: number, studentId: string): Promise<number> {
+  const rows = await db().sql`
+    SELECT session_version FROM students WHERE teacher_id = ${halaqahId} AND id = ${studentId}
+  `;
+  return Number(rows[0]?.session_version ?? 0);
 }
 
 // ————— سجلّات الورد اليومي —————
@@ -1855,6 +1894,19 @@ export async function rotateHalaqahTeacherInviteCode(halaqahId: number): Promise
   const generated = randomBytes(5).toString("hex");
   await db().sql`
     UPDATE halaqahs SET teacher_invite_code = ${generated} WHERE id = ${halaqahId}
+  `;
+  return generated;
+}
+
+/**
+ * يستبدل رمز دعوة الطلاب برمز جديد — العمود نفسه مصدر الحقيقة الوحيد،
+ * فالتحديث المباشر يُبطل الرابط القديم ويُفعّل الجديد بعملية واحدة ذرّية.
+ * نفس مولّد halaqahInviteCode (randomBytes(5) → ١٠ محارف hex).
+ */
+export async function rotateHalaqahInviteCode(halaqahId: number): Promise<string> {
+  const generated = randomBytes(5).toString("hex");
+  await db().sql`
+    UPDATE halaqahs SET invite_code = ${generated} WHERE id = ${halaqahId}
   `;
   return generated;
 }

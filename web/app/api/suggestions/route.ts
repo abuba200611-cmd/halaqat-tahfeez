@@ -1,6 +1,7 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { addSuggestion, type SuggestionType } from "@/lib/db";
 import { isRequestTooLarge, readAndProcessAttachments } from "@/lib/image-processing";
+import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 
 const MAX_LENGTH = 1000;
 
@@ -8,6 +9,11 @@ const MAX_LENGTH = 1000;
 export async function POST(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
+
+  // سقف إرسال لكل معلّم: ٢٠ بلاغاً باليوم — قبل معالجة الصور أو قراءة الجسم
+  if (!(await checkRateLimit(`suggestion:teacher:${teacher.id}`, 20, 86400))) {
+    return rateLimited();
+  }
 
   // فحص رخيص بالترويسة قبل قراءة الجسم إطلاقاً — حد Vercel 4.5MB لكامل
   // الطلب يُطبَّق قبل وصوله للكود أصلاً؛ هذا الفحص هنا رسالة عربية

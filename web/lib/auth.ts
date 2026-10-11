@@ -2,7 +2,14 @@ import "server-only";
 
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { findStudentAccount, findTeacherById, sessionSecret, type Teacher } from "./db";
+import {
+  findStudentAccount,
+  findTeacherById,
+  sessionSecret,
+  studentSessionVersion,
+  teacherSessionVersion,
+  type Teacher,
+} from "./db";
 import type { StudentAccount } from "./types";
 
 export const SESSION_COOKIE = "halaqa_session";
@@ -29,31 +36,42 @@ async function sign(payload: string): Promise<string> {
   return createHmac("sha256", await sessionSecret()).update(payload).digest("hex");
 }
 
-export async function createSessionToken(teacherId: number): Promise<string> {
-  const payload = `${teacherId}.${Date.now()}`;
+export async function createSessionToken(teacherId: number, sessionVersion: number): Promise<string> {
+  const payload = `${teacherId}.${sessionVersion}.${Date.now()}`;
   return `${payload}.${await sign(payload)}`;
 }
 
-/** يتحقق من التوقيع والصلاحية، ويرجع معرّف المعلّم أو null */
-export async function readSessionToken(token: string): Promise<number | null> {
-  const [idPart, issuedPart, signature] = token.split(".");
-  if (!idPart || !issuedPart || !signature) return null;
+/** يتحقق من التوقيع والصلاحية، ويرجع هوية جلسة المعلّم أو null */
+export async function readSessionToken(
+  token: string,
+): Promise<{ teacherId: number; sessionVersion: number } | null> {
+  const parts = token.split(".");
+  // رموز ما قبل نسخ الجلسات: ٣ أجزاء بلا نسخة — تُعامل كنسخة ٠
+  if (parts.length !== 3 && parts.length !== 4) return null;
+  const idPart = parts[0];
+  const versionPart = parts.length === 4 ? parts[1] : "0";
+  const issuedPart = parts.length === 4 ? parts[2] : parts[1];
+  const signature = parts.length === 4 ? parts[3] : parts[2];
 
-  const expected = await sign(`${idPart}.${issuedPart}`);
+  const expected = await sign(
+    parts.length === 4 ? `${idPart}.${versionPart}.${issuedPart}` : `${idPart}.${issuedPart}`,
+  );
   if (signature.length !== expected.length) return null;
   if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
 
   const issuedAt = Number(issuedPart);
   const teacherId = Number(idPart);
+  const sessionVersion = Number(versionPart);
   if (!Number.isFinite(issuedAt) || !Number.isInteger(teacherId)) return null;
+  if (!Number.isInteger(sessionVersion) || sessionVersion < 0) return null;
   if (Date.now() - issuedAt > SESSION_MAX_AGE_SECONDS * 1000) return null;
 
-  return teacherId;
+  return { teacherId, sessionVersion };
 }
 
 export async function setSessionCookie(teacherId: number): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, await createSessionToken(teacherId), {
+  store.set(SESSION_COOKIE, await createSessionToken(teacherId, await teacherSessionVersion(teacherId)), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -73,8 +91,12 @@ export async function currentTeacher(): Promise<Teacher | null> {
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const teacherId = await readSessionToken(token);
-  return teacherId === null ? null : findTeacherById(teacherId);
+  const session = await readSessionToken(token);
+  if (session === null) return null;
+  const teacher = await findTeacherById(session.teacherId);
+  // عدم تطابق نسخة الجلسة = صدرت قبل تغيير كلمة مرور أو "إنهاء كل الجلسات" — غير موثّق
+  if (!teacher || teacher.sessionVersion !== session.sessionVersion) return null;
+  return teacher;
 }
 
 /** رد موحّد لمن ليس مسجّل الدخول */
@@ -86,37 +108,51 @@ export function unauthorized(): Response {
 // كوكي منفصل عن المعلّم حتى يمكن أن يكون الجهاز مسجّلاً بالدورين معاً دون تعارض.
 // الحمولة تحمل معرّف المعلّم ومعرّف الطالب (مُرمّزاً base64url لأنه نصّ قد يحوي أي محرف).
 
-function studentPayload(teacherId: number, studentId: string, issuedAt: number): string {
+function studentPayload(teacherId: number, studentId: string, sessionVersion: number, issuedAt: number): string {
   const encodedId = Buffer.from(studentId).toString("base64url");
-  return `student.${teacherId}.${encodedId}.${issuedAt}`;
+  return `student.${teacherId}.${encodedId}.${sessionVersion}.${issuedAt}`;
 }
 
-export async function createStudentSessionToken(teacherId: number, studentId: string): Promise<string> {
-  const payload = studentPayload(teacherId, studentId, Date.now());
+export async function createStudentSessionToken(
+  teacherId: number,
+  studentId: string,
+  sessionVersion: number,
+): Promise<string> {
+  const payload = studentPayload(teacherId, studentId, sessionVersion, Date.now());
   return `${payload}.${await sign(payload)}`;
 }
 
-/** يتحقق من التوقيع والصلاحية، ويرجع (المعلّم، الطالب) أو null */
+/** يتحقق من التوقيع والصلاحية، ويرجع (الحلقة، الطالب، نسخة الجلسة) أو null */
 export async function readStudentSessionToken(
   token: string,
-): Promise<{ teacherId: number; studentId: string } | null> {
+): Promise<{ teacherId: number; studentId: string; sessionVersion: number } | null> {
   const parts = token.split(".");
-  if (parts.length !== 5) return null;
-  const [tag, idPart, encodedId, issuedPart, signature] = parts;
+  // رموز ما قبل نسخ الجلسات: ٥ أجزاء بلا نسخة — تُعامل كنسخة ٠
+  if (parts.length !== 5 && parts.length !== 6) return null;
+  const [tag, idPart, encodedId] = parts;
+  const versionPart = parts.length === 6 ? parts[3] : "0";
+  const issuedPart = parts.length === 6 ? parts[4] : parts[3];
+  const signature = parts.length === 6 ? parts[5] : parts[4];
   if (tag !== "student") return null;
 
-  const expected = await sign(`${tag}.${idPart}.${encodedId}.${issuedPart}`);
+  const expected = await sign(
+    parts.length === 6
+      ? `${tag}.${idPart}.${encodedId}.${versionPart}.${issuedPart}`
+      : `${tag}.${idPart}.${encodedId}.${issuedPart}`,
+  );
   if (signature.length !== expected.length) return null;
   if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return null;
 
   const issuedAt = Number(issuedPart);
   const teacherId = Number(idPart);
+  const sessionVersion = Number(versionPart);
   if (!Number.isFinite(issuedAt) || !Number.isInteger(teacherId)) return null;
+  if (!Number.isInteger(sessionVersion) || sessionVersion < 0) return null;
   if (Date.now() - issuedAt > SESSION_MAX_AGE_SECONDS * 1000) return null;
 
   const studentId = Buffer.from(encodedId, "base64url").toString();
   if (!studentId) return null;
-  return { teacherId, studentId };
+  return { teacherId, studentId, sessionVersion };
 }
 
 export async function setStudentSessionCookie(
@@ -124,13 +160,17 @@ export async function setStudentSessionCookie(
   studentId: string,
 ): Promise<void> {
   const store = await cookies();
-  store.set(STUDENT_SESSION_COOKIE, await createStudentSessionToken(teacherId, studentId), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  store.set(
+    STUDENT_SESSION_COOKIE,
+    await createStudentSessionToken(teacherId, studentId, await studentSessionVersion(teacherId, studentId)),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: SESSION_MAX_AGE_SECONDS,
+    },
+  );
 }
 
 export async function clearStudentSessionCookie(): Promise<void> {
@@ -145,7 +185,11 @@ export async function currentStudent(): Promise<StudentAccount | null> {
   if (!token) return null;
 
   const parsed = await readStudentSessionToken(token);
-  return parsed === null ? null : findStudentAccount(parsed.teacherId, parsed.studentId);
+  if (parsed === null) return null;
+  const account = await findStudentAccount(parsed.teacherId, parsed.studentId);
+  // عدم تطابق نسخة الجلسة = صدرت قبل إعادة تعيين بيانات دخول الطالب — غير موثّق
+  if (!account || account.sessionVersion !== parsed.sessionVersion) return null;
+  return account;
 }
 
 /** رد موحّد لطالب غير مسجّل */

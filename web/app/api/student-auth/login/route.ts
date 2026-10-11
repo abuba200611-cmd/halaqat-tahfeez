@@ -1,5 +1,6 @@
 import { checkLoginRateLimit, findStudentByUsername, recordFailedLoginAttempt } from "@/lib/db";
 import { setStudentSessionCookie, verifyPassword } from "@/lib/auth";
+import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
 function clientIp(request: Request): string {
@@ -17,6 +18,10 @@ export async function POST(request: Request) {
   const password = String(body.password ?? "");
 
   const student = await findStudentByUsername(username);
+  // سقف إضافي لكل (اسم مستخدم + حلقة) — يكبح التخمين الموزّع فوق حدّ الـIP
+  if (student && !(await checkRateLimit(`student-login:${student.teacherId}:${username}`, 10, 900))) {
+    return rateLimited();
+  }
   // رسالة واحدة للحالتين حتى لا تكشف أي أسماء المستخدمين موجودة
   if (!student || !verifyPassword(password, student.passwordHash)) {
     await recordFailedLoginAttempt(ip);

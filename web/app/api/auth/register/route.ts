@@ -14,6 +14,9 @@ function clientIp(request: Request): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }
 
+/** رد موحّد للحالتين (بريد جديد / مسجّل مسبقاً) — لا يكشف وجود الحساب */
+const GENERIC_REGISTER_MESSAGE = "إذا كان البريد صالحاً ستصلك رسالة للتفعيل";
+
 export async function POST(request: Request) {
   if (!(await checkRegisterRateLimit(clientIp(request)))) {
     return Response.json(
@@ -38,8 +41,10 @@ export async function POST(request: Request) {
   if (password.length < 8) {
     return Response.json({ error: "كلمة المرور ٨ أحرف فأكثر" }, { status: 400 });
   }
+  // بريد مسجّل مسبقاً: نفس الحالة ونفس الرسالة تماماً — لا جلسة ولا بريد ولا
+  // أي أثر يميّز الرد عن حالة إنشاء حساب جديد (انظر تقرير الدفعة للتفاصيل)
   if (await findTeacherByUsername(username)) {
-    return Response.json({ error: "هذا البريد مسجّل من قبل" }, { status: 409 });
+    return Response.json({ message: GENERIC_REGISTER_MESSAGE });
   }
 
   let id: number;
@@ -64,5 +69,5 @@ export async function POST(request: Request) {
   );
 
   const teacher = await findTeacherById(id);
-  return Response.json({ teacher });
+  return Response.json({ teacher, message: GENERIC_REGISTER_MESSAGE });
 }
