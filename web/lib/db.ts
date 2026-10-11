@@ -883,23 +883,83 @@ async function insertReviewSegments(
 }
 
 /**
+ * هل تغيّر محتوى الورد فعلياً؟ — التاريخ أو أي حقل حفظ/مراجعة بما فيها
+ * مقاطع المراجعة. الملاحظة ليست محتوى: تعديلها وحده لا يبرّر إعادة طلب
+ * التأكيد من الزميل.
+ */
+function wardContentChanged(old: Record<string, unknown> | undefined, log: NewWardLog): boolean {
+  if (!old) return false;
+  const oldSegmentsRaw = old.review_segments_json
+    ? (JSON.parse(old.review_segments_json as string) as ReviewSegmentJson[])
+    : null;
+  const oldSegments = oldSegmentsRaw?.length
+    ? oldSegmentsRaw.map(({ fromSurah, fromAyah, toSurah, toAyah }) => [fromSurah, fromAyah, toSurah, toAyah])
+    : null;
+  const newSegments = log.reviewSegments?.length
+    ? log.reviewSegments.map(({ fromSurah, fromAyah, toSurah, toAyah }) => [fromSurah, fromAyah, toSurah, toAyah])
+    : null;
+
+  const scalarPairs: [unknown, unknown][] = [
+    [old.date, log.date],
+    [old.hifz_from ?? null, log.hifzFrom],
+    [old.hifz_to ?? null, log.hifzTo],
+    [old.review_from ?? null, log.reviewFrom],
+    [old.review_to ?? null, log.reviewTo],
+    [old.hifz_from_surah ?? null, log.hifzAyah?.fromSurah ?? null],
+    [old.hifz_from_ayah ?? null, log.hifzAyah?.fromAyah ?? null],
+    [old.hifz_to_surah ?? null, log.hifzAyah?.toSurah ?? null],
+    [old.hifz_to_ayah ?? null, log.hifzAyah?.toAyah ?? null],
+    [old.review_from_surah ?? null, log.reviewAyah?.fromSurah ?? null],
+    [old.review_from_ayah ?? null, log.reviewAyah?.fromAyah ?? null],
+    [old.review_to_surah ?? null, log.reviewAyah?.toSurah ?? null],
+    [old.review_to_ayah ?? null, log.reviewAyah?.toAyah ?? null],
+  ];
+  return (
+    scalarPairs.some(([a, b]) => a !== b) ||
+    JSON.stringify(oldSegments) !== JSON.stringify(newSegments)
+  );
+}
+
+/**
  * يعدّل ورداً موجوداً — فقط لو كان يملكه هذا الطالب بالضبط (نفس الحلقة
  * والمعرّف) وكانت حالته قابلة للتعديل (new أو seen، عبر lib/ward-ayah.ts
  * canEditWard — نفس الشرط حرفياً). الشرط بالكامل داخل جملة UPDATE نفسها
  * لا كتحقّق منفصل قبلها — لو رجعت صفر صفوف فإما الورد ليس ملك هذا
  * الطالب أو صار مقفلاً بين قراءته وتعديله (سباق)، والفرق لا يهم الطالب:
- * كلا الحالتين "لا يمكنك تعديل هذا الورد".
+ * كلا الحالتين "لا يمكنك تعديل هذا الورد". buddyResetTo يحمل معرّف
+ * الزميل لو أُعيد طلب تأكيده (خيار الحلقة) — لإشعاره من المسار.
  */
 export async function updateWardLog(
   teacherId: number,
   studentId: string,
   id: number,
   log: NewWardLog,
-): Promise<boolean> {
+): Promise<{ updated: boolean; buddyResetTo: string | null }> {
   if (log.buddyStudentId) await assertValidBuddy(teacherId, studentId, log.buddyStudentId);
   const client = await db().pool.connect();
   try {
     await client.query("BEGIN");
+    // خيار الحلقة يُقرأ قبل التعديل (مفتاح أساسي رخيص)، والمحتوى القديم
+    // لا يُقرأ إلا لو كان مفعّلاً — لأن UPDATE نفسه يطمسه، ولا حاجة له
+    // في السلوك الافتراضي (خيار مغلق = تماماً كما كان قبل هذا الخيار).
+    const setting = await client.query(`SELECT buddy_reset_on_edit FROM halaqahs WHERE id = $1`, [
+      teacherId,
+    ]);
+    const resetOnEdit = setting.rows[0]?.buddy_reset_on_edit === true;
+    let oldContent: Record<string, unknown> | undefined;
+    if (resetOnEdit) {
+      const old = await client.query(
+        `SELECT w.date, w.hifz_from, w.hifz_to, w.review_from, w.review_to,
+                w.hifz_from_surah, w.hifz_from_ayah, w.hifz_to_surah, w.hifz_to_ayah,
+                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
+                (SELECT json_agg(json_build_object('fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
+                     'toSurah', rs.to_surah, 'toAyah', rs.to_ayah) ORDER BY rs.segment_order)::text
+                 FROM ward_review_segments rs WHERE rs.ward_log_id = w.id) AS review_segments_json
+         FROM ward_logs w WHERE w.id = $1 AND w.teacher_id = $2 AND w.student_id = $3`,
+        [id, teacherId, studentId],
+      );
+      oldContent = old.rows[0];
+    }
     // status = 'new' دائماً: لو كانت 'seen' (اطّلع عليها المعلّم) قبل
     // التعديل، تعديل الطالب يغيّر محتواها فعلياً فتحتاج اطّلاعاً جديداً —
     // ولو كانت 'new' أصلاً فهذا بلا أثر (نفس القيمة). 'approved' و
@@ -923,28 +983,42 @@ export async function updateWardLog(
     );
     if ((updated.rowCount ?? 0) === 0) {
       await client.query("ROLLBACK");
-      return false;
+      return { updated: false, buddyResetTo: null };
     }
     // استبدال كامل للمقاطع — أبسط وأصحّ من محاولة مطابقة/تحديث جزئي لقائمة أعيد إرسالها كاملة من الواجهة
     await client.query(`DELETE FROM ward_review_segments WHERE ward_log_id = $1`, [id]);
     await insertReviewSegments(client, id, log.reviewSegments);
-    // STEP 56 (تصحيح): الزميل نفسه بلا تغيير → لا نلمس الصف إطلاقاً،
-    // تبقى حالته كما هي (confirmed تبقى confirmed) — إعادة الإدراج
-    // لأي سبب آخر (حتى لو نفس الزميل) كانت تصفّر تأكيداً سابقاً بلا
-    // داعٍ. الحذف+الإدراج (وبالتالي العودة لـpending) فقط لو تغيّر
-    // الزميل فعلياً (زميل آخر أو إزالته بالكامل).
+    // STEP 56 (تصحيح): الزميل نفسه بلا تغيير → لا حذف ولا إدراج، تبقى
+    // حالته كما هي (confirmed تبقى confirmed) — إعادة الإدراج لأي سبب
+    // آخر (حتى لو نفس الزميل) كانت تصفّر تأكيداً سابقاً بلا داعٍ.
+    // الاستثناء الوحيد: خيار الحلقة مفعّل والمحتوى تغيّر فعلاً — يُحدَّث
+    // الصف نفسه (لا حذف+إدراج) عائداً لـpending، فلا يبقى تأكيدٌ لمحتوى
+    // لم يعد موجوداً. تغيير/إزالة الزميل تظل حذفاً+إدراجاً كما هي.
     const existingBuddy = await client.query(
-      `SELECT buddy_student_id FROM ward_review_buddies WHERE ward_log_id = $1`,
+      `SELECT buddy_student_id, status FROM ward_review_buddies WHERE ward_log_id = $1`,
       [id],
     );
     const existingBuddyId = (existingBuddy.rows[0]?.buddy_student_id as string | undefined) ?? null;
+    const existingBuddyStatus = (existingBuddy.rows[0]?.status as string | undefined) ?? null;
     const newBuddyId = log.buddyStudentId ?? null;
+    let buddyResetTo: string | null = null;
     if (existingBuddyId !== newBuddyId) {
       await client.query(`DELETE FROM ward_review_buddies WHERE ward_log_id = $1`, [id]);
       await insertBuddy(client, id, teacherId, studentId, newBuddyId);
+    } else if (
+      resetOnEdit &&
+      newBuddyId !== null &&
+      (existingBuddyStatus === "confirmed" || existingBuddyStatus === "declined") &&
+      wardContentChanged(oldContent, log)
+    ) {
+      await client.query(
+        `UPDATE ward_review_buddies SET status = 'pending', responded_at = NULL WHERE ward_log_id = $1 AND teacher_id = $2`,
+        [id, teacherId],
+      );
+      buddyResetTo = newBuddyId;
     }
     await client.query("COMMIT");
-    return true;
+    return { updated: true, buddyResetTo };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -1500,6 +1574,17 @@ export async function listHalaqahTeachers(
     username: r.username as string,
     role: (r.role as TeacherRole) ?? "assistant",
   }));
+}
+
+/** خيار الحلقة: إعادة طلب تأكيد الزميل عند تعديل الورد — يقرؤه المسار والمعلّمون جميعاً */
+export async function halaqahBuddyResetOnEdit(halaqahId: number): Promise<boolean> {
+  const rows = await db().sql`SELECT buddy_reset_on_edit FROM halaqahs WHERE id = ${halaqahId}`;
+  return rows[0]?.buddy_reset_on_edit === true;
+}
+
+/** يغيّر خيار إعادة تأكيد الزميل — المسار يقصر الاستدعاء على مشرف الحلقة */
+export async function setHalaqahBuddyResetOnEdit(halaqahId: number, enabled: boolean): Promise<void> {
+  await db().sql`UPDATE halaqahs SET buddy_reset_on_edit = ${enabled} WHERE id = ${halaqahId}`;
 }
 
 export async function findHalaqahByInviteCode(

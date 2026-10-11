@@ -182,12 +182,33 @@ export async function PUT(request: Request) {
     }
 
     const log = buildLog(date, hifz, review, note, buddyStudentId);
-    const ok = await updateWardLog(student.teacherId, student.id, id, log);
-    if (!ok) {
+    const result = await updateWardLog(student.teacherId, student.id, id, log);
+    if (!result.updated) {
       return Response.json(
         { error: "لا يمكن تعديل هذا الورد — إمّا اعتمده معلّمك بالفعل أو ليس ملكك" },
         { status: 403 },
       );
+    }
+
+    // إشعار الزميل مجدداً لو أُعيد طلب تأكيده بخيار الحلقة (تعديل محتوى
+    // وردٍ سبق تأكيده/رفضه) — نفس نمط after() + سقف ٣ ثوانٍ أعلاه.
+    const resetBuddyId = result.buddyResetTo;
+    if (resetBuddyId) {
+      after(async () => {
+        try {
+          await Promise.race([
+            sendPushToStudent(student.teacherId, resetBuddyId, {
+              title: "طلب تأكيد مراجعة",
+              body: `${student.name} عدّل ورده بعد تأكيدك — أكّد المراجعة الجديدة؟`,
+              url: "/student",
+              tag: "buddy-request",
+            }),
+            new Promise((resolve) => setTimeout(resolve, 3000)),
+          ]);
+        } catch {
+          // فشل الإشعار لا يغيّر نتيجة التعديل أبداً — الرد أُرسل مسبقاً
+        }
+      });
     }
     return Response.json({ ok: true });
   } catch (error) {
