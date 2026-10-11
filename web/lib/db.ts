@@ -955,8 +955,8 @@ export async function updateWardLog(
                 (SELECT json_agg(json_build_object('fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
                      'toSurah', rs.to_surah, 'toAyah', rs.to_ayah) ORDER BY rs.segment_order)::text
                  FROM ward_review_segments rs WHERE rs.ward_log_id = w.id) AS review_segments_json
-         FROM ward_logs w WHERE w.id = $1`,
-        [id],
+         FROM ward_logs w WHERE w.id = $1 AND w.teacher_id = $2 AND w.student_id = $3`,
+        [id, teacherId, studentId],
       );
       oldContent = old.rows[0];
     }
@@ -1012,8 +1012,8 @@ export async function updateWardLog(
       wardContentChanged(oldContent, log)
     ) {
       await client.query(
-        `UPDATE ward_review_buddies SET status = 'pending', responded_at = NULL WHERE ward_log_id = $1`,
-        [id],
+        `UPDATE ward_review_buddies SET status = 'pending', responded_at = NULL WHERE ward_log_id = $1 AND teacher_id = $2`,
+        [id, teacherId],
       );
       buddyResetTo = newBuddyId;
     }

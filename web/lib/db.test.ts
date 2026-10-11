@@ -344,7 +344,7 @@ describe("updateWardLog — إعادة تأكيد الزميل عند التعد
     const resetCall = client.calls.find((c) => c.text.trim().startsWith("UPDATE ward_review_buddies"));
     expect(resetCall?.text).toContain("status = 'pending'");
     expect(resetCall?.text).toContain("responded_at = NULL");
-    expect(resetCall?.params).toEqual([17]);
+    expect(resetCall?.params).toEqual([17, 2]);
     const texts = client.calls.map((c) => c.text.trim());
     expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_buddies"))).toBe(false);
     expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
