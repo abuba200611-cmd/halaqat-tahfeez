@@ -106,7 +106,7 @@ describe("processSuggestionImage (STEP 55ب)", () => {
   });
 
   it("يرفض قنبلة البكسلات (٦٠٠٠×٦٠٠٠ = ٣٦ مليون بكسل) برسالة المعالجة المعتادة لا 500", async () => {
-    const bomb = await sharp({ create: { width: 6000, height: 6000, channels: 3, background: { r: 0, g: 100, b: 0 } } })
+    const bomb = await sharp({ create: { width: 8000, height: 8000, channels: 3, background: { r: 0, g: 100, b: 0 } } })
       .png()
       .toBuffer();
     await expect(processSuggestionImage(bomb)).rejects.toThrow("تعذّرت معالجة الصورة");

@@ -97,7 +97,7 @@ export async function processSuggestionImage(buffer: Buffer): Promise<ProcessedI
   let data: Buffer;
   let info: { width: number; height: number };
   try {
-    const result = await sharp(buffer, { limitInputPixels: 25_000_000 })
+    const result = await sharp(buffer, { limitInputPixels: 50_000_000 })
       // .rotate() بلا معاملات: يطبّق دوران EXIF Orientation فعلياً على
       // البكسلات نفسها قبل أي تصغير، ثم لا حاجة لحفظ الوسم لاحقاً —
       // حذف الـmetadata بعدها (السلوك الافتراضي، لم نستدعِ withMetadata)
