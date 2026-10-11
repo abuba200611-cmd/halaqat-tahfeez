@@ -17,7 +17,7 @@ function avgMastery(student: Student): number {
 }
 
 export default function StudentsPage() {
-  const { students, loading, upsert, remove, loadDemo } = useStudents();
+  const { students, loading, upsert, remove } = useStudents();
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
@@ -92,10 +92,7 @@ export default function StudentsPage() {
           title="القائمة فارغة."
           action={
             <div className="flex gap-2">
-              <Button onClick={() => loadDemo(150)}>تحميل حلقة تجريبية</Button>
-              <Button variant="ghost" onClick={() => setShowForm(true)}>
-                إضافة طالب
-              </Button>
+              <Button onClick={() => setShowForm(true)}>إضافة طالب</Button>
             </div>
           }
         />
