@@ -1,0 +1,101 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/*
+  حدّ الدخول لكل بريد صار على المحاولات الفاشلة فقط: فحص (peek) قبل
+  التحقّق واحتساب (record) عند فشله حصراً — حتى لا يستطيع أحد قفل حساب
+  المعلّم برشّ محاولات دخول. نحاكي كل تبعيات المسار ونتحقّق من الاستدعاءات
+  لا من قاعدة بيانات حقيقية.
+*/
+const dbMocks = vi.hoisted(() => ({
+  checkLoginRateLimit: vi.fn(async () => true),
+  findTeacherByUsername: vi.fn(),
+  recordFailedLoginAttempt: vi.fn(),
+}));
+vi.mock("@/lib/db", () => dbMocks);
+
+const authMocks = vi.hoisted(() => ({
+  setSessionCookie: vi.fn(),
+  verifyPassword: vi.fn(),
+}));
+vi.mock("@/lib/auth", () => authMocks);
+
+const rateLimitMocks = vi.hoisted(() => ({
+  peekRateLimit: vi.fn(),
+  rateLimited: vi.fn(() => Response.json({ error: "محاولات كثيرة، حاول لاحقاً" }, { status: 429 })),
+  recordRateLimitHit: vi.fn(),
+}));
+vi.mock("@/lib/rate-limit", () => rateLimitMocks);
+
+const { POST } = await import("./route");
+
+const TEACHER = {
+  id: 2,
+  username: "u@x.com",
+  passwordHash: "hash",
+  teacherName: "معلّم",
+  halaqahId: 1,
+  halaqahName: "حلقة",
+  role: "supervisor",
+  emailVerified: true,
+};
+
+function loginReq(username: string, password: string): Request {
+  return new Request("http://localhost/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+describe("POST /api/auth/login — حدّ البريد على الفشل فقط (منع قفل الحساب)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.checkLoginRateLimit.mockResolvedValue(true);
+    rateLimitMocks.peekRateLimit.mockResolvedValue(true);
+  });
+
+  it("دخول ناجح: لا يُحتسب على حدّ البريد إطلاقاً — المحاولات الناجحة لا تستهلك الحصة", async () => {
+    dbMocks.findTeacherByUsername.mockResolvedValue(TEACHER);
+    authMocks.verifyPassword.mockReturnValue(true);
+
+    const res = await POST(loginReq("u@x.com", "correct"));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).teacher.username).toBe("u@x.com");
+    expect(rateLimitMocks.recordRateLimitHit).not.toHaveBeenCalled();
+    expect(dbMocks.recordFailedLoginAttempt).not.toHaveBeenCalled();
+    expect(authMocks.setSessionCookie).toHaveBeenCalledWith(TEACHER.id);
+  });
+
+  it("كلمة مرور خاطئة: تُحتسب على مفتاح بريد المستخدم نفسه", async () => {
+    dbMocks.findTeacherByUsername.mockResolvedValue(TEACHER);
+    authMocks.verifyPassword.mockReturnValue(false);
+
+    const res = await POST(loginReq("U@X.com", "wrong"));
+
+    expect(res.status).toBe(401);
+    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:u@x.com", 900);
+  });
+
+  it("بريد غير موجود: نفس رسالة 401 بالضبط، وتُحتسب المحاولة على مفتاحه", async () => {
+    dbMocks.findTeacherByUsername.mockResolvedValue(null);
+
+    const res = await POST(loginReq("ghost@x.com", "x"));
+    const data = (await res.json()) as { error: string };
+
+    expect(res.status).toBe(401);
+    expect(data.error).toBe("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:ghost@x.com", 900);
+  });
+
+  it("١٠ محاولات فاشلة سابقاً (peek يمنع): 429 قبل أي بحث أو تحقّق، وبلا احتساب جديد", async () => {
+    rateLimitMocks.peekRateLimit.mockResolvedValue(false);
+
+    const res = await POST(loginReq("u@x.com", "correct"));
+
+    expect(res.status).toBe(429);
+    expect(rateLimitMocks.peekRateLimit).toHaveBeenCalledWith("login:email:u@x.com", 10, 900);
+    expect(dbMocks.findTeacherByUsername).not.toHaveBeenCalled();
+    expect(rateLimitMocks.recordRateLimitHit).not.toHaveBeenCalled();
+  });
+});

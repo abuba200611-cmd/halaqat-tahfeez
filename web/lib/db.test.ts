@@ -62,7 +62,7 @@ describe("updateWardLog — الذرّية وقفل الورد المعتمد (S
 
     const result = await updateWardLog(2, "student-1", 17, sampleLog);
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ updated: false, buddyResetTo: null });
     const texts = client.calls.map((c) => c.text.trim());
     // لازم UPDATE واحدة فقط، ثم ROLLBACK مباشرة — بلا أي DELETE أو INSERT على ward_review_segments
     expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_segments"))).toBe(false);
@@ -78,7 +78,7 @@ describe("updateWardLog — الذرّية وقفل الورد المعتمد (S
 
     const result = await updateWardLog(2, "student-1", 17, sampleLog);
 
-    expect(result).toBe(true);
+    expect(result).toEqual({ updated: true, buddyResetTo: null });
     const texts = client.calls.map((c) => c.text.trim());
     expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_segments"))).toBe(true);
     expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_segments"))).toBe(true);
@@ -245,6 +245,146 @@ describe("createWardLog / updateWardLog — زميل المراجعة (STEP 56)"
 
     const texts = client.calls.map((c) => c.text.trim());
     expect(texts.some((t) => t.includes("ward_review_buddies"))).toBe(false);
+  });
+});
+
+/*
+  خيار الحلقة (buddy_reset_on_edit): إعادة طلب تأكيد الزميل عند تعديل
+  الورد. نحاكي العميل بالردّ على كل استعلام جديد — قراءة الخيار، قراءة
+  المحتوى القديم، وقراءة حالة الزميل — ونتحقّق من قرار إعادة الطلب
+  (UPDATE الصف نفسه، لا حذف+إدراج) بناءً على تركيبة الشروط.
+*/
+function makeBuddyResetClient({
+  setting,
+  oldContent,
+  buddyId,
+  buddyStatus,
+}: {
+  setting: boolean;
+  oldContent: Record<string, unknown> | null;
+  buddyId: string | null;
+  buddyStatus: "pending" | "confirmed" | "declined";
+}) {
+  const client = makeFakeClient(1);
+  const original = client.query.getMockImplementation() as (text: string, params?: unknown[]) => Promise<unknown>;
+  client.query.mockImplementation(async (text: string, params?: unknown[]) => {
+    const trimmed = text.trim();
+    if (trimmed.startsWith("SELECT buddy_reset_on_edit")) {
+      client.calls.push({ text, params });
+      return { rowCount: setting ? 1 : 0, rows: [{ buddy_reset_on_edit: setting }] };
+    }
+    if (trimmed.startsWith("SELECT w.date")) {
+      client.calls.push({ text, params });
+      return { rowCount: oldContent ? 1 : 0, rows: oldContent ? [oldContent] : [] };
+    }
+    if (trimmed.startsWith("SELECT buddy_student_id")) {
+      client.calls.push({ text, params });
+      return {
+        rowCount: buddyId ? 1 : 0,
+        rows: buddyId ? [{ buddy_student_id: buddyId, status: buddyStatus }] : [],
+      };
+    }
+    return original(text, params);
+  });
+  return client;
+}
+
+/** صف محتوى قديم مطابق لـsampleLog بالضبط (أو يعدّله changed لمغايرته) */
+function oldContentRow(changed: boolean): Record<string, unknown> {
+  return {
+    date: changed ? "2026-09-28" : "2026-09-27",
+    hifz_from: null,
+    hifz_to: null,
+    review_from: 1,
+    review_to: changed ? 9 : 5,
+    hifz_from_surah: null,
+    hifz_from_ayah: null,
+    hifz_to_surah: null,
+    hifz_to_ayah: null,
+    review_from_surah: null,
+    review_from_ayah: null,
+    review_to_surah: null,
+    review_to_ayah: null,
+    review_segments_json: JSON.stringify([
+      { fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, fromPage: 1, toPage: 1 },
+    ]),
+  };
+}
+
+describe("updateWardLog — إعادة تأكيد الزميل عند التعديل (خيار الحلقة)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+    connectMock.mockReset();
+  });
+
+  it("الخيار مغلق + تغيير محتوى + تأكيد سابق: لا يُعاد الطلب — السلوك الحالي كما هو", async () => {
+    mockBuddyValidation(true);
+    const client = makeBuddyResetClient({ setting: false, oldContent: null, buddyId: "buddy-1", buddyStatus: "confirmed" });
+    connectMock.mockResolvedValue(client);
+
+    const result = await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-1"));
+
+    expect(result).toEqual({ updated: true, buddyResetTo: null });
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.some((t) => t.startsWith("UPDATE ward_review_buddies"))).toBe(false);
+    expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_buddies"))).toBe(false);
+    expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
+    // الخيار مغلق: المحتوى القديم لا يُقرأ أصلاً — بلا أي استعلام إضافي
+    expect(texts.some((t) => t.startsWith("SELECT w.date"))).toBe(false);
+  });
+
+  it("الخيار مفعّل + تغيير محتوى + تأكيد سابق: الصف نفسه يعود pending بلا حذف/إدراج", async () => {
+    mockBuddyValidation(true);
+    const client = makeBuddyResetClient({ setting: true, oldContent: oldContentRow(true), buddyId: "buddy-1", buddyStatus: "confirmed" });
+    connectMock.mockResolvedValue(client);
+
+    const result = await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-1"));
+
+    expect(result).toEqual({ updated: true, buddyResetTo: "buddy-1" });
+    const resetCall = client.calls.find((c) => c.text.trim().startsWith("UPDATE ward_review_buddies"));
+    expect(resetCall?.text).toContain("status = 'pending'");
+    expect(resetCall?.text).toContain("responded_at = NULL");
+    expect(resetCall?.params).toEqual([17]);
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_buddies"))).toBe(false);
+    expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
+    expect(texts).toContain("COMMIT");
+  });
+
+  it("رفض سابق (declined) يُعاد أيضاً — الاثنان استجابة قديمة على محتوى تغيّر", async () => {
+    mockBuddyValidation(true);
+    const client = makeBuddyResetClient({ setting: true, oldContent: oldContentRow(true), buddyId: "buddy-1", buddyStatus: "declined" });
+    connectMock.mockResolvedValue(client);
+
+    const result = await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-1"));
+
+    expect(result).toEqual({ updated: true, buddyResetTo: "buddy-1" });
+    expect(client.calls.some((c) => c.text.trim().startsWith("UPDATE ward_review_buddies"))).toBe(true);
+  });
+
+  it("الخيار مفعّل بلا تغيير محتوى فعلي: لا يُلمس صفّ الزميل إطلاقاً", async () => {
+    mockBuddyValidation(true);
+    const client = makeBuddyResetClient({ setting: true, oldContent: oldContentRow(false), buddyId: "buddy-1", buddyStatus: "confirmed" });
+    connectMock.mockResolvedValue(client);
+
+    const result = await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-1"));
+
+    expect(result).toEqual({ updated: true, buddyResetTo: null });
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.some((t) => t.startsWith("UPDATE ward_review_buddies"))).toBe(false);
+    expect(texts.some((t) => t.startsWith("DELETE FROM ward_review_buddies"))).toBe(false);
+    expect(texts.some((t) => t.startsWith("INSERT INTO ward_review_buddies"))).toBe(false);
+  });
+
+  it("الطلب ما زال pending أصلاً: لا إعادة — الحالة هدفها نفسه", async () => {
+    mockBuddyValidation(true);
+    const client = makeBuddyResetClient({ setting: true, oldContent: oldContentRow(true), buddyId: "buddy-1", buddyStatus: "pending" });
+    connectMock.mockResolvedValue(client);
+
+    const result = await updateWardLog(2, "student-1", 17, buddySampleLog("buddy-1"));
+
+    expect(result).toEqual({ updated: true, buddyResetTo: null });
+    expect(client.calls.some((c) => c.text.trim().startsWith("UPDATE ward_review_buddies"))).toBe(false);
   });
 });
 

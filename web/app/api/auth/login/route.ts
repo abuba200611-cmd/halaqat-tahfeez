@@ -1,6 +1,6 @@
 import { checkLoginRateLimit, findTeacherByUsername, recordFailedLoginAttempt } from "@/lib/db";
 import { setSessionCookie, verifyPassword } from "@/lib/auth";
-import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
+import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
 function clientIp(request: Request): string {
@@ -17,14 +17,18 @@ export async function POST(request: Request) {
   const username = String(body.username ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
 
-  // سقف إضافي لكل بريد — يكبح التخمين الموزّع عبر عناوين متعددة، فوق حدّ الـIP أعلاه
-  if (!(await checkRateLimit(`login:email:${username}`, 10, 900))) {
+  // سقف إضافي لكل بريد على المحاولات الفاشلة فقط: نفحص قبل التحقّق
+  // ونحتسب عند فشله حصراً — فلا يستطيع أحد قفل حساب المعلّم برشّ محاولات،
+  // ويبقى كبح التخمين الموزّع فوق حدّ الـIP كما هو
+  const emailLimitKey = `login:email:${username}`;
+  if (!(await peekRateLimit(emailLimitKey, 10, 900))) {
     return rateLimited();
   }
 
   const teacher = await findTeacherByUsername(username);
   // رسالة واحدة للحالتين حتى لا تكشف أي بريد إلكتروني مسجّل من عدمه
   if (!teacher || !verifyPassword(password, teacher.passwordHash)) {
+    await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
     return Response.json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" }, { status: 401 });
   }
