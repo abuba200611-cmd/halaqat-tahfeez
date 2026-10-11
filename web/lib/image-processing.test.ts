@@ -104,6 +104,13 @@ describe("processSuggestionImage (STEP 55ب)", () => {
     expect(result.width).toBeLessThanOrEqual(1600);
     expect(result.height).toBeLessThanOrEqual(1600);
   });
+
+  it("يرفض قنبلة البكسلات (٦٠٠٠×٦٠٠٠ = ٣٦ مليون بكسل) برسالة المعالجة المعتادة لا 500", async () => {
+    const bomb = await sharp({ create: { width: 6000, height: 6000, channels: 3, background: { r: 0, g: 100, b: 0 } } })
+      .png()
+      .toBuffer();
+    await expect(processSuggestionImage(bomb)).rejects.toThrow("تعذّرت معالجة الصورة");
+  });
 });
 
 describe("readAndProcessAttachments (STEP 55ب)", () => {

@@ -1,6 +1,7 @@
 import { currentStudent, studentUnauthorized } from "@/lib/auth";
 import { saveStudentPushSubscription } from "@/lib/db";
 import { getVapidPublicKey } from "@/lib/push";
+import { isAllowedPushEndpoint } from "@/lib/push-endpoint";
 
 /**
  * المفتاح العام لـ VAPID لجهاز الطالب — نفس المفتاح الذي يستخدمه المعلّم
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     const p256dh = String(sub?.keys?.p256dh ?? "").trim();
     const auth = String(sub?.keys?.auth ?? "").trim();
     if (!endpoint || !p256dh || !auth) throw new Error("بيانات الاشتراك ناقصة");
+    if (!isAllowedPushEndpoint(endpoint)) throw new Error("عنوان خدمة الإشعارات غير مدعوم");
 
     await saveStudentPushSubscription(student.teacherId, student.id, { endpoint, p256dh, auth });
     return Response.json({ ok: true });

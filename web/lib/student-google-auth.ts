@@ -3,6 +3,7 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { sessionSecret } from "./db";
+import { safeEqual } from "./safe-equal";
 
 /*
   دخول Google للطالب — STEP 6A (مسار "طالب جديد" فقط). منفصل تماماً عن
@@ -44,7 +45,7 @@ export async function consumeStudentGoogleState(state: string): Promise<boolean>
   const store = await cookies();
   const expected = store.get(STATE_COOKIE)?.value;
   store.delete(STATE_COOKIE);
-  return !!expected && expected === state;
+  return !!expected && safeEqual(expected, state);
 }
 
 function pendingPayload(sub: string, email: string, issuedAt: number): string {
@@ -196,7 +197,7 @@ export async function consumeStudentGoogleLinkState(
   store.delete(LINK_STATE_COOKIE);
   if (!raw) return { ok: false, mode: "link" };
   const [nonce, mode] = raw.split(":");
-  return { ok: !!nonce && nonce === state, mode: mode === "login" ? "login" : "link" };
+  return { ok: !!nonce && safeEqual(nonce, state), mode: mode === "login" ? "login" : "link" };
 }
 
 function linkPendingPayload(sub: string, email: string, issuedAt: number): string {

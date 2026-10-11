@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => dbMocks);
 vi.mock("../../../login/route", () => ({ ADMIN_COOKIE: "admin_session" }));
 
 const { GET } = await import("./route");
+const { createAdminToken } = await import("@/lib/admin-session");
 
 const ORIGINAL_SECRET = process.env.ADMIN_SECRET;
 
@@ -28,6 +29,7 @@ describe("GET /api/admin/suggestions/attachments/[id] — للأدمن فقط (S
   afterEach(() => {
     if (ORIGINAL_SECRET === undefined) delete process.env.ADMIN_SECRET;
     else process.env.ADMIN_SECRET = ORIGINAL_SECRET;
+    vi.useRealTimers();
   });
 
   it("بلا جلسة أدمن: 404 لا 401 (لا يكشف عن وجود المسار)، ولا يُقرأ من القاعدة", async () => {
@@ -42,15 +44,42 @@ describe("GET /api/admin/suggestions/attachments/[id] — للأدمن فقط (S
     expect(res.status).toBe(404);
   });
 
-  it("بجلسة أدمن صحيحة وصورة غير موجودة: 404", async () => {
+  it("الكوكي يحمل السرّ الخام نفسه (نمط قديم): مرفوض — السرّ لا يصح كتوكن جلسة", async () => {
     cookieStore.value = "s3cr3t";
+    const res = await GET(req(), { params: Promise.resolve({ id: "1" }) });
+    expect(res.status).toBe(404);
+    expect(dbMocks.getSuggestionAttachmentImage).not.toHaveBeenCalled();
+  });
+
+  it("توكن معدَّل (تلاعب بحرف واحد بالتوقيع): 404", async () => {
+    const token = createAdminToken();
+    const last = token.endsWith("0") ? "1" : "0";
+    cookieStore.value = token.slice(0, -1) + last;
+    const res = await GET(req(), { params: Promise.resolve({ id: "1" }) });
+    expect(res.status).toBe(404);
+    expect(dbMocks.getSuggestionAttachmentImage).not.toHaveBeenCalled();
+  });
+
+  it("توكن منتهي (أكثر من ١٢ ساعة): 404", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-10T00:00:00Z"));
+    const token = createAdminToken();
+    vi.setSystemTime(new Date("2026-10-10T13:00:00Z"));
+    cookieStore.value = token;
+    const res = await GET(req(), { params: Promise.resolve({ id: "1" }) });
+    expect(res.status).toBe(404);
+    expect(dbMocks.getSuggestionAttachmentImage).not.toHaveBeenCalled();
+  });
+
+  it("بجلسة أدمن صحيحة (توكن صالح) وصورة غير موجودة: 404", async () => {
+    cookieStore.value = createAdminToken();
     dbMocks.getSuggestionAttachmentImage.mockResolvedValue(null);
     const res = await GET(req(), { params: Promise.resolve({ id: "999" }) });
     expect(res.status).toBe(404);
   });
 
-  it("بجلسة أدمن صحيحة وصورة موجودة: 200 بالهيدرات المطلوبة بالضبط", async () => {
-    cookieStore.value = "s3cr3t";
+  it("بجلسة أدمن صحيحة (توكن صالح) وصورة موجودة: 200 بالهيدرات المطلوبة بالضبط", async () => {
+    cookieStore.value = createAdminToken();
     dbMocks.getSuggestionAttachmentImage.mockResolvedValue({ mime: "image/webp", bytes: Buffer.from([1, 2, 3]) });
 
     const res = await GET(req(), { params: Promise.resolve({ id: "1" }) });

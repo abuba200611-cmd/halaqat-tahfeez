@@ -1,5 +1,6 @@
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { runStudentDailyReminder } from "@/lib/push";
+import { safeEqual } from "@/lib/safe-equal";
 
 /**
  * تذكير الطلاب اليومي (STEP 54) — يستدعيه Vercel Cron وحده (راجع
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
   }
 
   const auth = request.headers.get("authorization");
-  if (auth !== `Bearer ${secret}`) {
+  if (!auth || !safeEqual(auth, `Bearer ${secret}`)) {
     return Response.json({ error: "غير مصرّح" }, { status: 401 });
   }
 

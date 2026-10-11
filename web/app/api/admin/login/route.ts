@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { checkAdminLoginRateLimit, recordFailedAdminLoginAttempt } from "@/lib/db";
+import { createAdminToken } from "@/lib/admin-session";
 import { expectedAdminSecret, safeEqual } from "@/lib/safe-equal";
 
 export const ADMIN_COOKIE = "admin_session";
@@ -28,12 +29,12 @@ export async function POST(request: Request) {
   }
 
   const store = await cookies();
-  store.set(ADMIN_COOKIE, expected, {
+  store.set(ADMIN_COOKIE, createAdminToken(), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 60 * 12,
   });
   return Response.json({ ok: true });
 }

@@ -147,7 +147,17 @@ export async function findTeacherByUsername(
  */
 export async function findOrCreateTeacherByEmail(email: string, name = ""): Promise<number> {
   const existing = await findTeacherByUsername(email);
-  if (existing) return existing.id;
+  if (existing) {
+    // دخول جوجل يثبت ملكية البريد: حساب غير موثّق قد يسجّله منتحل بكلمة
+    // مرور يعرفها، فنُبطِلها فوراً (بصمة بلا ":" لا يتحقق منها verifyPassword أبداً)
+    if (!existing.emailVerified) {
+      await db().sql`
+        UPDATE teachers SET password_hash = ${randomBytes(32).toString("hex")}, email_verified = true
+        WHERE id = ${existing.id} AND email_verified = false
+      `;
+    }
+    return existing.id;
+  }
 
   const randomPasswordHash = randomBytes(32).toString("hex");
   // بريد جوجل موثّق من جوجل نفسها — نعتبره مؤكَّداً هنا فوراً
@@ -1208,8 +1218,9 @@ export async function listPushSubscriptions(teacherId: number): Promise<PushSubs
   return rows.map((r) => ({ endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }));
 }
 
-export async function deletePushSubscription(endpoint: string): Promise<void> {
-  await db().sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint}`;
+/** حذف مشروط بمالك الاشتراك — endpoint وحده لا يكفي (أي معلّم آخر يستطيع إرساله) */
+export async function deletePushSubscription(teacherId: number, endpoint: string): Promise<void> {
+  await db().sql`DELETE FROM push_subscriptions WHERE endpoint = ${endpoint} AND teacher_id = ${teacherId}`;
 }
 
 /** مفاتيح VAPID: من البيئة إن وُجدت، وإلا من الإعدادات — أو null قبل توليدها */
@@ -1257,8 +1268,16 @@ export async function saveStudentPushSubscription(
   `;
 }
 
-export async function deleteStudentPushSubscription(endpoint: string): Promise<void> {
-  await db().sql`DELETE FROM student_push_subscriptions WHERE endpoint = ${endpoint}`;
+/** حذف مشروط بمالك الاشتراك (الحلقة والطالب) — endpoint وحده لا يكفي */
+export async function deleteStudentPushSubscription(
+  teacherId: number,
+  studentId: string,
+  endpoint: string,
+): Promise<void> {
+  await db().sql`
+    DELETE FROM student_push_subscriptions
+    WHERE endpoint = ${endpoint} AND teacher_id = ${teacherId} AND student_id = ${studentId}
+  `;
 }
 
 /** اشتراكات جهاز طالب بعينه — لإشعار فوري عند اعتماد/رفض ورده */

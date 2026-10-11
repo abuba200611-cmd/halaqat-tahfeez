@@ -63,8 +63,8 @@ describe("runStudentDailyReminder (STEP 54)", () => {
     const result = await runStudentDailyReminder("2026-09-27");
 
     expect(result).toEqual({ sent: 0, skipped: 0, removed: 2, failed: 0 });
-    expect(dbMocks.deleteStudentPushSubscription).toHaveBeenCalledWith("gone-404");
-    expect(dbMocks.deleteStudentPushSubscription).toHaveBeenCalledWith("gone-410");
+    expect(dbMocks.deleteStudentPushSubscription).toHaveBeenCalledWith(1, "a", "gone-404");
+    expect(dbMocks.deleteStudentPushSubscription).toHaveBeenCalledWith(1, "b", "gone-410");
   });
 
   it("خطأ آخر غير 404/410 يُعدّ failed ولا يحذف الاشتراك ولا يوقف البقية", async () => {

@@ -41,17 +41,29 @@ describe("POST /api/student/push/subscribe (STEP 54)", () => {
         // محاولة انتحال طالب آخر عبر الجسم — يجب أن تُتجاهَل بالكامل
         studentId: "victim-student",
         teacherId: 999,
-        subscription: { endpoint: "device-1", keys: { p256dh: "p256", auth: "auth" } },
+        subscription: {
+          endpoint: "https://fcm.googleapis.com/fcm/send/device-1",
+          keys: { p256dh: "p256", auth: "auth" },
+        },
       }),
     );
 
     expect(res.status).toBe(200);
     expect(dbMocks.saveStudentPushSubscription).toHaveBeenCalledTimes(1);
     expect(dbMocks.saveStudentPushSubscription).toHaveBeenCalledWith(7, "real-student", {
-      endpoint: "device-1",
+      endpoint: "https://fcm.googleapis.com/fcm/send/device-1",
       p256dh: "p256",
       auth: "auth",
     });
+  });
+
+  it("endpoint من مضيف غير مسموح (SSRF): 400 ولا يُحفظ أي اشتراك", async () => {
+    authMocks.currentStudent.mockResolvedValue({ teacherId: 7, id: "real-student", name: "أحمد", halaqahName: "" });
+    const res = await POST(
+      postReq({ subscription: { endpoint: "https://evil.example.com/push/abc", keys: { p256dh: "p", auth: "a" } } }),
+    );
+    expect(res.status).toBe(400);
+    expect(dbMocks.saveStudentPushSubscription).not.toHaveBeenCalled();
   });
 
   it("يرفض بيانات اشتراك ناقصة (400)", async () => {

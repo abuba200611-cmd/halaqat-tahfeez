@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { findOrCreateTeacherByEmail } from "@/lib/db";
 import { setSessionCookie } from "@/lib/auth";
 import { exchangeGoogleCode } from "@/lib/google-auth";
+import { safeEqual } from "@/lib/safe-equal";
 
 const STATE_COOKIE = "google_oauth_state";
 
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   const expectedState = store.get(STATE_COOKIE)?.value;
   store.delete(STATE_COOKIE);
 
-  if (!code || !state || !expectedState || state !== expectedState) {
+  if (!code || !state || !expectedState || !safeEqual(state, expectedState)) {
     return failure(origin, "تعذّر التحقق من طلب الدخول — حاول مرة ثانية");
   }
 
