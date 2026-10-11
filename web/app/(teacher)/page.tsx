@@ -35,7 +35,6 @@ const C = {
   textMuted: "#64748B",
 };
 
-const MAX_DEMO = 1000;
 
 /* ————— تواريخ وأسابيع — كل الحسابات بتوقيت UTC لتطابق date المخزَّنة (YYYY-MM-DD UTC) ————— */
 
@@ -166,9 +165,8 @@ function useDashboardData() {
 }
 
 export default function DashboardPage() {
-  const { students, loading: studentsLoading, loadDemo, clear } = useStudents();
+  const { students, loading: studentsLoading, clear } = useStudents();
   const { teacher, wards, newCount, scheduleDays, loading: dataLoading } = useDashboardData();
-  const [demoCount, setDemoCount] = useState(150);
   const active = students.filter((s) => s.active);
   const hasStudents = students.length > 0;
 
@@ -245,7 +243,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {!hasStudents && (
-        <OnboardingBanner demoCount={demoCount} setDemoCount={setDemoCount} loadDemo={loadDemo} />
+        <OnboardingBanner />
       )}
 
       <Hero
@@ -296,15 +294,7 @@ export default function DashboardPage() {
 
 /* ————— بطاقة onboarding — تظهر أعلى اللوحة بدل استبدالها بالكامل، طالما لا طلاب بعد ————— */
 
-export function OnboardingBanner({
-  demoCount,
-  setDemoCount,
-  loadDemo,
-}: {
-  demoCount: number;
-  setDemoCount: (n: number) => void;
-  loadDemo: (n: number) => void;
-}) {
+export function OnboardingBanner() {
   return (
     <div
       className="flex flex-col items-center gap-4 rounded-2xl bg-white p-6 text-center shadow-sm sm:flex-row sm:text-right"
@@ -318,31 +308,13 @@ export function OnboardingBanner({
           ابدأ رحلة حلقتك 🌱
         </h2>
         <p className="mt-1 text-sm" style={{ color: C.textMuted }}>
-          لا يوجد طلاب بعد — اللوحة أدناه تعرض الهيكل الكامل بأصفار حتى تضيف طلابك، أو جرّب حلقة تجريبية لاستكشافها أولاً.
+          لا يوجد طلاب بعد — اللوحة أدناه تعرض الهيكل الكامل بأصفار حتى تضيف طلابك.
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-center gap-2">
         <Link href="/students">
           <Button>إضافة طالب</Button>
         </Link>
-        <label className="flex items-center gap-2 text-sm" style={{ color: C.textMuted }}>
-          العدد
-          <input
-            type="number"
-            min={2}
-            max={MAX_DEMO}
-            value={demoCount}
-            onChange={(e) => setDemoCount(Number(e.target.value))}
-            className="tabular w-20 rounded-md border border-border bg-surface px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          />
-        </label>
-        <Button
-          variant="ghost"
-          onClick={() => loadDemo(Math.min(MAX_DEMO, Math.max(2, demoCount)))}
-          disabled={!Number.isFinite(demoCount) || demoCount < 2}
-        >
-          تحميل حلقة تجريبية
-        </Button>
       </div>
     </div>
   );
