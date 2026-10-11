@@ -99,3 +99,39 @@ describe("POST /api/auth/login — حدّ البريد على الفشل فقط 
     expect(rateLimitMocks.recordRateLimitHit).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/auth/login — الحساب الموقوف من مشرف الحلقة (STEP 60)", () => {
+  const DEACTIVATED = { ...TEACHER, deactivatedAt: "2026-10-14T00:00:00.000Z" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.checkLoginRateLimit.mockResolvedValue(true);
+    rateLimitMocks.peekRateLimit.mockResolvedValue(true);
+  });
+
+  it("كلمة المرور صحيحة: 403 برسالة الإيقاف — لا احتساب فاشل ولا جلسة", async () => {
+    dbMocks.findTeacherByUsername.mockResolvedValue(DEACTIVATED);
+    authMocks.verifyPassword.mockReturnValue(true);
+
+    const res = await POST(loginReq("u@x.com", "correct"));
+    const data = (await res.json()) as { error: string };
+
+    expect(res.status).toBe(403);
+    expect(data.error).toBe("تم إيقاف حسابك من مشرف الحلقة");
+    expect(rateLimitMocks.recordRateLimitHit).not.toHaveBeenCalled();
+    expect(dbMocks.recordFailedLoginAttempt).not.toHaveBeenCalled();
+    expect(authMocks.setSessionCookie).not.toHaveBeenCalled();
+  });
+
+  it("كلمة المرور خاطئة: نفس 401 العامة — حالة الإيقاف لا تُكشف لمن لا يعرفها", async () => {
+    dbMocks.findTeacherByUsername.mockResolvedValue(DEACTIVATED);
+    authMocks.verifyPassword.mockReturnValue(false);
+
+    const res = await POST(loginReq("u@x.com", "wrong"));
+    const data = (await res.json()) as { error: string };
+
+    expect(res.status).toBe(401);
+    expect(data.error).toBe("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+    expect(authMocks.setSessionCookie).not.toHaveBeenCalled();
+  });
+});

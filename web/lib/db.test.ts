@@ -521,3 +521,73 @@ describe("addSuggestion (معلّم) — نفس مبدأ الترانزاكشن 
     expect(texts).not.toContain("COMMIT");
   });
 });
+
+/*
+  STEP 60 — إيقاف المساعد من مشرف حلقته: الإيقاف طابع زمني + رفع نسخة
+  الجلسة (فسقوط الجلسات القائمة فوري ومزدوج الآلية)، والتفعيل يعيد العمود
+  NULL فقط بلا أي مساس بالنسخة. نتحقق من نصّي الجملتين لأن أثرهما هو
+  الضمانة الأمنية نفسها، ومن رفض دخول جوجل للحساب الموقوف.
+*/
+const { findOrCreateTeacherByEmail, setAssistantActive } = await import("./db");
+
+function sqlTextOfCall(call: unknown): string {
+  return ((call as unknown[])[0] as TemplateStringsArray).join("").trim();
+}
+
+describe("setAssistantActive — إيقاف/تفعيل المساعد (STEP 60)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+  });
+
+  it("الإيقاف: يسجّل deactivated_at ويرفع نسخة الجلسة معاً — جلساته تسقط فوراً", async () => {
+    sqlMock.mockResolvedValueOnce([{ id: 5 }]);
+    expect(await setAssistantActive(7, 5, false)).toBe(true);
+
+    const sql = sqlTextOfCall(sqlMock.mock.calls[0]);
+    expect(sql).toContain("deactivated_at = now()");
+    expect(sql).toContain("session_version = session_version + 1");
+    expect(sql).toContain("role = 'assistant'");
+    // المعاملات المُمرَّرة: (المعرّف، الحلقة) بترتيب ظهورهما بالجملة
+    expect(sqlMock.mock.calls[0].slice(1)).toEqual([5, 7]);
+  });
+
+  it("التفعيل: يعيد العمود NULL ولا يرفع نسخة الجلسة — لا جلسات له أصلاً", async () => {
+    sqlMock.mockResolvedValueOnce([{ id: 5 }]);
+    expect(await setAssistantActive(7, 5, true)).toBe(true);
+
+    const sql = sqlTextOfCall(sqlMock.mock.calls[0]);
+    expect(sql).toContain("deactivated_at = NULL");
+    expect(sql).not.toContain("session_version");
+  });
+
+  it("صفر صفوف (مشرف/حلقة أخرى/نفسه): false", async () => {
+    sqlMock.mockResolvedValueOnce([]);
+    expect(await setAssistantActive(7, 5, false)).toBe(false);
+  });
+});
+
+describe("findOrCreateTeacherByEmail — الحساب الموقوف (STEP 60)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+  });
+
+  it("حساب قائم موقوف: يُرفض دخول جوجل برسالة الإيقاف قبل أي تحديث", async () => {
+    sqlMock.mockResolvedValueOnce([
+      {
+        id: 5,
+        username: "a@b.c",
+        password_hash: "x",
+        teacher_name: "مساعد",
+        halaqah_id: 7,
+        halaqah_name: "الحلقة",
+        role: "assistant",
+        email_verified: true,
+        session_version: 0,
+        deactivated_at: "2026-10-14T00:00:00.000Z",
+      },
+    ]);
+
+    await expect(findOrCreateTeacherByEmail("a@b.c")).rejects.toThrow("تم إيقاف حسابك من مشرف الحلقة");
+    expect(sqlMock).toHaveBeenCalledTimes(1); // لا UPDATE إطلاقاً بعد الرفض
+  });
+});

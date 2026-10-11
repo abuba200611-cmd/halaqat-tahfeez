@@ -36,7 +36,7 @@ const { createSessionToken, currentTeacher, currentStudent, setSessionCookie, se
 );
 const { bumpTeacherSessionVersion, rotateHalaqahInviteCode } = await import("./db");
 
-const TEACHER_ROW = (sessionVersion: number) => [
+const TEACHER_ROW = (sessionVersion: number, deactivatedAt: string | null = null) => [
   {
     id: 42,
     username: "t@example.com",
@@ -47,6 +47,7 @@ const TEACHER_ROW = (sessionVersion: number) => [
     role: "supervisor",
     email_verified: true,
     session_version: sessionVersion,
+    deactivated_at: deactivatedAt,
   },
 ];
 
@@ -101,6 +102,13 @@ describe("إبطال جلسة المعلّم بنسخة الجلسة", () => {
 
     const { readSessionToken } = await import("./auth");
     expect(await readSessionToken(jar.halaqa_session!)).toEqual({ teacherId: 42, sessionVersion: 5 });
+  });
+
+  it("حساب موقوف (deactivated_at NOT NULL) بنسخة مطابقة → غير موثّق مهما صلح رمزه (STEP 60)", async () => {
+    jar.halaqa_session = await createSessionToken(42, 1);
+    sqlMock.mockResolvedValueOnce(TEACHER_ROW(1, "2026-10-14T00:00:00.000Z"));
+
+    expect(await currentTeacher()).toBeNull();
   });
 });
 

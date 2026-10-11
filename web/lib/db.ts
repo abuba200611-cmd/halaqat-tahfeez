@@ -35,6 +35,8 @@ export type Teacher = {
   role: TeacherRole;
   emailVerified: boolean;
   sessionVersion: number;
+  /** وقت إيقاف الحساب من مشرف الحلقة — null طالما الحساب فعّال (STEP 60) */
+  deactivatedAt: string | null;
 };
 
 /*
@@ -79,6 +81,7 @@ function rowToTeacherAccount(row: Record<string, unknown>): Teacher & { password
     role: (row.role as TeacherRole) ?? "supervisor",
     emailVerified: !!row.email_verified,
     sessionVersion: Number(row.session_version ?? 0),
+    deactivatedAt: (row.deactivated_at as string | null) ?? null,
   };
 }
 
@@ -134,7 +137,7 @@ export async function findTeacherByUsername(
 ): Promise<(Teacher & { passwordHash: string }) | null> {
   const rows = await db().sql`
     SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role, t.session_version,
-           h.id AS halaqah_id, h.name AS halaqah_name
+           t.deactivated_at, h.id AS halaqah_id, h.name AS halaqah_name
     FROM teachers t JOIN halaqahs h ON h.id = t.halaqah_id
     WHERE t.username = ${username}
   `;
@@ -150,6 +153,9 @@ export async function findTeacherByUsername(
 export async function findOrCreateTeacherByEmail(email: string, name = ""): Promise<number> {
   const existing = await findTeacherByUsername(email);
   if (existing) {
+    // حساب موقوف من مشرف الحلقة: يُرفض دخوله بجوجل كما بكلمة المرور —
+    // رسالة الإيقاف تصل للمستخدم عبر ?googleError= بمسار الاستدعاء
+    if (existing.deactivatedAt) throw new Error("تم إيقاف حسابك من مشرف الحلقة");
     // دخول جوجل يثبت ملكية البريد: حساب غير موثّق قد يسجّله منتحل بكلمة
     // مرور يعرفها، فنُبطِلها فوراً (بصمة بلا ":" لا يتحقق منها verifyPassword أبداً)
     if (!existing.emailVerified) {
@@ -171,7 +177,7 @@ export async function findOrCreateTeacherByEmail(email: string, name = ""): Prom
 export async function findTeacherById(id: number): Promise<Teacher | null> {
   const rows = await db().sql`
     SELECT t.id, t.username, t.password_hash, t.teacher_name, t.email_verified, t.role, t.session_version,
-           h.id AS halaqah_id, h.name AS halaqah_name
+           t.deactivated_at, h.id AS halaqah_id, h.name AS halaqah_name
     FROM teachers t JOIN halaqahs h ON h.id = t.halaqah_id
     WHERE t.id = ${id}
   `;
@@ -1563,9 +1569,9 @@ export async function halaqahTeacherInviteCode(halaqahId: number): Promise<strin
 /** أعضاء فريق الحلقة (مشرف + مساعدون) — لعرضهم بصفحة إعدادات الحلقة */
 export async function listHalaqahTeachers(
   halaqahId: number,
-): Promise<{ id: number; teacherName: string; username: string; role: TeacherRole }[]> {
+): Promise<{ id: number; teacherName: string; username: string; role: TeacherRole; deactivatedAt: string | null }[]> {
   const rows = await db().sql`
-    SELECT id, teacher_name, username, role FROM teachers
+    SELECT id, teacher_name, username, role, deactivated_at FROM teachers
     WHERE halaqah_id = ${halaqahId} ORDER BY (role = 'supervisor') DESC, created_at
   `;
   return rows.map((r) => ({
@@ -1573,7 +1579,35 @@ export async function listHalaqahTeachers(
     teacherName: (r.teacher_name as string) || (r.username as string),
     username: r.username as string,
     role: (r.role as TeacherRole) ?? "assistant",
+    deactivatedAt: (r.deactivated_at as string | null) ?? null,
   }));
+}
+
+// ————— إيقاف المساعد وتفعيله (STEP 60) —————
+// لا حذف أبداً: الإيقاف طابع زمني فقط، فبيانات المساعد وأفعاله الماضية
+// (أوراد اعتمدها، مراجعات…) تبقى كلها. شرط role = 'assistant' بالجملة
+// نفسها يستثني المشرفين جميعاً — ومنهم المستدعي نفسه (لا إيقاف للذات)،
+// لأن هذا المسار مقصور على المشرفين أصلاً فكل مستهدف مشرف هو "مشرف آخر".
+
+/**
+ * يوقف مساعداً أو يعيد تفعيله. الإيقاف يرفع نسخة الجلسة أيضاً فتسقط
+ * جلساته القائمة فوراً حتى قبل أول فحص deactivated_at؛ التفعيل يعيد
+ * العمود NULL فقط. يرجع false لو الهدف ليس مساعداً بهذي الحلقة بالضبط
+ * (مشرف — ومنه المستدعي نفسه — أو معرّف حلقة أخرى) → 404 بالمسار.
+ */
+export async function setAssistantActive(halaqahId: number, assistantId: number, active: boolean): Promise<boolean> {
+  const rows = active
+    ? await db().sql`
+        UPDATE teachers SET deactivated_at = NULL
+        WHERE id = ${assistantId} AND halaqah_id = ${halaqahId} AND role = 'assistant'
+        RETURNING id
+      `
+    : await db().sql`
+        UPDATE teachers SET deactivated_at = now(), session_version = session_version + 1
+        WHERE id = ${assistantId} AND halaqah_id = ${halaqahId} AND role = 'assistant'
+        RETURNING id
+      `;
+  return rows.length > 0;
 }
 
 /** خيار الحلقة: إعادة طلب تأكيد الزميل عند تعديل الورد — يقرؤه المسار والمعلّمون جميعاً */
