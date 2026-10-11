@@ -33,6 +33,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" }, { status: 401 });
   }
 
+  // حساب موقوف من مشرف الحلقة: كلمة المرور صحيحة فلا تُحتسب المحاولة على
+  // أي حدّ فاشل — يُخبَر بسبب المنع صراحة بدل رسالة "غير صحيحة" المضلّلة
+  if (teacher.deactivatedAt) {
+    return Response.json({ error: "تم إيقاف حسابك من مشرف الحلقة" }, { status: 403 });
+  }
+
   await setSessionCookie(teacher.id);
   return Response.json({
     teacher: {

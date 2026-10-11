@@ -237,7 +237,13 @@ export default function StudentsPage() {
  * مثلاً)، وكل من يفتحه وينشئ حسابه بنظام تسجيل الورد ينضم فوراً لهذه
  * الحلقة بلا أي إدخال يدوي (لا إضافة طالب، ولا ربط اسم مستخدم).
  */
-type TeamMember = { id: number; teacherName: string; username: string; role: "supervisor" | "assistant" };
+type TeamMember = {
+  id: number;
+  teacherName: string;
+  username: string;
+  role: "supervisor" | "assistant";
+  deactivatedAt: string | null;
+};
 
 /** حقل رابط بزر نسخ — نفس الشكل يتكرّر لكل نوع رابط دعوة بالقسم أدناه */
 function CopyLinkField({ link }: { link: string }) {
@@ -307,6 +313,20 @@ function InviteLinksSection() {
   const [studentLink, setStudentLink] = useState<string | null>(null);
   const [teacherLink, setTeacherLink] = useState<string | null>(null);
   const [team, setTeam] = useState<TeamMember[]>([]);
+  // زر الإيقاف/التفعيل للمشرف فقط — الدور من الخادم (/api/teacher/settings)،
+  // لا من أي افتراض بالواجهة
+  const [isSupervisor, setIsSupervisor] = useState(false);
+  const [busyAssistantId, setBusyAssistantId] = useState<number | null>(null);
+
+  const loadTeam = useCallback(() => {
+    fetch("/api/teacher/invite-colleague")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { link?: string; team?: TeamMember[] } | null) => {
+        if (data?.link) setTeacherLink(data.link);
+        if (data?.team) setTeam(data.team);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/teacher/invite")
@@ -316,14 +336,37 @@ function InviteLinksSection() {
       })
       .catch(() => {});
 
-    fetch("/api/teacher/invite-colleague")
+    loadTeam();
+
+    fetch("/api/teacher/settings")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { link?: string; team?: TeamMember[] } | null) => {
-        if (data?.link) setTeacherLink(data.link);
-        if (data?.team) setTeam(data.team);
+      .then((data: { role?: "supervisor" | "assistant" } | null) => {
+        if (data?.role) setIsSupervisor(data.role === "supervisor");
       })
       .catch(() => {});
-  }, []);
+  }, [loadTeam]);
+
+  async function toggleAssistant(member: TeamMember, active: boolean) {
+    if (!active) {
+      const name = member.teacherName || member.username;
+      if (!confirm(`إيقاف ${name} يمنعه من الدخول ويُنهي جلساته فوراً — بياناته وأفعاله السابقة تبقى كما هي. المتابعة؟`)) {
+        return;
+      }
+    }
+    setBusyAssistantId(member.id);
+    try {
+      const res = await fetch(`/api/teacher/assistants/${member.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (res.ok) loadTeam();
+    } catch {
+      // فشل الطلب يُبقي الحالة المعروضة كما هي — القائمة تُعاد جلبها لاحقاً
+    } finally {
+      setBusyAssistantId(null);
+    }
+  }
 
   if (!studentLink && !teacherLink) return null;
 
@@ -361,12 +404,25 @@ function InviteLinksSection() {
             </p>
             <CopyLinkField link={teacherLink} />
             {team.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-2">
+              <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1.5">
                 {team.map((t) => (
-                  <li key={t.id}>
+                  <li key={t.id} className="flex items-center gap-1.5">
                     <Badge tone={t.role === "supervisor" ? "good" : "neutral"}>
                       {t.teacherName || t.username} — {t.role === "supervisor" ? "مشرف" : "مساعد"}
                     </Badge>
+                    {t.deactivatedAt && <Badge tone="warn">موقوف</Badge>}
+                    {isSupervisor && t.role === "assistant" && (
+                      <button
+                        type="button"
+                        onClick={() => toggleAssistant(t, t.deactivatedAt === null)}
+                        disabled={busyAssistantId === t.id}
+                        className={`cursor-pointer rounded px-2 py-1 text-xs transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 ${
+                          t.deactivatedAt ? "text-primary" : "text-destructive"
+                        }`}
+                      >
+                        {busyAssistantId === t.id ? "…" : t.deactivatedAt ? "إعادة تفعيل" : "إيقاف"}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>

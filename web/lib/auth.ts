@@ -96,6 +96,8 @@ export async function currentTeacher(): Promise<Teacher | null> {
   const teacher = await findTeacherById(session.teacherId);
   // عدم تطابق نسخة الجلسة = صدرت قبل تغيير كلمة مرور أو "إنهاء كل الجلسات" — غير موثّق
   if (!teacher || teacher.sessionVersion !== session.sessionVersion) return null;
+  // حساب موقوف من مشرف الحلقة = غير موثّق مهما كانت صلاحية رمز جلسته
+  if (teacher.deactivatedAt) return null;
   return teacher;
 }
 
