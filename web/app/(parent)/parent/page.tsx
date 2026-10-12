@@ -8,6 +8,8 @@ import { ParentPushToggle } from "@/components/parent-push-toggle";
 import { AttendanceSummaryCard } from "@/components/attendance-summary";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { MonthlyPlanCard } from "@/components/monthly-plan-card";
+import { RecitationCard } from "@/components/recitation-card";
+import type { RecitationView } from "@/lib/recitations";
 import type { PlanView } from "@/lib/monthly-plan";
 import type { ParentChildSummary } from "@/lib/parent-summary";
 import { STATUS_LABEL, statusTone } from "@/lib/student-ward-display";
@@ -164,6 +166,24 @@ function useChildPlan(child: Child): PlanView | null {
   return plan;
 }
 
+/** آخر تلاوات الابن — صامتة عند الفشل ولا تعطّل بقية اللوحة */
+function useChildRecitations(child: Child): RecitationView[] {
+  const [items, setItems] = useState<RecitationView[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/parent/recitations?halaqah=${child.halaqahId}&student=${encodeURIComponent(child.studentId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { recitations?: RecitationView[] } | null) => {
+        if (!cancelled) setItems(data?.recitations ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [child.halaqahId, child.studentId]);
+  return items;
+}
+
 function ChildPanel({ child }: { child: Child }) {
   // null = لم يُجلب بعد، "error" = تعذّر، وإلا البيانات
   const [detail, setDetail] = useState<ChildDetail | "error" | null>(null);
@@ -185,6 +205,7 @@ function ChildPanel({ child }: { child: Child }) {
 
   const attendance = useChildAttendance(child);
   const monthlyPlan = useChildPlan(child);
+  const recitations = useChildRecitations(child);
 
   if (detail === null) return <p className="text-sm text-slate-500">جارٍ تحميل بيانات {child.studentName}…</p>;
   if (detail === "error") return <p className="text-sm text-red-600">تعذّر تحميل البيانات.</p>;
@@ -230,6 +251,17 @@ function ChildPanel({ child }: { child: Child }) {
       <MonthlyPlanCard view={monthlyPlan} title="خطة هذا الشهر" />
 
       <AttendanceSummaryCard summary={attendance} />
+
+      {recitations.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-slate-700">آخر التلاوات</h2>
+          <ul className="space-y-2">
+            {recitations.map((r) => (
+              <RecitationCard key={r.id} item={r} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-slate-700">أوراد آخر ١٤ يوماً</h2>
