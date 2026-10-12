@@ -10,6 +10,8 @@ import { useStudentSession } from "@/components/student-gate";
 import { ParentInviteLink } from "@/components/parent-invite-link";
 import { AttendanceSummaryCard } from "@/components/attendance-summary";
 import type { AttendanceSummary } from "@/lib/attendance";
+import { MonthlyPlanCard } from "@/components/monthly-plan-card";
+import type { PlanView } from "@/lib/monthly-plan";
 import { canEditWard } from "@/lib/ward-ayah";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { surahName, TOTAL_MUSHAF_PAGES } from "@/lib/quran-surahs";
@@ -139,12 +141,31 @@ function useMyAttendance(): AttendanceSummary | null {
   return summary;
 }
 
+/** خطة الطالب لهذا الشهر الهجري — صامتة عند أي فشل، لا تؤثر على بقية اللوحة */
+function useMyPlan(): PlanView | null {
+  const [plan, setPlan] = useState<PlanView | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/student/plan")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { plan?: PlanView | null } | null) => {
+        if (!cancelled) setPlan(data?.plan ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return plan;
+}
+
 export default function StudentDashboardPage() {
   const router = useRouter();
   const student = useStudentSession();
   const { logs, loadingLogs, months, loadingMonths } = useStudentWards();
   const reminderEnabled = useReminderEnabled();
   const attendance = useMyAttendance();
+  const monthlyPlan = useMyPlan();
 
   const today = riyadhTodayISO();
   const thisMonthKey = today.slice(0, 7);
@@ -295,6 +316,8 @@ export default function StudentDashboardPage() {
           </section>
         </>
       )}
+
+      <MonthlyPlanCard view={monthlyPlan} />
 
       <AttendanceSummaryCard summary={attendance} />
 

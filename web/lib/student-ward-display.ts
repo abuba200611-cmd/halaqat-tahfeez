@@ -50,7 +50,7 @@ export function reviewRangeText(log: WardLog): string | null {
  * تعديل): آخر صفحة وصلها الطالب لا تمثّل صفحات الحفظ الفعلية لو حفظ
  * بالقفز (مثال: ٥٨٢–٦٠٤ ثم ٥٦٠–٥٦٢ = ٢٦ صفحة محفوظة فعلاً، لا ٦٠٤).
  */
-export function hifzPagesCovered(logs: WardLog[]): number {
+export function hifzPagesCovered(logs: Pick<WardLog, "hifz">[]): number {
   const pages = new Set<number>();
   for (const log of logs) {
     if (!log.hifz) continue;
