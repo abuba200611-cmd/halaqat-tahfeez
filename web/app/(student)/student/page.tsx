@@ -8,6 +8,8 @@ import { WardListItem } from "@/components/ward-list";
 import { useStudentWards } from "@/components/use-student-wards";
 import { useStudentSession } from "@/components/student-gate";
 import { ParentInviteLink } from "@/components/parent-invite-link";
+import { AttendanceSummaryCard } from "@/components/attendance-summary";
+import type { AttendanceSummary } from "@/lib/attendance";
 import { canEditWard } from "@/lib/ward-ayah";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { surahName, TOTAL_MUSHAF_PAGES } from "@/lib/quran-surahs";
@@ -119,11 +121,30 @@ function BuddyRequestsCard() {
   );
 }
 
+/** حضور الطالب نفسه (آخر ٣٠ يوماً) — صامتة عند أي فشل، لا تؤثر على بقية اللوحة */
+function useMyAttendance(): AttendanceSummary | null {
+  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/student/attendance")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { summary?: AttendanceSummary | null } | null) => {
+        if (!cancelled) setSummary(data?.summary ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return summary;
+}
+
 export default function StudentDashboardPage() {
   const router = useRouter();
   const student = useStudentSession();
   const { logs, loadingLogs, months, loadingMonths } = useStudentWards();
   const reminderEnabled = useReminderEnabled();
+  const attendance = useMyAttendance();
 
   const today = riyadhTodayISO();
   const thisMonthKey = today.slice(0, 7);
@@ -274,6 +295,8 @@ export default function StudentDashboardPage() {
           </section>
         </>
       )}
+
+      <AttendanceSummaryCard summary={attendance} />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4">
         <h2 className="mb-1 text-sm font-semibold text-slate-700">👪 شارك مع ولي أمرك</h2>

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useParentSession } from "@/components/parent-shell";
 import { ParentPushToggle } from "@/components/parent-push-toggle";
+import { AttendanceSummaryCard } from "@/components/attendance-summary";
+import type { AttendanceSummary } from "@/lib/attendance";
 import type { ParentChildSummary } from "@/lib/parent-summary";
 import { STATUS_LABEL, statusTone } from "@/lib/student-ward-display";
 
@@ -124,6 +126,24 @@ function Dashboard() {
   );
 }
 
+/** حضور الابن (آخر ٣٠ يوماً) — صامتة عند الفشل ولا تعطّل بقية اللوحة */
+function useChildAttendance(child: Child): AttendanceSummary | null {
+  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/parent/attendance?halaqah=${child.halaqahId}&student=${encodeURIComponent(child.studentId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { summary?: AttendanceSummary | null } | null) => {
+        if (!cancelled) setSummary(data?.summary ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [child.halaqahId, child.studentId]);
+  return summary;
+}
+
 function ChildPanel({ child }: { child: Child }) {
   // null = لم يُجلب بعد، "error" = تعذّر، وإلا البيانات
   const [detail, setDetail] = useState<ChildDetail | "error" | null>(null);
@@ -142,6 +162,8 @@ function ChildPanel({ child }: { child: Child }) {
       cancelled = true;
     };
   }, [child.halaqahId, child.studentId]);
+
+  const attendance = useChildAttendance(child);
 
   if (detail === null) return <p className="text-sm text-slate-500">جارٍ تحميل بيانات {child.studentName}…</p>;
   if (detail === "error") return <p className="text-sm text-red-600">تعذّر تحميل البيانات.</p>;
@@ -183,6 +205,8 @@ function ChildPanel({ child }: { child: Child }) {
           </p>
         )}
       </div>
+
+      <AttendanceSummaryCard summary={attendance} />
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-slate-700">أوراد آخر ١٤ يوماً</h2>

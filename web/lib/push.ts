@@ -163,6 +163,45 @@ export async function sendPushToParentsOfStudent(
   );
 }
 
+/**
+ * يرسل إشعاراً لأولياء أمر طالب بعينه عند تسجيل غيابه اليوم (STEP 62).
+ * النص يحمل اسم الابن فقط — لا ملاحظة المعلّم. لا يرمي أبداً.
+ */
+export async function sendPushToParentsOfAbsence(halaqahId: number, studentId: string): Promise<void> {
+  const publicKey = await ensureConfigured();
+  if (!publicKey) return;
+
+  let targets;
+  try {
+    targets = await listParentPushTargetsForStudent(halaqahId, studentId);
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    targets.map(async (target) => {
+      const payload: PushPayload = {
+        title: `سُجّل غياب ${target.studentName} اليوم`,
+        body: "لم يحضر ابنك حلقة اليوم. تواصل مع المعلّم إن لزم.",
+        url: "/parent",
+        tag: `parent-absence-${studentId}`,
+      };
+      try {
+        await webpush.sendNotification(
+          { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
+          JSON.stringify(payload),
+        );
+        await markParentPushSubscriptionSuccess(target.endpoint);
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await deleteParentPushSubscription(target.parentId, target.endpoint).catch(() => {});
+        }
+      }
+    }),
+  );
+}
+
 export type ReminderResult = { sent: number; skipped: number; removed: number; failed: number };
 
 /**
