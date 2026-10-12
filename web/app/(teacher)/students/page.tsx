@@ -7,6 +7,7 @@ import { ParentInviteLink } from "@/components/parent-invite-link";
 import { pageCount, studentJuzes } from "@/lib/pairing";
 import { juzLabel, juzToPages } from "@/lib/quran";
 import { useStudents } from "@/lib/store";
+import type { AttendanceSummary } from "@/lib/attendance";
 import type { Student } from "@/lib/types";
 
 type DeletedStudent = { id: string; name: string; deletedAt: string };
@@ -31,6 +32,20 @@ export default function StudentsPage() {
   const [parents, setParents] = useState<Record<string, ParentEntry[]>>({});
   const [canUnlinkParents, setCanUnlinkParents] = useState(false);
   const [parentsFor, setParentsFor] = useState<Student | null>(null);
+  const [attendance, setAttendance] = useState<Record<string, AttendanceSummary>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/attendance/summary")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { summaries?: Record<string, AttendanceSummary> } | null) => {
+        if (!cancelled && data?.summaries) setAttendance(data.summaries);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadParents = useCallback(() => {
     fetch("/api/students/parents")
@@ -233,6 +248,7 @@ export default function StudentsPage() {
               <th className="px-3 py-2 font-medium">المحفوظ</th>
               <th className="px-3 py-2 font-medium">النطاق</th>
               <th className="px-3 py-2 font-medium">الإتقان</th>
+              <th className="px-3 py-2 font-medium">الحضور (٣٠ يوماً)</th>
               <th className="no-print px-3 py-2 font-medium">تقييمك</th>
               <th className="no-print px-3 py-2" />
             </tr>
@@ -262,6 +278,11 @@ export default function StudentsPage() {
                     <Badge tone={mastery >= 75 ? "good" : mastery >= 55 ? "neutral" : "warn"}>
                       {mastery}٪
                     </Badge>
+                  </td>
+                  <td className="tabular px-3 py-2 text-muted-foreground">
+                    {attendance[student.id]?.presentPct != null
+                      ? `${attendance[student.id].presentPct}٪ · غياب ${attendance[student.id].absent}`
+                      : "—"}
                   </td>
                   <td className="no-print px-3 py-2">
                     <StarRating value={student.rating} onChange={(rating) => upsert({ ...student, rating })} />
