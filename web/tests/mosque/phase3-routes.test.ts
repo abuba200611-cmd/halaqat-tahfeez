@@ -36,7 +36,7 @@ vi.mock("@/lib/mosque/db", () => ({
   listBadgeTopBetween: vi.fn(),
   countActivitiesBetween: vi.fn(),
 }));
-vi.mock("@/lib/mosque/halaqat", () => ({ fetchHalaqahStats: vi.fn(), fetchHalaqahMetrics: vi.fn() }));
+vi.mock("@/lib/mosque/halaqat", () => ({ getHalaqahStats: vi.fn(), getMetricsForHalaqah: vi.fn() }));
 
 import { GET as BADGES_GET, POST as BADGES_POST } from "@/app/api/mosques/[id]/badges/route";
 import { POST as SUGGESTED_POST } from "@/app/api/mosques/[id]/badges/suggested/route";
@@ -48,7 +48,7 @@ import { GET as PUBLIC_SCHEDULE_GET } from "@/app/api/mosques/[id]/public/schedu
 import { GET as REPORTS_GET } from "@/app/api/mosques/[id]/reports/route";
 import { canAccessMosque } from "@/lib/mosque/access";
 import * as db from "@/lib/mosque/db";
-import { fetchHalaqahMetrics, fetchHalaqahStats } from "@/lib/mosque/halaqat";
+import { getHalaqahStats, getMetricsForHalaqah } from "@/lib/mosque/halaqat";
 
 const badge = { id: 3, mosqueId: 1, name: "نجم الأسبوع", icon: "⭐", description: "", criteriaNote: "", createdAt: "", awardCount: 1 };
 const award = {
@@ -75,12 +75,11 @@ const slot = {
   notes: null,
   createdAt: "",
 };
-const halaqah = (id: number, name: string, code: string) => ({
+const halaqah = (id: number, name: string) => ({
   id,
   mosqueId: 1,
   halaqahName: name,
   teacherName: `معلم ${name}`,
-  inviteCode: code,
   createdAt: "",
 });
 
@@ -120,7 +119,7 @@ beforeEach(() => {
   vi.mocked(db.updateScheduleSlot).mockResolvedValue(slot);
   vi.mocked(db.deleteScheduleSlot).mockResolvedValue(true);
   vi.mocked(db.listScheduleSlots).mockResolvedValue([slot]);
-  vi.mocked(db.listHalaqahs).mockResolvedValue([halaqah(10, "الفجر", "A"), halaqah(11, "العصر", "B")]);
+  vi.mocked(db.listHalaqahs).mockResolvedValue([halaqah(10, "الفجر"), halaqah(11, "العصر")]);
   vi.mocked(db.listCommittees).mockResolvedValue([]);
   vi.mocked(db.countPendingRegistrations).mockResolvedValue(2);
   vi.mocked(db.countFamilies).mockResolvedValue(3);
@@ -129,8 +128,8 @@ beforeEach(() => {
   vi.mocked(db.countBadgeAwardsBetween).mockResolvedValue(6);
   vi.mocked(db.listBadgeTopBetween).mockResolvedValue([{ icon: "⭐", name: "نجم الأسبوع", count: 3 }]);
   vi.mocked(db.countActivitiesBetween).mockResolvedValue(0);
-  vi.mocked(fetchHalaqahStats).mockResolvedValue({ activeStudents: 10, totalPages: 100, avgPages: 10, avgMastery: 80 });
-  vi.mocked(fetchHalaqahMetrics).mockResolvedValue(null);
+  vi.mocked(getHalaqahStats).mockResolvedValue({ activeStudents: 10, totalPages: 100, avgPages: 10, avgMastery: 80 });
+  vi.mocked(getMetricsForHalaqah).mockResolvedValue(null);
 });
 
 describe("البوابة: 401 لجامع آخر، 404 لميزة معطّلة", () => {
@@ -417,7 +416,10 @@ describe("التقارير", () => {
   });
 
   it("المؤشرات: حلقة تعذرت تُستثنى، والمتوسط والأنشطة المحروسة", async () => {
-    vi.mocked(fetchHalaqahStats).mockImplementation(async (code) => (code === "A" ? { activeStudents: 10, totalPages: 100, avgPages: 10, avgMastery: 80 } : null));
+    vi.mocked(getHalaqahStats).mockImplementation(async (id) => {
+      if (id !== 10) throw new Error("down");
+      return { activeStudents: 10, totalPages: 100, avgPages: 10, avgMastery: 80 };
+    });
     vi.mocked(db.listEvaluationSummaries).mockImplementation(async (_id, _from, _to, kind) =>
       kind === "family" ? [{ targetId: 5, name: "أسرة النور", total: 40, maxTotal: 50 }] : [],
     );

@@ -7,14 +7,14 @@ import { ApiState, MosquePage, inputClass } from "@/components/mosque/mosque-pag
 import { MemberPicker } from "@/components/mosque/member-picker";
 import { callApi, useApi } from "@/components/mosque/use-api";
 import { formatWeek } from "@/lib/mosque/evaluation";
-import type { Badge, BadgeAward, BadgeTargetKind, MosqueMember, PendingStudent } from "@/lib/mosque/db";
+import type { Badge, BadgeAward, BadgeTargetKind, MosqueMember, MosqueRegistration } from "@/lib/mosque/db";
 
 type BadgesData = {
   badges: Badge[];
   recentAwards: BadgeAward[];
   families: { id: number; name: string }[];
 };
-type Directory = { students: PendingStudent[]; members: MosqueMember[] };
+type Directory = { students: MosqueRegistration[]; members: MosqueMember[] };
 
 const KIND_LABEL: Record<BadgeTargetKind, string> = { student: "طالب", family: "أسرة", member: "عضو" };
 

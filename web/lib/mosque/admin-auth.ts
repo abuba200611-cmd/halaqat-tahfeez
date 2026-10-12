@@ -22,3 +22,9 @@ export async function isAdmin(): Promise<boolean> {
 export function unauthorized(): Response {
   return Response.json({ error: "غير مصرّح" }, { status: 401 });
 }
+
+/** يخرج المشرف العام: يحذف كوكي جلسة الأدمن نفسها (لوحة الاقتراحات ولوحة الجوامع جلسة واحدة) */
+export async function clearAdminCookie(): Promise<void> {
+  const store = await cookies();
+  store.delete(ADMIN_COOKIE);
+}

@@ -39,20 +39,19 @@ export async function createMosque(name: string, city: string): Promise<number> 
 
 export type Halaqah = {
   id: number;
-  mosqueId: number;
+  /** null = حلقة معلّم لم تنضم لأي جامع بعد */
+  mosqueId: number | null;
   halaqahName: string;
   teacherName: string;
-  inviteCode: string | null;
   createdAt: string;
 };
 
 function rowToHalaqah(row: Record<string, unknown>): Halaqah {
   return {
     id: row.id as number,
-    mosqueId: row.mosque_id as number,
+    mosqueId: (row.mosque_id as number | null) ?? null,
     halaqahName: row.halaqah_name as string,
     teacherName: (row.teacher_names as string | null) ?? "",
-    inviteCode: (row.invite_code as string | null) ?? null,
     createdAt: (row.created_at as string) ?? "",
   };
 }
@@ -60,7 +59,7 @@ function rowToHalaqah(row: Record<string, unknown>): Halaqah {
 // أسماء معلّمي الحلقة مجتمعة (المشرف أولاً) — نفس تجميع findHalaqahByInviteCode
 export async function listHalaqahs(mosqueId: number): Promise<Halaqah[]> {
   const rows = await db().sql`
-    SELECT h.id, h.mosque_id, h.name AS halaqah_name, h.invite_code, h.created_at,
+    SELECT h.id, h.mosque_id, h.name AS halaqah_name, h.created_at,
            COALESCE((
              SELECT string_agg(t.teacher_name, '، ' ORDER BY (t.role = 'supervisor') DESC)
              FROM teachers t WHERE t.halaqah_id = h.id AND t.teacher_name != ''
@@ -74,7 +73,7 @@ export async function listHalaqahs(mosqueId: number): Promise<Halaqah[]> {
 
 export async function getHalaqah(id: number): Promise<Halaqah | null> {
   const rows = await db().sql`
-    SELECT h.id, h.mosque_id, h.name AS halaqah_name, h.invite_code, h.created_at,
+    SELECT h.id, h.mosque_id, h.name AS halaqah_name, h.created_at,
            COALESCE((
              SELECT string_agg(t.teacher_name, '، ' ORDER BY (t.role = 'supervisor') DESC)
              FROM teachers t WHERE t.halaqah_id = h.id AND t.teacher_name != ''
@@ -91,13 +90,31 @@ export type LinkHalaqahResult =
   | { ok: false; reason: "invalid" | "conflict" };
 
 /**
- * يربط حلقة حقيقية بجامع عبر رمز دعوة طلابها — بديل createHalaqah القديم:
-  لا صف يُنشأ، فقط halaqahs.mosque_id يُحدَّث. idempotent لنفس الجامع،
-  ورفض لحلقة مربوطة أصلاً بجامع آخر.
+ * يربط حلقة بجامع بتحديث halaqahs.mosque_id مباشرة (لا جدول روابط). الشرط
+ * `mosque_id IS NULL` ذرّي: يتغلّب على سباق ربطين متزامنين ويمنع نقل حلقة
+ * مربوطة أصلاً بجامع آخر. النتيجة: linked | already (نفس الجامع) | conflict.
+ */
+export async function attachHalaqahToMosque(
+  mosqueId: number,
+  halaqahId: number,
+): Promise<"linked" | "already" | "conflict" | "missing"> {
+  const updated = await db().sql`
+    UPDATE halaqahs SET mosque_id = ${mosqueId} WHERE id = ${halaqahId} AND mosque_id IS NULL RETURNING id
+  `;
+  if (updated.length > 0) return "linked";
+  const rows = await db().sql`SELECT mosque_id FROM halaqahs WHERE id = ${halaqahId}`;
+  if (!rows[0]) return "missing";
+  return rows[0].mosque_id === mosqueId ? "already" : "conflict";
+}
+
+/**
+ * يربط حلقة حقيقية بجامع عبر رمز دعوة طلابها (إضافة يدوية من المدير) —
+ * لا صف يُنشأ، فقط halaqahs.mosque_id. idempotent لنفس الجامع، ورفض لحلقة
+ * مربوطة أصلاً بجامع آخر.
  */
 export async function linkHalaqahByInviteCode(mosqueId: number, inviteCode: string): Promise<LinkHalaqahResult> {
   const rows = await db().sql`
-    SELECT h.id, h.mosque_id, h.name AS halaqah_name, h.invite_code, h.created_at,
+    SELECT h.id, h.mosque_id, h.name AS halaqah_name, h.created_at,
            COALESCE((
              SELECT string_agg(t.teacher_name, '، ' ORDER BY (t.role = 'supervisor') DESC)
              FROM teachers t WHERE t.halaqah_id = h.id AND t.teacher_name != ''
@@ -109,11 +126,32 @@ export async function linkHalaqahByInviteCode(mosqueId: number, inviteCode: stri
   if (!row) return { ok: false, reason: "invalid" };
   const halaqah = rowToHalaqah(row);
 
-  if (halaqah.mosqueId === mosqueId) return { ok: true, alreadyLinked: true, halaqah };
-  if (halaqah.mosqueId !== null) return { ok: false, reason: "conflict" };
+  const outcome = await attachHalaqahToMosque(mosqueId, halaqah.id);
+  if (outcome === "conflict" || outcome === "missing") return { ok: false, reason: "conflict" };
+  return {
+    ok: true,
+    alreadyLinked: outcome === "already",
+    halaqah: { ...halaqah, mosqueId },
+  };
+}
 
-  await db().sql`UPDATE halaqahs SET mosque_id = ${mosqueId} WHERE id = ${halaqah.id} AND mosque_id IS NULL`;
-  return { ok: true, alreadyLinked: false, halaqah: { ...halaqah, mosqueId } };
+export type JoinMosqueResult =
+  | { ok: true; alreadyJoined: boolean; mosqueName: string }
+  | { ok: false; reason: "invalid" | "disabled" | "conflict" };
+
+/**
+ * انضمام ذاتي داخل التطبيق: مشرف حلقة فتح رابط /join-mosque?code= فتُربط
+ * حلقته بجامع الرمز مباشرة (halaqahs.mosque_id) — بلا رمز دعوة طلاب ولا
+ * نداء بين خادمين. الميزة "halaqat" يجب أن تكون مفعّلة للجامع.
+ */
+export async function joinHalaqahToMosqueByCode(halaqahId: number, code: string): Promise<JoinMosqueResult> {
+  const mosque = await findMosqueByTeacherJoinCode(code);
+  if (!mosque) return { ok: false, reason: "invalid" };
+  if (!(await isFeatureEnabled(mosque.id, "halaqat"))) return { ok: false, reason: "disabled" };
+
+  const outcome = await attachHalaqahToMosque(mosque.id, halaqahId);
+  if (outcome === "conflict" || outcome === "missing") return { ok: false, reason: "conflict" };
+  return { ok: true, alreadyJoined: outcome === "already", mosqueName: mosque.name };
 }
 
 // ————— رابط انضمام المعلّمين (رمز واحد لكل جامع) —————
@@ -205,11 +243,30 @@ export async function getMosqueRegistration(id: number): Promise<MosqueRegistrat
   return row ? rowToRegistration(row) : null;
 }
 
-/** يعلم التسجيل موزَّعاً على حلقة، مربوطاً بالطالب الحقيقي الذي أُنشئ بها */
-export async function markAssigned(id: number, halaqahId: number, studentId: string | null): Promise<void> {
+/**
+ * يحجز التسجيل للتوزيع ذرّياً (pending → assigned) — الشرط status='pending'
+ * يمنع توزيعه مرتين عند ضغطين متزامنين. false = وُزِّع أصلاً (أو لا وجود له).
+ */
+export async function claimRegistration(id: number, halaqahId: number): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE mosque_registrations
+    SET status = 'assigned', halaqah_id = ${halaqahId}, assigned_at = now()
+    WHERE id = ${id} AND status = 'pending'
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/** يربط التسجيل الموزَّع بالطالب الحقيقي الذي أُنشئ بالحلقة */
+export async function setRegistrationStudent(id: number, studentId: string): Promise<void> {
+  await db().sql`UPDATE mosque_registrations SET student_id = ${studentId} WHERE id = ${id}`;
+}
+
+/** يتراجع عن الحجز (فشل إنشاء الطالب بالحلقة) فيعود التسجيل بانتظار التوزيع */
+export async function releaseRegistration(id: number): Promise<void> {
   await db().sql`
     UPDATE mosque_registrations
-    SET status = 'assigned', halaqah_id = ${halaqahId}, student_id = ${studentId}, assigned_at = now()
+    SET status = 'pending', halaqah_id = NULL, student_id = NULL, assigned_at = NULL
     WHERE id = ${id}
   `;
 }

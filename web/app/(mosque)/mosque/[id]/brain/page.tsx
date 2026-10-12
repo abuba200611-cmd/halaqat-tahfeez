@@ -63,7 +63,7 @@ export default function BrainPage() {
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <div className="flex justify-center gap-4">
-          <Link href="/" className="text-sm text-primary hover:underline">
+          <Link href="/mosque" className="text-sm text-primary hover:underline">
             دخول المشرف العام
           </Link>
           <Link href="/mosque-login" className="text-sm text-primary hover:underline">

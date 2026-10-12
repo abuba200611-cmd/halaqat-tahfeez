@@ -37,7 +37,7 @@ function prepare(graph: MosqueGraph): Prepared {
 const radiusOf = (node: GraphNode, degree: number) =>
   BASE_RADIUS[node.type] +
   Math.sqrt(degree) * 1.5 +
-  // طالب أعلى تفاعلاً يكبر قليلاً — التفاعل من مقاييس نظام المعلّم
+  // طالب أعلى تفاعلاً يكبر قليلاً — التفاعل من مقاييس الحلقة
   (typeof node.meta.engagementScore === "number" ? (node.meta.engagementScore / 100) * 1.5 : 0);
 
 function createEngine(
@@ -369,9 +369,9 @@ const META_LABELS: Record<string, string> = {
 };
 
 function metaValue(key: string, value: string | number | boolean): string {
-  if (key === "error") return "تعذّر جلب الطلاب من نظام المعلّم";
+  if (key === "error") return "تعذّر جلب الطلاب";
   if (key === "status") return value === "pending" ? "بانتظار التوزيع" : "موزَّع على حلقة";
-  // درجات نظام المعلّم (0-100) تُعرض بنسبة مئوية
+  // درجات الحلقة (0-100) تُعرض بنسبة مئوية
   if (key === "engagementScore" || key === "avgEngagement" || key === "attendanceRate") return `${value}٪`;
   if (typeof value === "boolean") return value ? "نعم" : "لا";
   return String(value);

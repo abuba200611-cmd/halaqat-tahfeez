@@ -114,7 +114,7 @@ function HonorBoardSection({ mosqueId }: { mosqueId: number }) {
       ) : !data ? (
         <ApiState loading={loading} status={status} mosqueId={mosqueId} featureName="لوحة الشرف" />
       ) : data.halaqahs.length === 0 ? (
-        <Empty title="لا حلقات مضافة بعد — لوحة الشرف تظهر بعد إضافة الحلقات وربطها بنظام المعلّم." />
+        <Empty title="لا حلقات مضافة بعد — لوحة الشرف تظهر بعد إضافة الحلقات وانضمامها للجامع." />
       ) : (
         <HonorBoardBody mosqueId={mosqueId} data={data} />
       )}
@@ -168,7 +168,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
 
       {unavailable > 0 && (
         <p className="text-xs text-accent">
-          تعذّر جلب مقاييس {unavailable} حلقة من نظام المعلّم — استُثنيت من الترتيب.
+          تعذّر جلب مقاييس {unavailable} حلقة — استُثنيت من الترتيب.
         </p>
       )}
 
@@ -222,7 +222,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
                   </>
                 ) : (
                   <td colSpan={7} className="px-2 py-2 text-center">
-                    <Badge tone="warn">غير متاح من نظام المعلّم</Badge>
+                    <Badge tone="warn">غير متاح</Badge>
                   </td>
                 )}
               </tr>
@@ -234,7 +234,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
       <Card className="overflow-x-auto p-4">
         <h3 className="mb-3 font-semibold">أفضل {data.students.length} طلاب بالجامع</h3>
         <p className="mb-3 text-xs text-muted-foreground">
-          الدرجة المجمّعة = 70٪ تفاعل (نظام المعلّم) + 30٪ برامج الجامع (تقييم أسبوعي، أوسمة، أسر ولجان، أنشطة).
+          الدرجة المجمّعة = 70٪ تفاعل (من حلقات الجامع) + 30٪ برامج الجامع (تقييم أسبوعي، أوسمة، أسر ولجان، أنشطة).
         </p>
         <table className="w-full min-w-[40rem] text-sm">
           <thead>
@@ -286,7 +286,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
         </table>
         {data.unmatchedCount > 0 && (
           <p className="mt-2 text-xs text-muted-foreground">
-            {data.unmatchedCount} طالباً من نظام المعلّم لم يُطابَقوا بسجلّات الجامع (المطابقة بالاسم المُطبَّع) —
+            {data.unmatchedCount} طالباً لم يُربطوا بتسجيلات الجامع (الربط بمعرّف الطالب، وبالاسم للتسجيلات القديمة فقط) —
             تظهر درجتهم من التفاعل وحده.
           </p>
         )}

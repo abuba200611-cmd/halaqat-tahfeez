@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { currentWeekPeriod } from "@/lib/mosque/report-periods";
 import { clearHonorBoardCache } from "@/lib/mosque/honor-board-cache";
-import type { HalaqahMetrics } from "@/lib/mosque/honor-board";
+import type { HalaqahMetrics } from "@/lib/metrics";
 
 /*
   مسار لوحة الشرف: البوابة (401 ثم 404) قبل أي قاعدة، ثم التحقق من الفترة،
-  وتسامح الحلقة المتعذرة، والمطابقة بالاسم، والكشف خمس دقائق لكل
-  (جامع، فترة محلولة). القاعدة وcanAccessMosque ونظام المعلّم محاكاة.
+  وتسامح الحلقة المتعذرة، والمطابقة بمعرّف الطالب الحقيقي (والاسم للسجلات
+  القديمة)، والكشف خمس دقائق لكل (جامع، فترة محلولة). القاعدة وcanAccessMosque
+  ومقاييس الحلقات محاكاة.
 */
 
 vi.mock("@/lib/mosque/access", () => ({ canAccessMosque: vi.fn() }));
@@ -14,35 +15,41 @@ vi.mock("@/lib/mosque/db", () => ({
   getMosque: vi.fn(),
   isFeatureEnabled: vi.fn(),
   listHalaqahs: vi.fn(),
-  listPendingStudents: vi.fn(),
+  listMosqueRegistrations: vi.fn(),
   listEvaluationSummaries: vi.fn(),
   listStudentBadgeAwardsBetween: vi.fn(),
   listFamilyMemberLinks: vi.fn(),
   listCommitteeMemberLinks: vi.fn(),
   listActivities: vi.fn(),
 }));
-vi.mock("@/lib/mosque/halaqat", () => ({ fetchHalaqahMetrics: vi.fn() }));
+vi.mock("@/lib/mosque/halaqat", () => ({ getMetricsForHalaqah: vi.fn() }));
 
 import { GET } from "@/app/api/mosques/[id]/honor-board/route";
 import { canAccessMosque } from "@/lib/mosque/access";
 import * as db from "@/lib/mosque/db";
-import { fetchHalaqahMetrics } from "@/lib/mosque/halaqat";
+import { getMetricsForHalaqah } from "@/lib/mosque/halaqat";
 
-const halaqah = (id: number, name: string, code: string) => ({
+const halaqah = (id: number, name: string) => ({
   id,
   mosqueId: 1,
   halaqahName: name,
   teacherName: `معلم ${name}`,
-  inviteCode: code,
   createdAt: "",
 });
-const pending = (id: number, name: string, halaqahId: number | null, status: "pending" | "assigned" = "assigned") => ({
+const pending = (
+  id: number,
+  name: string,
+  halaqahId: number | null,
+  status: "pending" | "assigned" = "assigned",
+  studentId: string | null = null,
+) => ({
   id,
   mosqueId: 1,
   name,
   phone: "",
   status,
   halaqahId,
+  studentId,
   createdAt: "",
   assignedAt: null,
 });
@@ -59,7 +66,7 @@ function metricsOf(students: { name: string; engagementScore: number }[], teache
       hifzPagesInRange: 20,
     },
     students: students.map((student, index) => ({
-      id: index + 1,
+      id: `s${index + 1}`,
       name: student.name,
       wards: 4,
       approved: 3,
@@ -87,14 +94,14 @@ beforeEach(() => {
   vi.mocked(canAccessMosque).mockResolvedValue(true);
   vi.mocked(db.getMosque).mockResolvedValue({ id: 1, name: "جامع النور", city: "جدة", createdAt: "" });
   vi.mocked(db.isFeatureEnabled).mockImplementation(async (_id, key) => enabled.has(key));
-  vi.mocked(db.listHalaqahs).mockResolvedValue([halaqah(10, "الفجر", "A"), halaqah(11, "العصر", "B")]);
-  vi.mocked(db.listPendingStudents).mockResolvedValue([]);
+  vi.mocked(db.listHalaqahs).mockResolvedValue([halaqah(10, "الفجر"), halaqah(11, "العصر")]);
+  vi.mocked(db.listMosqueRegistrations).mockResolvedValue([]);
   vi.mocked(db.listEvaluationSummaries).mockResolvedValue([]);
   vi.mocked(db.listStudentBadgeAwardsBetween).mockResolvedValue([]);
   vi.mocked(db.listFamilyMemberLinks).mockResolvedValue([]);
   vi.mocked(db.listCommitteeMemberLinks).mockResolvedValue([]);
   vi.mocked(db.listActivities).mockResolvedValue([]);
-  vi.mocked(fetchHalaqahMetrics).mockResolvedValue(null);
+  vi.mocked(getMetricsForHalaqah).mockResolvedValue(null);
 });
 
 describe("البوابة والمدخلات", () => {
@@ -121,14 +128,14 @@ describe("البوابة والمدخلات", () => {
     expect((await GET(new Request("http://x?period=custom"), ctx())).status).toBe(400);
     expect((await GET(new Request("http://x?period=custom&from=2026-10-05"), ctx())).status).toBe(400);
     expect((await GET(new Request("http:/" + "/x?period=custom&from=2026-10-05&to=2026-10-01"), ctx())).status).toBe(400);
-    expect(fetchHalaqahMetrics).not.toHaveBeenCalled();
+    expect(getMetricsForHalaqah).not.toHaveBeenCalled();
   });
 });
 
 describe("الترتيب والتسامح", () => {
   it("حلقة متعذرة لا ترمي: تظهر بلا ترتيب، والمتاحة تُرتَّب", async () => {
-    vi.mocked(fetchHalaqahMetrics).mockImplementation(async (code) =>
-      code === "A" ? metricsOf([{ name: "أحمد", engagementScore: 70 }], "الفجر") : null,
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async (h) =>
+      h.id === 10 ? metricsOf([{ name: "أحمد", engagementScore: 70 }], "الفجر") : null,
     );
 
     const res = await GET(new Request("http://x?period=this_week"), ctx());
@@ -142,12 +149,12 @@ describe("الترتيب والتسامح", () => {
 
   it("المطابقة بالاسم المُطبَّع داخل الحلقة، والدرجة 70/30، والأوسمة تظهر", async () => {
     const week = currentWeekPeriod();
-    vi.mocked(fetchHalaqahMetrics).mockImplementation(async (code) =>
-      code === "A"
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async (h) =>
+      h.id === 10
         ? metricsOf([{ name: "عبدـالله", engagementScore: 90 }, { name: "زيد", engagementScore: 40 }], "الفجر")
         : metricsOf([{ name: "سعد", engagementScore: 60 }], "العصر"),
     );
-    vi.mocked(db.listPendingStudents).mockResolvedValue([
+    vi.mocked(db.listMosqueRegistrations).mockResolvedValue([
       pending(1, "عبد الله", 10),
       pending(2, "سعيد", 11), // اسم لا يطابق أحداً
     ]);
@@ -200,6 +207,28 @@ describe("الترتيب والتسامح", () => {
     expect(body.students.map((s: { name: string }) => s.name)).toEqual(["عبدـالله", "سعد", "زيد"]);
   });
 
+  it("المطابقة بمعرّف الطالب الحقيقي حتى لو اختلف الاسم، ولا رجوع للاسم عند وجود student_id", async () => {
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async (h) =>
+      h.id === 10
+        ? metricsOf([{ name: "عبدالله", engagementScore: 90 }, { name: "زيد", engagementScore: 40 }], "الفجر")
+        : null,
+    );
+    vi.mocked(db.listMosqueRegistrations).mockResolvedValue([
+      pending(1, "عبد الله بن محمد", 10, "assigned", "s1"), // اسم مختلف، المعرّف يطابق
+      pending(2, "زيد", 10, "assigned", "غير-موجود"), // الاسم يطابق لكن معرّفه لطالب آخر: لا رجوع للاسم
+    ]);
+    vi.mocked(db.listEvaluationSummaries).mockResolvedValue([
+      { targetId: 1, name: "x", total: 50, maxTotal: 50 },
+      { targetId: 2, name: "y", total: 50, maxTotal: 50 },
+    ]);
+
+    const body = await (await GET(new Request("http://x?period=this_week"), ctx())).json();
+    const byName = (name: string) => body.students.find((s: { name: string }) => s.name === name);
+    expect(byName("عبدالله")).toMatchObject({ matched: true });
+    expect(byName("زيد")).toMatchObject({ matched: false, programsScore: null });
+    expect(body.unmatchedCount).toBe(1);
+  });
+
   it("حلقات الجامع معطّلة = لوحة فارغة، والمزايا الفرعية معطّلة لا تُستعلم", async () => {
     enabled = new Set(["honor_board"]);
     const body = await (await GET(new Request("http://x?period=this_week"), ctx())).json();
@@ -214,10 +243,10 @@ describe("الترتيب والتسامح", () => {
   });
 
   it("طلاب بلا توزيع لا يدخلون درجات البرامج", async () => {
-    vi.mocked(fetchHalaqahMetrics).mockImplementation(async (code) =>
-      code === "A" ? metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر") : null,
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async (h) =>
+      h.id === 10 ? metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر") : null,
     );
-    vi.mocked(db.listPendingStudents).mockResolvedValue([pending(1, "أحمد", null, "pending")]);
+    vi.mocked(db.listMosqueRegistrations).mockResolvedValue([pending(1, "أحمد", null, "pending")]);
 
     const body = await (await GET(new Request("http://x?period=this_week"), ctx())).json();
     expect(body.unmatchedCount).toBe(1);
@@ -227,32 +256,32 @@ describe("الترتيب والتسامح", () => {
 
 describe("الكشف", () => {
   it("حلقة متعذّرة: الكشف لا يُخزَّن فيُعاد الجلب", async () => {
-    vi.mocked(fetchHalaqahMetrics).mockImplementation(async (code) =>
-      code === "A" ? metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر") : null,
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async (h) =>
+      h.id === 10 ? metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر") : null,
     );
     await GET(new Request("http://x?period=this_week"), ctx());
-    const calls = vi.mocked(fetchHalaqahMetrics).mock.calls.length;
+    const calls = vi.mocked(getMetricsForHalaqah).mock.calls.length;
     await GET(new Request("http://x?period=this_week"), ctx());
-    expect(vi.mocked(fetchHalaqahMetrics).mock.calls.length).toBe(calls * 2);
+    expect(vi.mocked(getMetricsForHalaqah).mock.calls.length).toBe(calls * 2);
   });
 
   it("نفس الجامع والفترة: نداء ثانٍ من الكشف بلا جلب جديد", async () => {
-    vi.mocked(fetchHalaqahMetrics).mockImplementation(async () => metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر"));
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async () => metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر"));
     await GET(new Request("http://x?period=this_week"), ctx());
-    const calls = vi.mocked(fetchHalaqahMetrics).mock.calls.length;
+    const calls = vi.mocked(getMetricsForHalaqah).mock.calls.length;
     await GET(new Request("http://x?period=this_week"), ctx());
-    expect(vi.mocked(fetchHalaqahMetrics).mock.calls.length).toBe(calls);
+    expect(vi.mocked(getMetricsForHalaqah).mock.calls.length).toBe(calls);
   });
 
   it("فترة أخرى أو جامع آخر = مفاتيح مختلفة فتُجلب من جديد", async () => {
-    vi.mocked(fetchHalaqahMetrics).mockImplementation(async () => metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر"));
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async () => metricsOf([{ name: "أحمد", engagementScore: 50 }], "الفجر"));
     await GET(new Request("http://x?period=this_week"), ctx());
-    const calls = vi.mocked(fetchHalaqahMetrics).mock.calls.length;
+    const calls = vi.mocked(getMetricsForHalaqah).mock.calls.length;
 
     await GET(new Request("http://x?period=last_week"), ctx());
-    expect(vi.mocked(fetchHalaqahMetrics).mock.calls.length).toBe(calls * 2);
+    expect(vi.mocked(getMetricsForHalaqah).mock.calls.length).toBe(calls * 2);
 
     await GET(new Request("http://x?period=custom&from=2026-10-01&to=2026-10-02"), ctx());
-    expect(vi.mocked(fetchHalaqahMetrics).mock.calls.length).toBe(calls * 3);
+    expect(vi.mocked(getMetricsForHalaqah).mock.calls.length).toBe(calls * 3);
   });
 });

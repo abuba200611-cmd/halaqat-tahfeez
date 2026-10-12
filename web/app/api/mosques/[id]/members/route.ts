@@ -1,8 +1,8 @@
 import { featureGateAny, text, parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
-import { createMosqueMember, listMosqueMembers, listPendingStudents, type MosqueMember } from "@/lib/mosque/db";
+import { createMosqueMember, listMosqueMembers, listMosqueRegistrations, type MosqueMember } from "@/lib/mosque/db";
 
 /*
-  دليل أفراد الجامع: الطلاب (pending_students) + الأعضاء الأحرار —
+  دليل أفراد الجامع: الطلاب (mosque_registrations) + الأعضاء الأحرار —
   تخدمه الأسر واللجان والأوسمة معاً، فالبوابة تكتفي بإحداها.
 */
 
@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (gate) return gate;
 
   const [students, members] = await Promise.all([
-    listPendingStudents(mosqueId),
+    listMosqueRegistrations(mosqueId),
     listMosqueMembers(mosqueId),
   ]);
   return Response.json({ students, members });

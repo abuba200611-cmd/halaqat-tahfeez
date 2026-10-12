@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Button } from "./ui";
 import { inputClass } from "./mosque-page";
 import { callApi, useApi } from "./use-api";
-import type { MosqueMember, PendingStudent } from "@/lib/mosque/db";
+import type { MosqueMember, MosqueRegistration } from "@/lib/mosque/db";
 
-type Directory = { students: PendingStudent[]; members: MosqueMember[] };
+type Directory = { students: MosqueRegistration[]; members: MosqueMember[] };
 
 /**
  * منتقي أفراد الجامع (طلاب + أعضاء أحرار) لإضافتهم لأسرة أو لجنة.

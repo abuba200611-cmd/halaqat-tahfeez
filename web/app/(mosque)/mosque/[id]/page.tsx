@@ -28,7 +28,7 @@ export default function MosqueDetailPage() {
 
   const [role, setRole] = useState<Role | "checking">("checking");
   const [data, setData] = useState<
-    { mosque: Mosque; halaqahs: Halaqah[]; pending: Pending[]; features: Features } | null
+    { mosque: Mosque; halaqahs: Halaqah[]; registrations: Pending[]; features: Features } | null
   >(null);
   const [inviteCode, setInviteCode] = useState("");
   const [addBusy, setAddBusy] = useState(false);
@@ -38,7 +38,7 @@ export default function MosqueDetailPage() {
   function load() {
     fetch(`/api/mosques/${mosqueId}`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((d: { mosque: Mosque; halaqahs: Halaqah[]; pending: Pending[]; features: Features } | null) =>
+      .then((d: { mosque: Mosque; halaqahs: Halaqah[]; registrations: Pending[]; features: Features } | null) =>
         setData(d),
       )
       .catch(() => setData(null));
@@ -108,7 +108,7 @@ export default function MosqueDetailPage() {
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <div className="flex justify-center gap-4">
-          <Link href="/" className="text-sm text-primary hover:underline">
+          <Link href="/mosque" className="text-sm text-primary hover:underline">
             دخول المشرف العام
           </Link>
           <Link href="/mosque-login" className="text-sm text-primary hover:underline">
@@ -170,7 +170,7 @@ export default function MosqueDetailPage() {
         <details className="group rounded-2xl border border-border bg-card p-4">
           <summary className="cursor-pointer text-sm font-semibold">إضافة يدوية</summary>
           <p className="mb-3 mt-3 text-xs text-muted-foreground">
-            اطلب من المعلّم رابط دعوة حلقته من نظام المعلّم (صفحة الطلاب)، وألصق رمزه هنا فقط
+            الأصل أن يفتح مشرف الحلقة رابط انضمام المعلّمين أعلاه. أو اطلب منه رابط دعوة طلاب حلقته (صفحة الطلاب)، وألصق رمزه هنا فقط
             (آخر جزء من الرابط بعد <span className="tabular">invite=</span>).
           </p>
           <form onSubmit={addHalaqah} className="flex gap-2">
@@ -220,13 +220,13 @@ export default function MosqueDetailPage() {
         {data.features.registration && (
         <div>
           <h2 className="mb-3 font-naskh text-lg font-bold">
-            طلاب بانتظار التوزيع ({data.pending.filter((p) => p.status === "pending").length})
+            طلاب بانتظار التوزيع ({data.registrations.filter((p) => p.status === "pending").length})
           </h2>
-          {data.pending.length === 0 ? (
+          {data.registrations.length === 0 ? (
             <Empty title="ما فيه تسجيلات جديدة بعد." />
           ) : (
             <ul className="space-y-2">
-              {data.pending.map((p) => (
+              {data.registrations.map((p) => (
                 <PendingRow key={p.id} pending={p} halaqahs={data.halaqahs} onAssigned={load} />
               ))}
             </ul>
@@ -355,7 +355,7 @@ function PendingRow({
       const res = await fetch("/api/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pendingId: pending.id, halaqahId: Number(halaqahId) }),
+        body: JSON.stringify({ registrationId: pending.id, halaqahId: Number(halaqahId) }),
       });
       const d = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -503,8 +503,8 @@ type Stats = {
 };
 
 /**
- * اللوحة الحقيقية — أرقام حية من نظام المعلّم (لا بيانات مخزّنة هنا)،
- * تُحدَّث كل ما فُتحت الصفحة. حلقة يتعذّر الوصول لها تظهر بشارة بدل
+ * اللوحة الحقيقية — أرقام حية من قاعدة الحلقات (لا بيانات مخزّنة هنا)،
+ * تُحدَّث كل ما فُتحت الصفحة. حلقة يفشل استعلامها تظهر بشارة بدل
  * ما تكسر الإجمالي.
  */
 function MosqueStatsSection({ mosqueId }: { mosqueId: number }) {

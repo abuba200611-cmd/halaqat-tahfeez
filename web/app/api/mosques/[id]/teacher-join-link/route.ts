@@ -5,12 +5,11 @@ import { getMosque, getOrCreateTeacherJoinCode, isFeatureEnabled, rotateTeacherJ
 
 /*
   رابط انضمام المعلّمين لجامع: GET يرجع الرابط (ويولّد الرمز كسولاً)،
-  وPOST يجدّده فيبطل القديم. الرابط يفتح تطبيق المعلّم (TEACHER_APP_URL).
+  وPOST يجدّده فيبطل القديم. الرابط يفتح صفحة /join-mosque بالتطبيق نفسه (أصل الطلب الحالي).
 */
 
-function buildLink(code: string): string | null {
-  const base = process.env.TEACHER_APP_URL?.trim().replace(/\/+$/, "");
-  return base ? `${base}/join-mosque?code=${encodeURIComponent(code)}` : null;
+function buildLink(request: Request, code: string): string {
+  return `${new URL(request.url).origin}/join-mosque?code=${encodeURIComponent(code)}`;
 }
 
 async function guard(params: Promise<{ id: string }>): Promise<{ mosqueId: number } | Response> {
@@ -24,21 +23,19 @@ async function guard(params: Promise<{ id: string }>): Promise<{ mosqueId: numbe
   return { mosqueId };
 }
 
-function respond(code: string | null): Response {
+function respond(request: Request, code: string | null): Response {
   if (!code) return Response.json({ error: "الجامع غير موجود" }, { status: 404 });
-  const link = buildLink(code);
-  if (!link) return Response.json({ error: "عنوان نظام المعلّم غير مضبوط" }, { status: 503 });
-  return Response.json({ code, link });
+  return Response.json({ code, link: buildLink(request, code) });
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const g = await guard(params);
   if (g instanceof Response) return g;
-  return respond(await getOrCreateTeacherJoinCode(g.mosqueId));
+  return respond(request, await getOrCreateTeacherJoinCode(g.mosqueId));
 }
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const g = await guard(params);
   if (g instanceof Response) return g;
-  return respond(await rotateTeacherJoinCode(g.mosqueId));
+  return respond(request, await rotateTeacherJoinCode(g.mosqueId));
 }

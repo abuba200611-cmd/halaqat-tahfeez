@@ -28,9 +28,9 @@ vi.mock("@/lib/mosque/db", () => ({
   listBrainNotes: vi.fn(),
   listCommitteeMemberLinks: vi.fn(),
   listFamilyMemberLinks: vi.fn(),
-  listPendingStudents: vi.fn(),
+  listMosqueRegistrations: vi.fn(),
 }));
-vi.mock("@/lib/mosque/halaqat", () => ({ fetchHalaqahRoster: vi.fn() }));
+vi.mock("@/lib/mosque/halaqat", () => ({ getHalaqahRoster: vi.fn() }));
 
 import { GET as LIST_GET, POST as LIST_POST } from "@/app/api/mosques/[id]/archive/route";
 import { GET as ACT_GET, DELETE as ACT_DELETE } from "@/app/api/mosques/[id]/archive/[activityId]/route";
@@ -42,7 +42,7 @@ import {
 import { canAccessMosque } from "@/lib/mosque/access";
 import * as db from "@/lib/mosque/db";
 import { buildMosqueGraph } from "@/lib/mosque/brain-graph";
-import { MAX_PHOTO_BYTES, detectImageMime, parseVideoUrl, youtubeId } from "@/lib/archive";
+import { MAX_PHOTO_BYTES, detectImageMime, parseVideoUrl, youtubeId } from "@/lib/mosque/archive";
 import { getFeature } from "@/lib/mosque/features";
 
 const JPEG = [0xff, 0xd8, 0xff, 0xe0];
@@ -332,7 +332,7 @@ describe("مصدر الدماغ للأنشطة", () => {
     vi.mocked(db.listBrainNotes).mockResolvedValue([]);
     vi.mocked(db.listCommitteeMemberLinks).mockResolvedValue([]);
     vi.mocked(db.listFamilyMemberLinks).mockResolvedValue([]);
-    vi.mocked(db.listPendingStudents).mockResolvedValue([]);
+    vi.mocked(db.listMosqueRegistrations).mockResolvedValue([]);
     vi.mocked(db.listActivities).mockResolvedValue([
       { ...activity, id: 4, tagKind: "family", tagId: 5, tagName: "النور" },
       { ...activity, id: 6, title: "رحلة" },

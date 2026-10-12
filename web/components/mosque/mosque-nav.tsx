@@ -20,7 +20,7 @@ export function mosqueNavItems(opts: {
   const { mosqueId, mosqueName, features, isSuper, activeHref, extra } = opts;
   const items: NavItem[] = [];
 
-  if (isSuper) items.push({ href: "/", label: "كل الجوامع", icon: <HomeIcon /> });
+  if (isSuper) items.push({ href: "/mosque", label: "كل الجوامع", icon: <HomeIcon /> });
 
   items.push({
     href: `/mosque/${mosqueId}`,

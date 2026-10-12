@@ -1,6 +1,6 @@
 import { featureGate, parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
 import { isPeriodChoice, resolvePeriod } from "@/lib/mosque/report-periods";
-import { fetchHalaqahMetrics } from "@/lib/mosque/halaqat";
+import { getMetricsForHalaqah } from "@/lib/mosque/halaqat";
 import {
   getMosque,
   isFeatureEnabled,
@@ -9,10 +9,12 @@ import {
   listEvaluationSummaries,
   listFamilyMemberLinks,
   listHalaqahs,
-  listPendingStudents,
+  listMosqueRegistrations,
   listStudentBadgeAwardsBetween,
+  type Halaqah,
 } from "@/lib/mosque/db";
-import { rankHalaqahs, rankStudents, type HalaqahMetrics, type StudentPrograms } from "@/lib/mosque/honor-board";
+import { rankHalaqahs, rankStudents, type StudentPrograms } from "@/lib/mosque/honor-board";
+import type { HalaqahMetrics } from "@/lib/metrics";
 import { honorBoardCacheKey, readHonorBoardCache, storeHonorBoardCache } from "@/lib/mosque/honor-board-cache";
 
 const PERIOD_ERROR = "period يجب أن يكون this_week أو last_week أو hijri_month أو custom";
@@ -28,20 +30,20 @@ type HonorBoardPayload = {
   unmatchedCount: number;
 };
 
-/** نداء لا يرمي أبداً — فشل مقياس حلقة يُسقطها من الترتيب ولا يكسر الطلب */
-async function safeMetrics(inviteCode: string, from: string, to: string): Promise<HalaqahMetrics | null> {
+/** استعلام لا يرمي أبداً — فشل مقياس حلقة يُسقطها من الترتيب ولا يكسر الطلب */
+async function safeMetrics(halaqah: Halaqah, from: string, to: string): Promise<HalaqahMetrics | null> {
   try {
-    return await fetchHalaqahMetrics(inviteCode, from, to);
+    return await getMetricsForHalaqah(halaqah, from, to);
   } catch {
     return null;
   }
 }
 
 /**
- * لوحة الشرف لفترة واحدة: مقاييس كل الحلقات من نظام المعلّم بالتوازي،
+ * لوحة الشرف لفترة واحدة: مقاييس كل الحلقات من قاعدة الحلقات بالتوازي،
  * ودرجات برامج الجامع (تقييم/أوسمة/أسر ولجان/أنشطة) — كل مصدر يُقرأ فقط
  * عند تفعيل ميزته. النتيجة تكشف 5 دقائق لكل (جامع، فترة) كي لا تُثقل
- * نظام المعلّم بكل فتح صفحة.
+ * القاعدة بكل فتح صفحة.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const mosqueId = parsePositiveIntParam((await params).id);
@@ -74,12 +76,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const halaqahs = halaqatOn ? await listHalaqahs(mosqueId) : [];
   const metrics = await Promise.all(
-    halaqahs.map((halaqah) => safeMetrics(halaqah.inviteCode, period.from, period.to)),
+    halaqahs.map((halaqah) => safeMetrics(halaqah, period.from, period.to)),
   );
 
   // برامج الجامع: تُقرأ كلها دفعة واحدة ثم تُفهرس بالطالب — لا استعلام لكل طالب
-  const [pending, studentSummaries, badgeAwards, familyLinks, committeeLinks, activities] = await Promise.all([
-    listPendingStudents(mosqueId),
+  const [registrations, studentSummaries, badgeAwards, familyLinks, committeeLinks, activities] = await Promise.all([
+    listMosqueRegistrations(mosqueId),
     evaluationOn ? listEvaluationSummaries(mosqueId, period.from, period.to, "student") : Promise.resolve([]),
     badgesOn ? listStudentBadgeAwardsBetween(mosqueId, period.from, period.to) : Promise.resolve([]),
     familiesOn ? listFamilyMemberLinks(mosqueId) : Promise.resolve([]),
@@ -113,13 +115,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (map) map.set(activity.tagId, (map.get(activity.tagId) ?? 0) + 1);
   }
 
-  const programs: StudentPrograms[] = pending
+  const programs: StudentPrograms[] = registrations
     .filter((student) => student.status === "assigned" && student.halaqahId !== null)
     .map((student) => {
       const familyIds = familiesOfStudent.get(student.id) ?? [];
       const summary = evalByTarget.get(student.id);
       return {
-        pendingId: student.id,
+        registrationId: student.id,
+        studentId: student.studentId,
         halaqahId: student.halaqahId as number,
         name: student.name,
         evaluationPercent: summary && summary.maxTotal > 0 ? Math.round((summary.total / summary.maxTotal) * 100) : null,

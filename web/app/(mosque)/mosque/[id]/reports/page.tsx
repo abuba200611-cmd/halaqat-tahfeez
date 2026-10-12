@@ -142,7 +142,7 @@ function ReportBody({ data }: { data: ReportData }) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="الحلقات" value={kpis.halaqatCount} />
-        <Stat label="الطلاب النشطون" value={kpis.activeStudents} hint="من نظام المعلّم" />
+        <Stat label="الطلاب النشطون" value={kpis.activeStudents} hint="من حلقات الجامع" />
         {enabled.registration && <Stat label="تسجيلات بانتظار التوزيع" value={kpis.pendingRegistrations} />}
         {enabled.families && <Stat label="الأسر" value={kpis.familiesCount} />}
         {enabled.committees && (
@@ -161,7 +161,7 @@ function ReportBody({ data }: { data: ReportData }) {
 
       {kpis.unreachableHalaqat > 0 && (
         <p className="text-xs text-accent">
-          تعذّر جلب إحصائيات {kpis.unreachableHalaqat} حلقة من نظام المعلّم — استُثنيت من الإجمالي.
+          تعذّر جلب إحصائيات {kpis.unreachableHalaqat} حلقة — استُثنيت من الإجمالي.
         </p>
       )}
 

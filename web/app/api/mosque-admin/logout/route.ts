@@ -1,6 +1,6 @@
-import { clearMosqueSessionCookie } from "@/lib/mosque-auth";
+import { clearMosqueAdminSession } from "@/lib/mosque-auth";
 
 export async function POST() {
-  await clearMosqueSessionCookie();
+  await clearMosqueAdminSession();
   return Response.json({ ok: true });
 }

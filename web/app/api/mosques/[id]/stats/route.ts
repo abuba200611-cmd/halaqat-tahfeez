@@ -2,12 +2,12 @@ import { parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
 import { unauthorized } from "@/lib/mosque/admin-auth";
 import { canAccessMosque } from "@/lib/mosque/access";
 import { isFeatureEnabled, listHalaqahs } from "@/lib/mosque/db";
-import { fetchHalaqahStats } from "@/lib/mosque/halaqat";
+import { getHalaqahStats } from "@/lib/mosque/halaqat";
 
 /**
- * لوحة الجامع الحقيقية — يجمع إحصائيات كل حلقاته من نظام المعلّم (نداءات
- * خادم لخادم متوازية) ويرجع الإجمالي + تفصيل كل حلقة. حلقة تعذّر الوصول
- * لها (نظام المعلّم غير متاح مؤقتاً) تُستبعد من الإجمالي بدل ما تكسر
+ * لوحة الجامع الحقيقية — يجمع إحصائيات كل حلقاته من قاعدة الحلقات (استعلامات
+ * مباشرة متوازية) ويرجع الإجمالي + تفصيل كل حلقة. حلقة فشل استعلامها
+ * (خطأ عابر بالقاعدة) تُستبعد من الإجمالي بدل ما تكسر
  * اللوحة كاملة. معطّلة "الإحصائيات" عن الجامع = 404.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const halaqahs = await listHalaqahs(mosqueId);
   const results = await Promise.all(
-    halaqahs.map(async (h) => ({ halaqah: h, stats: await fetchHalaqahStats(h.inviteCode) })),
+    halaqahs.map(async (h) => ({ halaqah: h, stats: await getHalaqahStats(h.id).catch(() => null) })),
   );
 
   const perHalaqah = results.map(({ halaqah, stats }) => ({

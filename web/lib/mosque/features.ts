@@ -33,7 +33,7 @@ export const FEATURES: readonly Feature[] = [
   {
     key: "stats",
     nameAr: "الإحصائيات",
-    descriptionAr: "لوحة أرقام حية لكل حلقة وللجامع كله، من نظام المعلّم مباشرة.",
+    descriptionAr: "لوحة أرقام حية لكل حلقة وللجامع كله، من قاعدة الحلقات مباشرة.",
     defaultEnabled: true,
     status: "ready",
   },
@@ -96,7 +96,7 @@ export const FEATURES: readonly Feature[] = [
   {
     key: "honor_board",
     nameAr: "لوحة الشرف",
-    descriptionAr: "ترتيب الحلقات والطلاب بدرجات التفاعل من نظام المعلّم وبرامج الجامع، مع منصّة المتصدّرين.",
+    descriptionAr: "ترتيب الحلقات والطلاب بدرجات التفاعل في الحلقات وبرامج الجامع، مع منصّة المتصدّرين.",
     defaultEnabled: true,
     status: "ready",
   },

@@ -13,14 +13,14 @@ import {
   listFamilies,
   listFamilyMemberLinks,
   listHalaqahs,
-  listPendingStudents,
+  listMosqueRegistrations,
   type BadgeTargetKind,
   type MemberKind,
 } from "./db";
 import { parseLinks } from "./brain";
 import type { GraphEdge, GraphNode, MosqueGraph, NodeType } from "./graph-types";
-import { fetchHalaqahMetrics, fetchHalaqahRoster, type Roster } from "./halaqat";
-import { normalizeStudentName, type HalaqahMetrics, type MetricsStudent } from "./honor-board";
+import { getHalaqahRoster, getMetricsForHalaqah, type Roster } from "./halaqat";
+import type { HalaqahMetrics, StudentMetrics } from "@/lib/metrics";
 import { currentWeekPeriod } from "./report-periods";
 
 /*
@@ -62,7 +62,7 @@ const mosqueSource: GraphSource = async (mosqueId) => {
   };
 };
 
-/** نداء لنظام المعلّم لا يرمي أبداً — فشله يُسقط مصدره فقط */
+/** استعلام لقاعدة الحلقات لا يرمي أبداً — فشله يُسقط مصدره فقط */
 async function safeCall<T>(call: () => Promise<T>): Promise<T | null> {
   try {
     return await call();
@@ -85,25 +85,20 @@ function halaqahMetaMetrics(metrics: HalaqahMetrics | null): { attendanceRate?: 
   return meta;
 }
 
-/** فهرس طلاب المقاييس بالاسم المُطبَّع — مطابقة قائمة الحلقة بمقاييسهم (لا معرّف مشتركاً بين النظامين) */
-function metricsStudentsByName(metrics: HalaqahMetrics | null): Map<string, MetricsStudent | null> {
-  const index = new Map<string, MetricsStudent | null>();
-  for (const student of metrics?.students ?? []) {
-    const key = normalizeStudentName(student.name);
-    index.set(key, index.has(key) ? null : student); // اسم مكرر = غموض: لا مقاييس لأحدهما
-  }
-  return index;
+/** فهرس طلاب المقاييس بمعرّف الطالب الحقيقي (students.id) — نفس معرّف قائمة الحلقة */
+function metricsStudentsById(metrics: HalaqahMetrics | null): Map<string, StudentMetrics> {
+  return new Map((metrics?.students ?? []).map((student) => [student.id, student]));
 }
 
-/** الحلقات + معلّموها + طلابها (قائمة كل حلقة ومقاييس أسبوعها من نظام المعلّم، بالتوازي، والفشل لا يرمي) */
+/** الحلقات + معلّموها + طلابها (قائمة كل حلقة ومقاييس أسبوعها من قاعدة الحلقات، بالتوازي، والفشل لا يرمي) */
 const halaqatSource: GraphSource = async (mosqueId) => {
   const halaqahs = await listHalaqahs(mosqueId);
   const week = currentWeekPeriod();
   const loads = await Promise.all(
     halaqahs.map(async (halaqah): Promise<{ roster: Roster | null; metrics: HalaqahMetrics | null }> => {
       const [roster, metrics] = await Promise.all([
-        safeCall(() => fetchHalaqahRoster(halaqah.inviteCode)),
-        safeCall(() => fetchHalaqahMetrics(halaqah.inviteCode, week.from, week.to)),
+        safeCall(() => getHalaqahRoster(halaqah)),
+        safeCall(() => getMetricsForHalaqah(halaqah, week.from, week.to)),
       ]);
       return { roster: roster ?? null, metrics: metrics ?? null };
     }),
@@ -115,7 +110,7 @@ const halaqatSource: GraphSource = async (mosqueId) => {
     const { roster, metrics } = loads[index];
     const id = halaqahNodeId(halaqah.id);
     const teacherName = roster?.teacherName || halaqah.teacherName;
-    const byName = metricsStudentsByName(metrics);
+    const byId = metricsStudentsById(metrics);
 
     nodes.push({
       id,
@@ -131,9 +126,9 @@ const halaqatSource: GraphSource = async (mosqueId) => {
     nodes.push({ id: teacherId, type: "teacher", label: teacherName, meta: { halaqah: halaqah.halaqahName } });
     edges.push({ source: id, target: teacherId, kind: "teacher" });
 
-    roster?.students.forEach((student, studentIndex) => {
-      const studentId = `student:${halaqah.id}:${studentIndex}`;
-      const metric = byName.get(normalizeStudentName(student.name));
+    roster?.students.forEach((student) => {
+      const studentId = `student:${halaqah.id}:${student.id}`;
+      const metric = byId.get(student.id);
       nodes.push({
         id: studentId,
         type: "student",
@@ -160,16 +155,16 @@ const halaqatSource: GraphSource = async (mosqueId) => {
 
 /** طلبات التسجيل: المعلّقة حول محور واحد، والموزَّعة مربوطة بحلقتها */
 const registrationsSource: GraphSource = async (mosqueId) => {
-  const pending = await listPendingStudents(mosqueId);
-  if (pending.length === 0) return { nodes: [], edges: [] };
+  const registrations = await listMosqueRegistrations(mosqueId);
+  if (registrations.length === 0) return { nodes: [], edges: [] };
 
-  const waiting = pending.filter((student) => student.status === "pending").length;
+  const waiting = registrations.filter((student) => student.status === "pending").length;
   const nodes: GraphNode[] = [
     { id: PENDING_HUB_ID, type: "pending", label: "طلبات التسجيل", meta: { hub: true, waiting } },
   ];
   const edges: GraphEdge[] = [{ source: mosqueNodeId(mosqueId), target: PENDING_HUB_ID, kind: "registrations" }];
 
-  for (const student of pending) {
+  for (const student of registrations) {
     const id = `pending:${student.id}`;
     nodes.push({ id, type: "pending", label: student.name, meta: { status: student.status } });
     if (student.status === "assigned" && student.halaqahId !== null) {
@@ -352,8 +347,8 @@ export function buildGraphContext(graph: MosqueGraph): string {
   if (halaqahs.length > 0) {
     lines.push("", "الحلقات:");
     for (const halaqah of halaqahs) {
-      const detail = halaqah.meta.error ? "تعذّر جلب الطلاب من نظام المعلّم" : `${halaqah.meta.studentCount} طالب`;
-      // متوسطات الأسبوع من مقاييس نظام المعلّم متى توفرت — يقرؤها الوكيل الذكي
+      const detail = halaqah.meta.error ? "تعذّر جلب الطلاب" : `${halaqah.meta.studentCount} طالب`;
+      // متوسطات الأسبوع من مقاييس الحلقة متى توفرت — يقرؤها الوكيل الذكي
       const averages: string[] = [];
       if (halaqah.meta.attendanceRate !== undefined) averages.push(`حضور ${halaqah.meta.attendanceRate}٪`);
       if (halaqah.meta.avgEngagement !== undefined) averages.push(`تفاعل ${halaqah.meta.avgEngagement}٪`);

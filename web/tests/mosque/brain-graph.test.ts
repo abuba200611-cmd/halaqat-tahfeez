@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Halaqah, PendingStudent } from "@/lib/mosque/db";
+import type { Halaqah, MosqueRegistration } from "@/lib/mosque/db";
 
 /*
   buildMosqueGraph: عُقَد/حوافّ من بيانات الجامع الفعلية (db ونظام المعلّم
@@ -19,9 +19,9 @@ vi.mock("@/lib/mosque/db", () => ({
   listFamilies: vi.fn(),
   listFamilyMemberLinks: vi.fn(),
   listHalaqahs: vi.fn(),
-  listPendingStudents: vi.fn(),
+  listMosqueRegistrations: vi.fn(),
 }));
-vi.mock("@/lib/mosque/halaqat", () => ({ fetchHalaqahRoster: vi.fn(), fetchHalaqahMetrics: vi.fn() }));
+vi.mock("@/lib/mosque/halaqat", () => ({ getHalaqahRoster: vi.fn(), getMetricsForHalaqah: vi.fn() }));
 
 import { buildGraphContext, buildMosqueGraph } from "@/lib/mosque/brain-graph";
 import {
@@ -37,29 +37,29 @@ import {
   listFamilies,
   listFamilyMemberLinks,
   listHalaqahs,
-  listPendingStudents,
+  listMosqueRegistrations,
 } from "@/lib/mosque/db";
-import { fetchHalaqahMetrics, fetchHalaqahRoster } from "@/lib/mosque/halaqat";
+import { getHalaqahRoster, getMetricsForHalaqah } from "@/lib/mosque/halaqat";
 
-const halaqah = (id: number, name: string, code: string): Halaqah => ({
+const halaqah = (id: number, name: string): Halaqah => ({
   id,
   mosqueId: 1,
   halaqahName: name,
   teacherName: `معلم ${name}`,
-  inviteCode: code,
   createdAt: "",
 });
-const pending = (id: number, status: PendingStudent["status"], halaqahId: number | null): PendingStudent => ({
+const pending = (id: number, status: MosqueRegistration["status"], halaqahId: number | null): MosqueRegistration => ({
   id,
   mosqueId: 1,
   name: `طالب ${id}`,
   phone: "",
   status,
   halaqahId,
+  studentId: null,
   createdAt: "",
   assignedAt: null,
 });
-const student = (name: string) => ({ name, group: "", pages: 0, avgMastery: 0, active: true });
+const student = (name: string) => ({ id: `sid-${name}`, name, group: "", pages: 0, avgMastery: 0, active: true });
 const note = (slug: string, body: string) => ({
   id: 1,
   mosqueId: 1,
@@ -74,8 +74,8 @@ const note = (slug: string, body: string) => ({
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(getMosque).mockResolvedValue({ id: 1, name: "جامع النور", city: "جدة", createdAt: "" });
-  vi.mocked(listHalaqahs).mockResolvedValue([halaqah(10, "الفجر", "A"), halaqah(11, "العصر", "B")]);
-  vi.mocked(listPendingStudents).mockResolvedValue([]);
+  vi.mocked(listHalaqahs).mockResolvedValue([halaqah(10, "الفجر"), halaqah(11, "العصر")]);
+  vi.mocked(listMosqueRegistrations).mockResolvedValue([]);
   vi.mocked(listBrainNotes).mockResolvedValue([]);
   vi.mocked(isFeatureEnabled).mockResolvedValue(false);
   vi.mocked(listFamilies).mockResolvedValue([]);
@@ -90,12 +90,12 @@ beforeEach(() => {
     { key: "stats", nameAr: "الإحصائيات", descriptionAr: "", defaultEnabled: true, status: "ready", enabled: false },
     { key: "families", nameAr: "الأسر", descriptionAr: "", defaultEnabled: false, status: "soon", enabled: true },
   ]);
-  vi.mocked(fetchHalaqahRoster).mockImplementation(async (code) => ({
-    teacherName: `أ. ${code}`,
-    halaqahName: code,
-    students: code === "A" ? [student("أحمد"), student("بلال")] : [student("سعد")],
+  vi.mocked(getHalaqahRoster).mockImplementation(async (h) => ({
+    teacherName: `أ. ${h.id === 10 ? "A" : "B"}`,
+    halaqahName: h.halaqahName,
+    students: h.id === 10 ? [student("أحمد"), student("بلال")] : [student("سعد")],
   }));
-  vi.mocked(fetchHalaqahMetrics).mockResolvedValue(null);
+  vi.mocked(getMetricsForHalaqah).mockResolvedValue(null);
 });
 
 describe("buildMosqueGraph", () => {
@@ -114,9 +114,8 @@ describe("buildMosqueGraph", () => {
   });
 
   it("فشل جلب قائمة حلقة لا يرمي: تبقى العقدة وعليها meta.error", async () => {
-    vi.mocked(fetchHalaqahRoster).mockImplementation(async (code) => {
-      if (code === "A") throw new Error("down");
-      return null;
+    vi.mocked(getHalaqahRoster).mockImplementation(async (h) => {
+      throw new Error(`down ${h.id}`);
     });
     const graph = await buildMosqueGraph(1);
     expect(graph.nodes.find((n) => n.id === "halaqah:10")?.meta.error).toBe(true);
@@ -124,8 +123,29 @@ describe("buildMosqueGraph", () => {
     expect(graph.nodes.some((n) => n.type === "student")).toBe(false);
   });
 
+  it("عقدة الطالب بمعرّفه الحقيقي، ومقاييسه تُربط بالمعرّف لا بالاسم", async () => {
+    vi.mocked(getMetricsForHalaqah).mockImplementation(async (h) =>
+      h.id === 10
+        ? ({
+            halaqah: { name: "الفجر", teacherName: "أ", activeStudents: 2 },
+            totals: { attendanceRate: 90 },
+            students: [
+              // اسم مختلف تماماً عن القائمة، لكن المعرّف يطابق "أحمد"
+              { id: "sid-أحمد", name: "اسم مختلف", engagementScore: 77, attendanceRate: 100, streak: 3 },
+            ],
+          } as never)
+        : null,
+    );
+    const graph = await buildMosqueGraph(1);
+    const ahmad = graph.nodes.find((n) => n.id === "student:10:sid-أحمد");
+    expect(ahmad?.label).toBe("أحمد");
+    expect(ahmad?.meta).toMatchObject({ engagementScore: 77, attendanceRate: 100, streak: 3 });
+    // بلال بلا مقاييس بمعرّفه: لا تُنسب له مقاييس أحمد حتى لو تشابهت الأسماء
+    expect(graph.nodes.find((n) => n.id === "student:10:sid-بلال")?.meta.engagementScore).toBeUndefined();
+  });
+
   it("طلبات التسجيل: المعلّقة على المحور، والموزَّعة بحلقتها، وحلقة جامع آخر تُهمَل", async () => {
-    vi.mocked(listPendingStudents).mockResolvedValue([
+    vi.mocked(listMosqueRegistrations).mockResolvedValue([
       pending(1, "pending", null),
       pending(2, "assigned", 10),
       pending(3, "assigned", 999),
@@ -144,7 +164,7 @@ describe("buildMosqueGraph", () => {
 
   it("كل الاستعلامات تُقيَّد بمعرّف الجامع المطلوب", async () => {
     await buildMosqueGraph(1);
-    for (const fn of [listHalaqahs, listPendingStudents, listBrainNotes, getMosqueFeatures]) {
+    for (const fn of [listHalaqahs, listMosqueRegistrations, listBrainNotes, getMosqueFeatures]) {
       expect(fn).toHaveBeenCalledWith(1);
     }
   });
@@ -171,7 +191,7 @@ describe("مصادر الأسر واللجان", () => {
 
   it("أسرة ← أفرادها: الطالب بعقدة التسجيل، والعضو الحر بعقدة مستقلة", async () => {
     vi.mocked(isFeatureEnabled).mockImplementation(async (_id, key) => key === "families");
-    vi.mocked(listPendingStudents).mockResolvedValue([pending(1, "pending", null)]);
+    vi.mocked(listMosqueRegistrations).mockResolvedValue([pending(1, "pending", null)]);
     vi.mocked(listFamilies).mockResolvedValue([family]);
     vi.mocked(listFamilyMemberLinks).mockResolvedValue([
       { familyId: 5, memberKind: "student", memberId: 1, name: "طالب 1" },
@@ -223,7 +243,7 @@ describe("مصدر الأوسمة", () => {
       { badgeId: 3, badgeName: "نجم الأسبوع", icon: "⭐", targetKind: "family", targetId: 5, targetName: "أسرة النور" },
     ]);
     // عُقد الأهداف يجب أن توجد من مصدر آخر وإلا حُذفت الحافة
-    vi.mocked(listPendingStudents).mockResolvedValue([pending(1, "pending", null)]);
+    vi.mocked(listMosqueRegistrations).mockResolvedValue([pending(1, "pending", null)]);
 
     const graph = await buildMosqueGraph(1);
     const badgeNode = graph.nodes.find((n) => n.id === "badge:3");
@@ -240,7 +260,7 @@ describe("مصدر الأوسمة", () => {
 
 describe("buildGraphContext", () => {
   it("ملخص عربي بالأعداد وكل حلقة بمعلمها وعدد طلابها", async () => {
-    vi.mocked(listPendingStudents).mockResolvedValue([pending(1, "pending", null), pending(2, "assigned", 10)]);
+    vi.mocked(listMosqueRegistrations).mockResolvedValue([pending(1, "pending", null), pending(2, "assigned", 10)]);
     const text = buildGraphContext(await buildMosqueGraph(1));
 
     expect(text).toContain("الجامع: جامع النور");

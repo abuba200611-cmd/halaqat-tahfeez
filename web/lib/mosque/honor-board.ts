@@ -1,41 +1,18 @@
 /*
   حسابات لوحة الشرف البحتة (بلا قاعدة بيانات ولا "server-only") —
-  ترتيب الحلقات والطلاب من مقاييس نظام المعلّم (تفاعل/حضور/خطة) ومن
-  برامج هذا الجامع (تقييم/أوسمة/أسر ولجان/أنشطة). المطابقة بين طالب
-  نظام المعلّم وسجلّات الجامع بالاسم المُطبَّع فقط (لا معرّف مشتركاً)،
-  فغير المطابق يظهر بلا درجة برامج ولا يُخفى.
+  ترتيب الحلقات والطلاب من مقاييس الحلقات (تفاعل/حضور/خطة) ومن برامج هذا
+  الجامع (تقييم/أوسمة/أسر ولجان/أنشطة). الربط بين طالب الحلقة وتسجيله
+  بالجامع بمعرّف الطالب الحقيقي (mosque_registrations.student_id =
+  students.id) داخل الحلقة نفسها؛ والتسجيلات المنقولة من النظام القديم
+  (student_id فارغ) تُطابَق بالاسم المُطبَّع فقط كحلّ احتياطي. غير المطابق
+  يظهر بلا درجة برامج ولا يُخفى.
 */
 
-// ————— أنواع مقاييس نظام المعلّم (كما ترجعها /api/link/metrics) —————
+import type { HalaqahMetrics, StudentMetrics } from "@/lib/metrics";
 
-export type MetricsPlan = { status: string; progressPct: number } | null;
-
-export type MetricsStudent = {
-  id: number;
-  name: string;
-  wards: number;
-  approved: number;
-  attendanceRate: number | null;
-  streak: number;
-  hifzPagesInRange: number;
-  reviewPagesInRange: number;
-  plan: MetricsPlan;
-  recitations: { count: number; avgScore: number | null };
-  engagementScore: number;
-};
-
-export type HalaqahMetrics = {
-  halaqah: { name: string; teacherName: string; activeStudents: number };
-  totals: {
-    wardsSubmitted: number;
-    wardsApproved: number;
-    attendanceRate: number | null;
-    planOnTrackRatio: number | null;
-    recitations: { count: number; avgScore: number | null };
-    hifzPagesInRange: number;
-  };
-  students: MetricsStudent[];
-};
+export type { HalaqahMetrics };
+/** مقاييس طالب واحد — معرّفه هو students.id الحقيقي */
+export type MetricsStudent = StudentMetrics;
 
 // ————— تطبيع الأسماء العربية للمطابقة —————
 
@@ -61,7 +38,7 @@ export function normalizeStudentName(name: string): string {
 
 // ————— درجة الحلقة —————
 
-/** أوزان درجة الحلقة: متوسط تفاعل الطلاب (من نظام المعلّم) + حضور + خطة على المسار */
+/** أوزان درجة الحلقة: متوسط تفاعل الطلاب (من الحلقة) + حضور + خطة على المسار */
 export const HALAQAH_ENGAGEMENT_WEIGHT = 0.7;
 export const HALAQAH_ATTENDANCE_WEIGHT = 0.2;
 export const HALAQAH_PLAN_WEIGHT = 0.1;
@@ -104,7 +81,7 @@ export type HalaqahRankInput = {
   halaqahId: number;
   name: string;
   teacherName: string;
-  /** مقاييس الفترة — null لو تعذّر جلبها من نظام المعلّم */
+  /** مقاييس الفترة — null لو تعذّر جلبها */
   metrics: HalaqahMetrics | null;
 };
 
@@ -168,9 +145,11 @@ export function rankHalaqahs(inputs: HalaqahRankInput[]): HalaqahRankRow[] {
 
 // ————— درجة البرامج (من قاعدة هذا الجامع) —————
 
-/** ما يعرفه الجامع عن طالب مُوزَّع على حلقة — يُطابق بالاسم المُطبَّع */
+/** ما يعرفه الجامع عن طالب مُوزَّع على حلقة — يُطابق بمعرّف الطالب (والاسم المُطبَّع للسجلات القديمة) */
 export type StudentPrograms = {
-  pendingId: number;
+  registrationId: number;
+  /** students.id الحقيقي، أو null لتسجيل منقول من النظام القديم */
+  studentId: string | null;
   halaqahId: number;
   name: string;
   /** نسبة التقييم الأسبوعي من العظمى بالفترة — null لو لا درجات له */
@@ -211,7 +190,7 @@ export function programsScore(programs: StudentPrograms): number {
 
 // ————— ترتيب الطلاب على مستوى الجامع —————
 
-/** درجة الطالب المجمّعة: 70٪ تفاعل من نظام المعلّم + 30٪ برامج هذا الجامع */
+/** درجة الطالب المجمّعة: 70٪ تفاعل من الحلقة + 30٪ برامج هذا الجامع */
 export const STUDENT_ENGAGEMENT_WEIGHT = 0.7;
 export const STUDENT_PROGRAMS_WEIGHT = 0.3;
 
@@ -223,7 +202,7 @@ export type StudentRankRow = {
   engagementScore: number;
   attendanceRate: number | null;
   streak: number;
-  /** null لو لم يُطابق الطالب بسجلّ برامج بالجامع (المطابقة بالاسم) */
+  /** null لو لم يُطابق الطالب بسجلّ برامج بالجامع */
   programsScore: number | null;
   combinedScore: number;
   matched: boolean;
@@ -232,7 +211,7 @@ export type StudentRankRow = {
 
 export type StudentRanking = {
   students: StudentRankRow[];
-  /** طلاب نظام المعلّم بلا سجل مطابق بالجامع — للعرض لا للحجب */
+  /** طلاب الحلقات بلا سجل مطابق بالجامع — للعرض لا للحجب */
   unmatchedCount: number;
 };
 
@@ -245,12 +224,17 @@ export function rankStudents(
   halaqahs: { halaqahId: number; name: string; metrics: HalaqahMetrics | null }[],
   programs: StudentPrograms[],
 ): StudentRanking {
-  // فهرس برامج الجامع بمفتاح (الحلقة، الاسم المُطبَّع) — التكرار يأخذ الأول
+  // فهرسان: بمعرّف الطالب الحقيقي (الأصل)، وبالاسم المُطبَّع للتسجيلات بلا student_id فقط.
   // اسمان مُطبَّعان متطابقان بالحلقة نفسها = غموض: لا يُنسب أيٌّ من السجلين لأحد (يُعدّان غير مطابقين)
-  const programsIndex = new Map<string, StudentPrograms | null>();
+  const byStudentId = new Map<string, StudentPrograms>();
+  const byLegacyName = new Map<string, StudentPrograms | null>();
   for (const record of programs) {
+    if (record.studentId !== null) {
+      byStudentId.set(`${record.halaqahId}:${record.studentId}`, record);
+      continue;
+    }
     const key = `${record.halaqahId}:${normalizeStudentName(record.name)}`;
-    programsIndex.set(key, programsIndex.has(key) ? null : record);
+    byLegacyName.set(key, byLegacyName.has(key) ? null : record);
   }
 
   let unmatchedCount = 0;
@@ -265,9 +249,10 @@ export function rankStudents(
     for (const student of students) {
       const normalized = normalizeStudentName(student.name);
       const record =
-        (nameCounts.get(normalized) ?? 0) > 1
+        byStudentId.get(`${halaqah.halaqahId}:${student.id}`) ??
+        ((nameCounts.get(normalized) ?? 0) > 1
           ? null // اسم مكرر بمقاييس الحلقة: غموض
-          : (programsIndex.get(`${halaqah.halaqahId}:${normalized}`) ?? null);
+          : (byLegacyName.get(`${halaqah.halaqahId}:${normalized}`) ?? null));
       if (record === null) unmatchedCount++;
 
       const engagement = clampScore(student.engagementScore);

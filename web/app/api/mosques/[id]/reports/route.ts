@@ -1,7 +1,7 @@
 import { featureGate, parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
 import { isPeriodChoice, resolvePeriod } from "@/lib/mosque/report-periods";
-import { fetchHalaqahMetrics, fetchHalaqahStats, type HalaqahStats } from "@/lib/mosque/halaqat";
-import type { HalaqahMetrics } from "@/lib/mosque/honor-board";
+import { getHalaqahStats, getMetricsForHalaqah, type HalaqahStats } from "@/lib/mosque/halaqat";
+import type { HalaqahMetrics } from "@/lib/metrics";
 import {
   countActivitiesBetween,
   countBadgeAwardsBetween,
@@ -21,8 +21,8 @@ const CUSTOM_ERROR = "النطاق المخصص يحتاج from وto تاريخ�
 
 /**
  * تقرير فترة واحدة: مؤشرات مجمّعة من مزايا الجامع الأخرى. كل قسم يُقرأ
- * فقط عند تفعيل ميزته (كخصوصية بين المزايا)، وإحصائيات الحلقات من نظام
- * المعلّم مباشرة — تعذّر حلقة لا يكسر التقرير كله.
+ * فقط عند تفعيل ميزته (كخصوصية بين المزايا)، وإحصائيات الحلقات من قاعدة
+ * الحلقات مباشرة — فشل استعلام حلقة لا يكسر التقرير كله.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const mosqueId = parsePositiveIntParam((await params).id);
@@ -50,12 +50,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   );
 
   const halaqahs = halaqatOn ? await listHalaqahs(mosqueId) : [];
-  // إحصائيات كل حلقة + مقاييس فترة التقرير من نظام المعلّم بالتوازي — تعذّر أحدهما لا يكسر البقية
+  // إحصائيات كل حلقة + مقاييس فترة التقرير من قاعدة الحلقات بالتوازي — تعذّر أحدهما لا يكسر البقية
   const [stats, metrics] = await Promise.all([
     Promise.all(
       halaqahs.map(async (halaqah): Promise<HalaqahStats | null> => {
         try {
-          return await fetchHalaqahStats(halaqah.inviteCode);
+          return await getHalaqahStats(halaqah.id);
         } catch {
           return null;
         }
@@ -64,7 +64,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     Promise.all(
       halaqahs.map(async (halaqah): Promise<HalaqahMetrics | null> => {
         try {
-          return await fetchHalaqahMetrics(halaqah.inviteCode, period.from, period.to);
+          return await getMetricsForHalaqah(halaqah, period.from, period.to);
         } catch {
           return null;
         }

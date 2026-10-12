@@ -1,13 +1,13 @@
 import { parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
 import { unauthorized } from "@/lib/mosque/admin-auth";
 import { canAccessMosque } from "@/lib/mosque/access";
-import { createHalaqah, getMosque, isFeatureEnabled } from "@/lib/mosque/db";
-import { fetchHalaqahInfo } from "@/lib/mosque/halaqat";
+import { getMosque, isFeatureEnabled, linkHalaqahByInviteCode } from "@/lib/mosque/db";
 
 /**
- * يضيف حلقة للجامع عن طريق رمز دعوتها بنظام المعلّم — يتحقق من صحة
- * الرمز أولاً ويجيب اسم الحلقة/المعلّم منه مباشرة (لا إدخال يدوي عرضة
- * للخطأ)، فلو الرمز غلط يرفض الإضافة فوراً بدل ما يحفظ ربطاً معطوباً.
+ * يضيف حلقة للجامع برمز دعوة طلابها (إضافة يدوية من المدير): الحلقة
+ * موجودة أصلاً بقاعدة الحلقات، فيُحدَّث halaqahs.mosque_id مباشرة بعد
+ * التحقق من الرمز — اسم الحلقة والمعلّم يأتيان منها لا من إدخال يدوي.
+ * الطريق الأساسي لانضمام الحلقة هو رابط /join-mosque الذي يفتحه مشرفها.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const mosqueId = parsePositiveIntParam((await params).id);
@@ -22,11 +22,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const inviteCode = String(body.inviteCode ?? "").trim();
   if (!inviteCode) return Response.json({ error: "رمز الدعوة مطلوب" }, { status: 400 });
 
-  const info = await fetchHalaqahInfo(inviteCode);
-  if (!info) {
-    return Response.json({ error: "رمز الدعوة غير صحيح، أو نظام المعلّم غير متاح حالياً" }, { status: 400 });
+  const linked = await linkHalaqahByInviteCode(mosqueId, inviteCode);
+  if (!linked.ok) {
+    return linked.reason === "conflict"
+      ? Response.json({ error: "هذي الحلقة مضافة أصلاً لجامع آخر" }, { status: 409 })
+      : Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 400 });
   }
-
-  const id = await createHalaqah(mosqueId, info.halaqahName, info.teacherName, inviteCode);
-  return Response.json({ ok: true, id, halaqahName: info.halaqahName, teacherName: info.teacherName });
+  const { halaqah } = linked;
+  return Response.json({
+    ok: true,
+    alreadyLinked: linked.alreadyLinked,
+    id: halaqah.id,
+    halaqahName: halaqah.halaqahName,
+    teacherName: halaqah.teacherName,
+  });
 }

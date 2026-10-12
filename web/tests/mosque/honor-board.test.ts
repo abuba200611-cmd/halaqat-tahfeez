@@ -18,13 +18,13 @@ import {
 } from "@/lib/mosque/honor-board-cache";
 
 /*
-  حسابات لوحة الشرف البحتة: تطبيع الأسماء للمطابقة، درجة الحلقة والبرامج
+  حسابات لوحة الشرف البحتة: تطبيع الأسماء للمطابقة (للسجلات القديمة)، درجة الحلقة والبرامج
   والدرجة المجمّعة، وترتيب الحلقات والطلاب مع تسامح الحلقات المتعذرة.
 */
 
 function metricsStudent(name: string, engagementScore: number, extras: Partial<MetricsStudent> = {}): MetricsStudent {
   return {
-    id: 1,
+    id: `id-${name}`,
     name,
     wards: 0,
     approved: 0,
@@ -56,7 +56,8 @@ function metricsOf(students: MetricsStudent[], totals: Partial<HalaqahMetrics["t
 }
 
 const programs = (extras: Partial<StudentPrograms> = {}): StudentPrograms => ({
-  pendingId: 1,
+  registrationId: 1,
+  studentId: null,
   halaqahId: 10,
   name: "طالب",
   evaluationPercent: null,
@@ -173,9 +174,9 @@ describe("ترتيب الطلاب", () => {
         { halaqahId: 11, name: "العصر", metrics: metricsOf([metricsStudent("سعد", 60)]) },
       ],
       [
-        programs({ pendingId: 1, halaqahId: 10, name: "عبد الله", evaluationPercent: 80 }),
+        programs({ registrationId: 1, halaqahId: 10, name: "عبد الله", evaluationPercent: 80 }),
         // عبد الله آخر بحلقة أخرى لا يُطابق طالب الحلقة 10
-        programs({ pendingId: 2, halaqahId: 11, name: "عبد الله" }),
+        programs({ registrationId: 2, halaqahId: 11, name: "عبد الله" }),
       ],
     );
 
@@ -237,9 +238,46 @@ describe("غموض الأسماء المتطابقة بالحلقة", () => {
   it("سجلا برامج بنفس الاسم المُطبَّع = غموض", () => {
     const halaqahs = [{ halaqahId: 1, name: "ح", metrics: metricsOf([metricsStudent("سارة", 50)]) }];
     const result = rankStudents(halaqahs, [
-      programs({ pendingId: 1, halaqahId: 1, name: "سارة", evaluationPercent: 100 }),
-      programs({ pendingId: 2, halaqahId: 1, name: "ساره", evaluationPercent: 0 }),
+      programs({ registrationId: 1, halaqahId: 1, name: "سارة", evaluationPercent: 100 }),
+      programs({ registrationId: 2, halaqahId: 1, name: "ساره", evaluationPercent: 0 }),
     ]);
     expect(result.students[0].matched).toBe(false);
+  });
+});
+
+describe("المطابقة بمعرّف الطالب الحقيقي", () => {
+  const halaqahs = [
+    {
+      halaqahId: 1,
+      name: "ح",
+      metrics: metricsOf([metricsStudent("سارة", 50), metricsStudent("سارة محمد", 70)]),
+    },
+  ];
+
+  it("student_id يطابق تماماً حتى مع اسمين متشابهين أو مختلفين", () => {
+    const ranking = rankStudents(halaqahs, [
+      programs({ registrationId: 1, studentId: "id-سارة محمد", halaqahId: 1, name: "اسم آخر كلياً", evaluationPercent: 100 }),
+    ]);
+    const matched = ranking.students.filter((row) => row.matched);
+    expect(matched).toHaveLength(1);
+    expect(matched[0].name).toBe("سارة محمد");
+    expect(ranking.unmatchedCount).toBe(1);
+  });
+
+  it("المعرّف لا يتعدّى حدود الحلقة: نفس student_id بحلقة أخرى لا يطابق", () => {
+    const ranking = rankStudents(halaqahs, [
+      programs({ registrationId: 1, studentId: "id-سارة", halaqahId: 2, name: "سارة" }),
+    ]);
+    expect(ranking.students.every((row) => !row.matched)).toBe(true);
+  });
+
+  it("سجل بمعرّف لا يرجع للاسم، وسجل بلا معرّف (منقول قديم) يطابق بالاسم", () => {
+    const withId = rankStudents(halaqahs, [
+      programs({ registrationId: 1, studentId: "غائب", halaqahId: 1, name: "سارة" }),
+    ]);
+    expect(withId.students.every((row) => !row.matched)).toBe(true);
+
+    const legacy = rankStudents(halaqahs, [programs({ registrationId: 2, studentId: null, halaqahId: 1, name: "سارة" })]);
+    expect(legacy.students.find((row) => row.name === "سارة")?.matched).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import { parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
 import { unauthorized } from "@/lib/mosque/admin-auth";
 import { canAccessMosque } from "@/lib/mosque/access";
-import { getMosque, getMosqueFeatures, listHalaqahs, listPendingStudents } from "@/lib/mosque/db";
+import { getMosque, getMosqueFeatures, listHalaqahs, listMosqueRegistrations } from "@/lib/mosque/db";
 import { effectiveFeatures } from "@/lib/mosque/features";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,10 +12,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const mosque = await getMosque(id);
   if (!mosque) return Response.json({ error: "الجامع غير موجود" }, { status: 404 });
 
-  const [halaqahs, pending, features] = await Promise.all([
+  const [halaqahs, registrations, features] = await Promise.all([
     listHalaqahs(id),
-    listPendingStudents(id),
+    listMosqueRegistrations(id),
     getMosqueFeatures(id),
   ]);
-  return Response.json({ mosque, halaqahs, pending, features: effectiveFeatures(features) });
+  return Response.json({ mosque, halaqahs, registrations, features: effectiveFeatures(features) });
 }

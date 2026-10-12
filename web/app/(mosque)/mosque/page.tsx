@@ -124,7 +124,7 @@ function Dashboard({ onLoggedOut }: { onLoggedOut: () => void }) {
 
   return (
     <DashboardShell
-      nav={[{ href: "/", label: "الرئيسية", icon: <HomeIcon />, active: true }]}
+      nav={[{ href: "/mosque", label: "الرئيسية", icon: <HomeIcon />, active: true }]}
       title="أهلاً بك 👋"
       subtitle="نظرة عامة على كل الجوامع اللي تديرها"
       userLabel="المشرف العام"

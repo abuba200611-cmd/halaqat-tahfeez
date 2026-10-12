@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatWeek, isSaturday, parseWeekStart, recentWeeks, saturdayOf, summarizeWeek } from "@/lib/evaluation";
+import { formatWeek, isSaturday, parseWeekStart, recentWeeks, saturdayOf, summarizeWeek } from "@/lib/mosque/evaluation";
 
 describe("أسابيع التقييم (تبدأ السبت)", () => {
   it("أقرب سبت ≤ التاريخ لكل أيام الأسبوع", () => {
