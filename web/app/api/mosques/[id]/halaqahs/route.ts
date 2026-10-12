@@ -1,6 +1,7 @@
 import { parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
 import { unauthorized } from "@/lib/mosque/admin-auth";
 import { canAccessMosque } from "@/lib/mosque/access";
+import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import { getMosque, isFeatureEnabled, linkHalaqahByInviteCode } from "@/lib/mosque/db";
 
 /**
@@ -17,6 +18,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!(await isFeatureEnabled(mosqueId, "halaqat"))) {
     return Response.json({ error: "الحلقات غير مفعّلة لهذا الجامع" }, { status: 404 });
   }
+
+  // تخمين رموز الدعوة (يشاركها المعلّم مع طلابه) — حدّ لكل جامع
+  if (!(await checkRateLimit(`mosque-link-halaqah:${mosqueId}`, 20, 60 * 60))) return rateLimited();
 
   const body = (await request.json().catch(() => ({}))) as { inviteCode?: unknown };
   const inviteCode = String(body.inviteCode ?? "").trim();
