@@ -12,6 +12,11 @@ import {
   setVapidKeys,
   vapidKeys,
 } from "./db";
+import {
+  deleteParentPushSubscription,
+  listParentPushTargetsForStudent,
+  markParentPushSubscriptionSuccess,
+} from "./parent-db";
 
 /*
   إشعارات الويب (Web Push) عبر مكتبة web-push — جافاسكربت خالص بلا تبعيات native.
@@ -108,6 +113,50 @@ export async function sendPushToStudent(teacherId: number, studentId: string, pa
         const status = (error as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
           await deleteStudentPushSubscription(teacherId, studentId, sub.endpoint);
+        }
+      }
+    }),
+  );
+}
+
+/**
+ * يرسل إشعاراً لكل أجهزة كل أولياء أمر طالب بعينه (STEP 61) عند قرار المعلّم
+ * على ورده. النص يحمل اسم الابن (يُقرأ من الجدول مع الاشتراكات) ولا يحمل
+ * ملاحظة المعلّم. لا يرمي أبداً — نفس مبدأ sendPushToStudent.
+ */
+export async function sendPushToParentsOfStudent(
+  halaqahId: number,
+  studentId: string,
+  decision: "approved" | "needs_revision",
+): Promise<void> {
+  const publicKey = await ensureConfigured();
+  if (!publicKey) return;
+
+  let targets;
+  try {
+    targets = await listParentPushTargetsForStudent(halaqahId, studentId);
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    targets.map(async (target) => {
+      const payload: PushPayload = {
+        title: decision === "approved" ? `تم اعتماد ورد ${target.studentName} ✅` : `ورد ${target.studentName} يحتاج مراجعة`,
+        body: decision === "approved" ? "اعتمد المعلّم ورده الأخير." : "طلب المعلّم إعادة ورده الأخير.",
+        url: "/parent",
+        tag: `parent-ward-${studentId}`,
+      };
+      try {
+        await webpush.sendNotification(
+          { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
+          JSON.stringify(payload),
+        );
+        await markParentPushSubscriptionSuccess(target.endpoint);
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await deleteParentPushSubscription(target.parentId, target.endpoint).catch(() => {});
         }
       }
     }),

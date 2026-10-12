@@ -7,6 +7,7 @@ import { IslamicPattern } from "@/app/(teacher)/page";
 import { WardListItem } from "@/components/ward-list";
 import { useStudentWards } from "@/components/use-student-wards";
 import { useStudentSession } from "@/components/student-gate";
+import { ParentInviteLink } from "@/components/parent-invite-link";
 import { canEditWard } from "@/lib/ward-ayah";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { surahName, TOTAL_MUSHAF_PAGES } from "@/lib/quran-surahs";
@@ -273,6 +274,15 @@ export default function StudentDashboardPage() {
           </section>
         </>
       )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <h2 className="mb-1 text-sm font-semibold text-slate-700">👪 شارك مع ولي أمرك</h2>
+        <p className="mb-2 text-xs text-slate-500">أنشئ رابطاً يفتحه ولي أمرك ليتابع تقدّمك (قراءة فقط).</p>
+        <ParentInviteLink
+          endpoint="/api/student/parent-link"
+          shareText="رابط متابعة حفظي في الحلقة:"
+        />
+      </div>
     </div>
   );
 }

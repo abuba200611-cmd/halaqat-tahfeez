@@ -11,7 +11,7 @@ import {
   type NewReviewSegment,
   type NewWardLog,
 } from "@/lib/db";
-import { sendPushToHalaqah, sendPushToStudent } from "@/lib/push";
+import { sendPushToHalaqah, sendPushToParentsOfStudent, sendPushToStudent } from "@/lib/push";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import type { WardStatus } from "@/lib/types";
 
@@ -311,6 +311,16 @@ export async function PATCH(request: Request) {
         ]);
       } catch {
         // فشل الإشعار لا يغيّر نتيجة الاعتماد أبداً — الرد أُرسل مسبقاً بالفعل
+      }
+      // STEP 61: أولياء الأمور المرتبطون بالطالب — بمحاولة وسقف ٣ ثوانٍ مستقلَّين
+      // عن إشعار الطالب أعلاه، فلا يؤخّر أحدهما الآخر ولا يُفشله
+      try {
+        await Promise.race([
+          sendPushToParentsOfStudent(teacher.halaqahId, result.studentId, status),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      } catch {
+        // نفس مبدأ الطالب: فشل إشعار الولي لا يؤثر على شيء
       }
     });
   }
