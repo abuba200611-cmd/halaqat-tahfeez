@@ -7,6 +7,8 @@ import { useParentSession } from "@/components/parent-shell";
 import { ParentPushToggle } from "@/components/parent-push-toggle";
 import { AttendanceSummaryCard } from "@/components/attendance-summary";
 import type { AttendanceSummary } from "@/lib/attendance";
+import { MonthlyPlanCard } from "@/components/monthly-plan-card";
+import type { PlanView } from "@/lib/monthly-plan";
 import type { ParentChildSummary } from "@/lib/parent-summary";
 import { STATUS_LABEL, statusTone } from "@/lib/student-ward-display";
 
@@ -144,6 +146,24 @@ function useChildAttendance(child: Child): AttendanceSummary | null {
   return summary;
 }
 
+/** خطة الابن لهذا الشهر الهجري — صامتة عند الفشل ولا تعطّل بقية اللوحة */
+function useChildPlan(child: Child): PlanView | null {
+  const [plan, setPlan] = useState<PlanView | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/parent/plan?halaqahId=${child.halaqahId}&studentId=${encodeURIComponent(child.studentId)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { plan?: PlanView | null } | null) => {
+        if (!cancelled) setPlan(data?.plan ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [child.halaqahId, child.studentId]);
+  return plan;
+}
+
 function ChildPanel({ child }: { child: Child }) {
   // null = لم يُجلب بعد، "error" = تعذّر، وإلا البيانات
   const [detail, setDetail] = useState<ChildDetail | "error" | null>(null);
@@ -164,6 +184,7 @@ function ChildPanel({ child }: { child: Child }) {
   }, [child.halaqahId, child.studentId]);
 
   const attendance = useChildAttendance(child);
+  const monthlyPlan = useChildPlan(child);
 
   if (detail === null) return <p className="text-sm text-slate-500">جارٍ تحميل بيانات {child.studentName}…</p>;
   if (detail === "error") return <p className="text-sm text-red-600">تعذّر تحميل البيانات.</p>;
@@ -205,6 +226,8 @@ function ChildPanel({ child }: { child: Child }) {
           </p>
         )}
       </div>
+
+      <MonthlyPlanCard view={monthlyPlan} title="خطة هذا الشهر" />
 
       <AttendanceSummaryCard summary={attendance} />
 
