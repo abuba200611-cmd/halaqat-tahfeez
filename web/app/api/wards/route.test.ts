@@ -40,7 +40,11 @@ const rateLimitMocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/rate-limit", () => rateLimitMocks);
 
-const pushMocks = vi.hoisted(() => ({ sendPushToHalaqah: vi.fn(), sendPushToStudent: vi.fn() }));
+const pushMocks = vi.hoisted(() => ({
+  sendPushToHalaqah: vi.fn(),
+  sendPushToStudent: vi.fn(),
+  sendPushToParentsOfStudent: vi.fn(),
+}));
 vi.mock("@/lib/push", () => pushMocks);
 
 const { POST, PATCH } = await import("./route");
@@ -100,6 +104,32 @@ describe("PATCH /api/wards — الإشعار الفوري عبر after() لا �
 
     expect(res.status).toBe(200);
     expect(afterMocks.after).toHaveBeenCalledTimes(1);
+  });
+
+  it("STEP 61: الاعتماد يُشعر أولياء الأمور بعد الرد، وفشلهم لا يغيّر النتيجة ولا يمنع إشعار الطالب", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue({ studentId: "s1" });
+    pushMocks.sendPushToParentsOfStudent.mockRejectedValue(new Error("parent push down"));
+
+    const res = await PATCH(patchReq({ id: 17, status: "approved" }));
+
+    expect(res.status).toBe(200);
+    expect(pushMocks.sendPushToParentsOfStudent).not.toHaveBeenCalled(); // لا يُستدعى قبل after()
+    await expect(afterMocks.lastCallback?.()).resolves.toBeUndefined();
+    expect(pushMocks.sendPushToStudent).toHaveBeenCalledTimes(1);
+    expect(pushMocks.sendPushToParentsOfStudent).toHaveBeenCalledWith(1, "s1", "approved");
+  });
+
+  it("STEP 61: طلب الإعادة يُشعر الأولياء بقرار needs_revision", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue({ studentId: "s1" });
+    await PATCH(patchReq({ id: 17, status: "needs_revision", note: "أعد" }));
+    await afterMocks.lastCallback?.();
+    expect(pushMocks.sendPushToParentsOfStudent).toHaveBeenCalledWith(1, "s1", "needs_revision");
+  });
+
+  it("STEP 61: 'اطّلع' (seen) لا يُشعر الأولياء", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue({ studentId: "s1" });
+    await PATCH(patchReq({ id: 17, status: "seen" }));
+    expect(pushMocks.sendPushToParentsOfStudent).not.toHaveBeenCalled();
   });
 
   it("لا يُجدوَل أي إشعار عند 'اطّلع' (seen) — ليس قراراً بعد", async () => {

@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 import { LinkPanel } from "@/components/link-button";
+import { ParentInviteLink } from "@/components/parent-invite-link";
 import { pageCount, studentJuzes } from "@/lib/pairing";
 import { juzLabel, juzToPages } from "@/lib/quran";
 import { useStudents } from "@/lib/store";
 import type { Student } from "@/lib/types";
 
 type DeletedStudent = { id: string; name: string; deletedAt: string };
+type ParentEntry = { parentId: number; name: string; email: string };
 
 function avgMastery(student: Student): number {
   const vals = Object.values(student.mastery);
@@ -26,6 +28,29 @@ export default function StudentsPage() {
   const [linkSummaries, setLinkSummaries] = useState<Record<string, string>>({});
   const [linkFor, setLinkFor] = useState<Student | null>(null);
   const [deleted, setDeleted] = useState<DeletedStudent[]>([]);
+  const [parents, setParents] = useState<Record<string, ParentEntry[]>>({});
+  const [canUnlinkParents, setCanUnlinkParents] = useState(false);
+  const [parentsFor, setParentsFor] = useState<Student | null>(null);
+
+  const loadParents = useCallback(() => {
+    fetch("/api/students/parents")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { parents?: Record<string, ParentEntry[]>; canUnlink?: boolean } | null) => {
+        if (data?.parents) setParents(data.parents);
+        setCanUnlinkParents(data?.canUnlink === true);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function unlinkParent(studentId: string, parent: ParentEntry) {
+    if (!confirm(`فكّ ربط ${parent.name} بهذا الطالب؟ لن يتمكّن من متابعته بعدها.`)) return;
+    const res = await fetch("/api/students/parents", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, parentId: parent.parentId }),
+    });
+    if (res.ok) loadParents();
+  }
 
   const loadDeleted = useCallback(() => {
     fetch("/api/students/deleted")
@@ -71,7 +96,8 @@ export default function StudentsPage() {
     loadUsernames();
     loadLinks();
     loadDeleted();
-  }, [loadUsernames, loadLinks, loadDeleted]);
+    loadParents();
+  }, [loadUsernames, loadLinks, loadDeleted, loadParents]);
 
   const filtered = useMemo(() => {
     const q = query.trim();
@@ -156,6 +182,48 @@ export default function StudentsPage() {
         />
       )}
 
+      {parentsFor && (
+        <Card className="no-print space-y-3 p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">
+              أولياء الأمور: <span className="font-naskh">{parentsFor.name}</span>
+            </h2>
+            <button
+              onClick={() => setParentsFor(null)}
+              className="cursor-pointer text-xs text-muted-foreground hover:underline"
+            >
+              إغلاق
+            </button>
+          </div>
+          <ParentInviteLink
+            endpoint="/api/students/parent-link"
+            studentId={parentsFor.id}
+            shareText={`رابط متابعة ${parentsFor.name} في الحلقة:`}
+          />
+          {(parents[parentsFor.id] ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground">لا أولياء أمور مرتبطون بعد.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {parents[parentsFor.id].map((p) => (
+                <li key={p.parentId} className="flex items-center justify-between gap-2 text-sm">
+                  <span>
+                    {p.name} <span dir="ltr" className="text-xs text-muted-foreground">{p.email}</span>
+                  </span>
+                  {canUnlinkParents && (
+                    <button
+                      onClick={() => unlinkParent(parentsFor.id, p)}
+                      className="cursor-pointer rounded px-2 py-1 text-xs text-destructive hover:bg-muted"
+                    >
+                      فكّ الربط
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[36rem] text-right text-sm">
           <thead className="border-b border-border bg-muted/50">
@@ -181,6 +249,11 @@ export default function StudentsPage() {
                         <Badge tone="good">حساب</Badge>
                       </span>
                     )}
+                    {(parents[student.id]?.length ?? 0) > 0 && (
+                      <span className="mr-2 text-xs text-muted-foreground" title="أولياء أمور مرتبطون">
+                        👪 {parents[student.id].length}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{student.group}</td>
                   <td className="tabular px-3 py-2">{pageCount(student)} ص</td>
@@ -202,6 +275,12 @@ export default function StudentsPage() {
                         الحساب
                       </button>
                     )}
+                    <button
+                      onClick={() => setParentsFor(student)}
+                      className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      رابط ولي الأمر
+                    </button>
                     <button
                       onClick={() => setLinkFor(student)}
                       className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
