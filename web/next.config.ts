@@ -13,8 +13,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // كل المسارات عدا صفحة تسجيل التلاوة: الميكروفون محجوب كما كان
-        source: "/((?!student/recitations$).*)",
+        // كل المسارات: الميكروفون محجوب؛ القاعدة التالية تتغلّب عليها لصفحة التلاوة (آخر قاعدة تفوز بنفس المفتاح)
+        source: "/(.*)",
         headers: [
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
