@@ -202,6 +202,49 @@ export async function sendPushToParentsOfAbsence(halaqahId: number, studentId: s
   );
 }
 
+/**
+ * يرسل إشعاراً لأولياء أمر طالب بعينه عند تقييم المعلّم لتلاوته (STEP 64).
+ * النص يحمل اسم الابن والدرجة فقط — لا ملاحظة المعلّم. لا يرمي أبداً.
+ */
+export async function sendPushToParentsOfRecitation(
+  halaqahId: number,
+  studentId: string,
+  score: number,
+): Promise<void> {
+  const publicKey = await ensureConfigured();
+  if (!publicKey) return;
+
+  let targets;
+  try {
+    targets = await listParentPushTargetsForStudent(halaqahId, studentId);
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    targets.map(async (target) => {
+      const payload: PushPayload = {
+        title: `تم تقييم تلاوة ${target.studentName}`,
+        body: `الدرجة: ${score} من 10.`,
+        url: "/parent",
+        tag: `parent-recitation-${studentId}`,
+      };
+      try {
+        await webpush.sendNotification(
+          { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
+          JSON.stringify(payload),
+        );
+        await markParentPushSubscriptionSuccess(target.endpoint);
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await deleteParentPushSubscription(target.parentId, target.endpoint).catch(() => {});
+        }
+      }
+    }),
+  );
+}
+
 export type ReminderResult = { sent: number; skipped: number; removed: number; failed: number };
 
 /**

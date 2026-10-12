@@ -281,3 +281,13 @@ export function ClipboardIcon(props: IconProps) {
     props,
   );
 }
+
+export function MicIcon(props: IconProps) {
+  return base(
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" />
+    </>,
+    props,
+  );
+}
