@@ -153,6 +153,8 @@ function AdminLogin({ onIn }: { onIn: () => Promise<void> }) {
         setError(data?.error ?? "كلمة السر غير صحيحة");
         return;
       }
+      // بعد الدخول نفتح لوحة المطوّر نفسها، والاقتراحات قسم داخلها
+      window.location.assign("/dev");
       await onIn();
     } finally {
       setBusy(false);
