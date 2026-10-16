@@ -146,7 +146,7 @@ describe("dismissStudent — الفصل النهائي", () => {
     results.push([{ written: 1 }]);
     const result = await dismissStudent({ mosqueId: 3, halaqahId: 7, studentId: "s1", committeeNote: "قرار اللجنة بعد الاستدعاءات" });
     expect(result.found).toBe(true);
-    expect(calls[0].text).toContain("h.mosque_id");
+    expect(calls[0].text).toContain("mosque_id =");
     expect(calls[0].text).toContain("'dismissal'");
     expect(calls[0].text).toContain("UPDATE students SET active = false");
     expect(calls[0].values).toEqual(expect.arrayContaining([3, 7, "s1", "قرار اللجنة بعد الاستدعاءات"]));

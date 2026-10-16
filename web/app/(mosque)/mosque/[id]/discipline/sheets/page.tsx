@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Badge, Button, Card, Empty } from "@/components/mosque/ui";
 import { ApiState, MosquePage } from "@/components/mosque/mosque-page";
-import { useApi, callApi } from "@/components/mosque/use-api";
+import { callApi } from "@/components/mosque/use-api";
 import { hijriMonthOfISO, monthLabel, shiftMonthKey } from "@/lib/hijri";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 
@@ -71,8 +71,22 @@ export default function MosqueSheetsPage() {
   );
 
   useEffect(() => {
-    reload(month);
-  }, [reload, month]);
+    let cancelled = false;
+    fetcher(month).then((d) => {
+      if (cancelled) return;
+      setData(d);
+      setStatus(d ? 200 : 0);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetcher, month]);
+
+  function changeMonth(m: string) {
+    setLoading(true);
+    setMonth(m);
+  }
 
   async function setSheet(row: MosqueSheetRow, action: "review" | "reopen") {
     setBusyKey(row.halaqahId);
@@ -101,11 +115,11 @@ export default function MosqueSheetsPage() {
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => prev && setMonth(prev)} disabled={!prev} aria-label="الشهر السابق">
+            <Button variant="ghost" onClick={() => prev && changeMonth(prev)} disabled={!prev} aria-label="الشهر السابق">
               ←
             </Button>
             <span className="min-w-36 text-center text-sm font-semibold">{label}</span>
-            <Button variant="ghost" onClick={() => next && setMonth(next)} disabled={!next} aria-label="الشهر التالي">
+            <Button variant="ghost" onClick={() => next && changeMonth(next)} disabled={!next} aria-label="الشهر التالي">
               →
             </Button>
           </div>

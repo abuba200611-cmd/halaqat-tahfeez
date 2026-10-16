@@ -182,9 +182,7 @@ function ViolationForm({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ stepLabel: string; suspensionUntil: string | null } | null>(null);
 
-  useEffect(() => {
-    if (!categories.includes(category)) setCategory(categories[0] ?? "");
-  }, [categories, category]);
+  const effectiveCategory = categories.includes(category) ? category : (categories[0] ?? "");
 
   async function submit() {
     setBusy(true);
@@ -194,7 +192,7 @@ function ViolationForm({
       const res = await fetch("/api/discipline/violation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, category, note: note.trim() || undefined }),
+        body: JSON.stringify({ studentId, category: effectiveCategory, note: note.trim() || undefined }),
       });
       const d = (await res.json().catch(() => ({}))) as {
         error?: string;
@@ -255,7 +253,7 @@ function ViolationForm({
             <label className="block text-sm">
               <span className="mb-1 block text-muted-foreground">التصنيف</span>
               <select
-                value={category}
+                value={effectiveCategory}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
               >
@@ -275,7 +273,7 @@ function ViolationForm({
             aria-label="تفاصيل المخالفة"
             className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
           />
-          <Button onClick={submit} disabled={busy || !studentId || !category}>
+          <Button onClick={submit} disabled={busy || !studentId || !effectiveCategory}>
             {busy ? "جارٍ الحفظ…" : "تسجيل المخالفة"}
           </Button>
         </div>

@@ -240,9 +240,9 @@ describe("ملخّص حضور الشهر", () => {
 
 describe("CSV", () => {
   it("يهرب الفواصل وعلامات الاقتباس ويسطر برأس واحد", () => {
-    const csv = sheetToCsv(["الاسم", "الحضور"], [["أحمد، الصغير", 'قول "نعم"'], [3, 4]]);
+    const csv = sheetToCsv(["الاسم", "الحضور"], [["أحمد,الصغير", 'قول "نعم"'], [3, 4]]);
     expect(csv.split("\r\n")).toHaveLength(3);
-    expect(csv).toContain('"أحمد، الصغير"');
+    expect(csv).toContain('"أحمد,الصغير"');
     expect(csv).toContain('"قول ""نعم"""');
   });
 });

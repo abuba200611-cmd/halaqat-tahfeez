@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { Button, Card } from "@/components/mosque/ui";
 import { ApiState, MosquePage, inputClass } from "@/components/mosque/mosque-page";
@@ -58,7 +58,11 @@ function SettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => setConfig(initial), [initial]);
+  const [seen, setSeen] = useState(initial);
+  if (seen !== initial) {
+    setSeen(initial);
+    setConfig(initial);
+  }
 
   function setNumber(section: "absence" | "violations", key: string, value: string) {
     const num = value === "" ? 0 : Number(value);

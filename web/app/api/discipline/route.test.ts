@@ -37,6 +37,7 @@ const teacher = (role: "supervisor" | "assistant") => ({ id: 7, halaqahId: 3, ha
 describe("GET /api/discipline — بوابة المعلّم", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    dbMocks.runAbsenceLadder.mockResolvedValue([]);
     authMocks.currentTeacher.mockResolvedValue(teacher("supervisor"));
     dbMocks.disciplineContextForHalaqah.mockResolvedValue({
       mosqueId: 5,
@@ -63,7 +64,7 @@ describe("GET /api/discipline — بوابة المعلّم", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     expect(dbMocks.restoreExpiredSuspensions).toHaveBeenCalledWith({ halaqahId: 3 });
-    expect(dbMocks.runAbsenceLadder).toHaveBeenCalledWith(3, expect.any(String), expect.objectContaining({ mosqueId: 5 }));
+    expect(dbMocks.runAbsenceLadder).toHaveBeenCalledWith(3, expect.any(String), expect.objectContaining({ absence: {} }));
     expect(dbMocks.listHalaqahEvents).toHaveBeenCalledWith(3);
     expect(dbMocks.listHalaqahStudentsBasic).toHaveBeenCalledWith(3);
     expect(dbMocks.listActiveSuspensions).toHaveBeenCalledWith({ halaqahId: 3 });

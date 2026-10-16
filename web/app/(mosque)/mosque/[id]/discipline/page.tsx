@@ -153,8 +153,6 @@ function DismissalForm({ mosqueId, onDone }: { mosqueId: number; onDone: () => v
   const [done, setDone] = useState<string | null>(null);
 
   useEffect(() => {
-    setStudentId("");
-    setStudents([]);
     if (!halaqahId) return;
     let cancelled = false;
     fetch(`/api/mosques/${mosqueId}/discipline/students?halaqahId=${halaqahId}`)
@@ -200,7 +198,11 @@ function DismissalForm({ mosqueId, onDone }: { mosqueId: number; onDone: () => v
       {error && <p className="text-sm text-destructive">{error}</p>}
       {done && <p className="text-sm text-emerald-700">{done}</p>}
       <div className="grid gap-2 sm:grid-cols-3">
-        <select value={halaqahId} onChange={(e) => setHalaqahId(e.target.value)} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm" aria-label="الحلقة">
+        <select value={halaqahId} onChange={(e) => {
+          setHalaqahId(e.target.value);
+          setStudentId("");
+          setStudents([]);
+        }} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm" aria-label="الحلقة">
           <option value="">— الحلقة —</option>
           {(halaqat?.halaqahs ?? []).map((h) => (
             <option key={h.id} value={h.id}>
