@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthCard, AuthShell } from "./auth-shell";
+import { RoleSwitcher } from "./role-switcher";
 import { BellIcon, CloseIcon, EyeIcon, EyeOffIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
 import { resetStore } from "@/lib/store";
 
@@ -138,6 +139,9 @@ function Sidebar({
           <CloseIcon size={20} />
         </button>
       </div>
+      <p className="-mt-3 px-5 pb-2 text-[10px]" style={{ color: B.sidebarText }}>
+        MOS — نظام تشغيل الجامع
+      </p>
 
       <nav className="mt-2 flex-1 space-y-1 overflow-y-auto px-3">
         {nav.map((item) => {
@@ -185,6 +189,7 @@ function Sidebar({
             <LogoutIcon size={17} />
           </button>
         </div>
+        <RoleSwitcher />
       </div>
     </>
   );

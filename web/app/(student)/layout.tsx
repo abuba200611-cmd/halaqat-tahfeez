@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { StudentGate } from "@/components/student-gate";
 import { BookIcon, ChartIcon, ClipboardIcon, HomeIcon, MessageIcon, MicIcon, SettingsIcon } from "@/components/icons";
 
-/** يستبدل عنوان التبويب الموروث من الجذر ("المعلم...") لكل صفحات الطالب */
-export const metadata: Metadata = { title: "وردي" };
+/** يستبدل عنوان التبويب الموروث من الجذر لكل صفحات الطالب — اسم القسم يبقى مع وسم MOS (M5) */
+export const metadata: Metadata = { title: "وردي — MOS" };
 
 const NAV = [
   { href: "/student", label: "الرئيسية", desc: "نظرة عامة على وردك", icon: <HomeIcon size={19} /> },

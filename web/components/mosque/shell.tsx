@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { RoleSwitcher } from "../role-switcher";
 import { LogoutIcon, MenuIcon, XIcon } from "./icons";
 
 type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean };
@@ -34,7 +35,7 @@ export function DashboardShell({
       <div className="mb-6 flex items-center justify-between px-2">
         <div>
           <p className="font-naskh text-lg font-bold">إدارة الجامع</p>
-          <p className="text-xs text-white/60">لوحة القيادة</p>
+          <p className="text-xs text-white/60">MOS — نظام تشغيل الجامع</p>
         </div>
         <button
           onClick={() => setOpen(false)}
@@ -77,6 +78,9 @@ export function DashboardShell({
           </button>
         </div>
       )}
+      <div className="mt-2">
+        <RoleSwitcher />
+      </div>
     </>
   );
 

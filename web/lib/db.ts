@@ -2,6 +2,7 @@ import "server-only";
 
 import { getDatabase } from "@netlify/database";
 import { createHash, randomBytes } from "node:crypto";
+import { ensureStudentIdentity, ensureTeacherIdentity } from "./identity";
 import type { ProcessedImage } from "./image-processing";
 import { juzesOfRange } from "./quran";
 import type {
@@ -87,7 +88,9 @@ function rowToTeacherAccount(row: Record<string, unknown>): Teacher & { password
 
 /**
  * ينشئ حلقة جديدة وأول معلّم لها (مشرف) معاً — هذا هو مسار "أنشئ حلقة"
- * بشاشة التسجيل. يرجع معرّف حساب المعلّم الجديد.
+ * بشاشة التسجيل. يرجع معرّف حساب المعلّم الجديد. ترانزاكشن واحدة تشمل
+ * هوية M5 (user+membership) فلا يوجد معلّم بلا هوية موحّدة إلا لو فشل
+ * إنشاؤه كله.
  */
 export async function createHalaqahWithSupervisor(
   username: string,
@@ -96,22 +99,41 @@ export async function createHalaqahWithSupervisor(
   emailVerified = false,
   teacherName = "",
 ): Promise<number> {
-  const halaqahRows = await db().sql`
-    INSERT INTO halaqahs (name) VALUES (${halaqahName || "حلقتي"}) RETURNING id
-  `;
-  const halaqahId = Number(halaqahRows[0].id);
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const halaqahRows = await client.query(`INSERT INTO halaqahs (name) VALUES ($1) RETURNING id`, [
+      halaqahName || "حلقتي",
+    ]);
+    const halaqahId = Number(halaqahRows.rows[0].id);
 
-  const rows = await db().sql`
-    INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
-    VALUES (${username}, ${passwordHash}, ${halaqahId}, 'supervisor', ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
-    RETURNING id
-  `;
-  return Number(rows[0].id);
+    const rows = await client.query(
+      `INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
+       VALUES ($1, $2, $3, 'supervisor', $4, $5, $6) RETURNING id`,
+      [username, passwordHash, halaqahId, teacherName, emailVerified, new Date().toISOString()],
+    );
+    const teacherId = Number(rows.rows[0].id);
+    await ensureTeacherIdentity(client, {
+      id: teacherId,
+      username,
+      teacherName,
+      halaqahId,
+      role: "supervisor",
+    });
+    await client.query("COMMIT");
+    return teacherId;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /**
  * ينضم معلّم جديد (مساعد مشرف) لحلقة قائمة عبر رمز دعوة المعلّمين
  * الخاص بها (منفصل عن رمز دعوة الطلاب). يرجع null لو الرمز غير صحيح.
+ * إنشاء الحساب وهويته الموحّدة (M5) بترانزاكشن واحدة.
  */
 export async function joinHalaqahAsAssistant(
   teacherInviteCode: string,
@@ -124,12 +146,30 @@ export async function joinHalaqahAsAssistant(
   const halaqahId = halaqahRows[0]?.id as number | undefined;
   if (!halaqahId) return null;
 
-  const rows = await db().sql`
-    INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
-    VALUES (${username}, ${passwordHash}, ${halaqahId}, 'assistant', ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
-    RETURNING id
-  `;
-  return Number(rows[0].id);
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const rows = await client.query(
+      `INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
+       VALUES ($1, $2, $3, 'assistant', $4, $5, $6) RETURNING id`,
+      [username, passwordHash, halaqahId, teacherName, emailVerified, new Date().toISOString()],
+    );
+    const teacherId = Number(rows.rows[0].id);
+    await ensureTeacherIdentity(client, {
+      id: teacherId,
+      username,
+      teacherName,
+      halaqahId,
+      role: "assistant",
+    });
+    await client.query("COMMIT");
+    return teacherId;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function findTeacherByUsername(
@@ -504,13 +544,21 @@ export async function setStudentRating(teacherId: number, studentId: string, rat
   return rows.length > 0;
 }
 
-/** حذف ناعم — يبقى السطر ٢٤ ساعة قابلاً للاسترجاع بدل حذفه فوراً */
+/** حذف ناعم — يبقى السطر ٢٤ ساعة قابلاً للاسترجاع بدل حذفه فوراً.
+ * يُطفئ عضوية هوية الطالب (M5) إن وُجدت — أفضل جهد لا أكثر: التحقق الفعلي
+ * عند أي تبديل دور يقرأ صف الطالب الحي، فبقاء العلم قديماً لا يفتح شيئاً. */
 export async function deleteStudent(teacherId: number, id: string): Promise<boolean> {
   const rows = await db().sql`
     UPDATE students SET deleted_at = now()
     WHERE teacher_id = ${teacherId} AND id = ${id} AND deleted_at IS NULL
     RETURNING id
   `;
+  if (rows.length > 0) {
+    await db().sql`
+      UPDATE memberships SET active = FALSE
+      WHERE legacy_kind = 'student' AND legacy_id = ${`${teacherId}:${id}`}
+    `;
+  }
   return rows.length > 0;
 }
 
@@ -534,6 +582,12 @@ export async function restoreStudent(teacherId: number, id: string): Promise<boo
       AND deleted_at IS NOT NULL AND deleted_at > now() - interval '24 hours'
     RETURNING id
   `;
+  if (rows.length > 0) {
+    await db().sql`
+      UPDATE memberships SET active = TRUE
+      WHERE legacy_kind = 'student' AND legacy_id = ${`${teacherId}:${id}`}
+    `;
+  }
   return rows.length > 0;
 }
 
@@ -639,28 +693,57 @@ export async function deleteSchedule(teacherId: number, id: number): Promise<boo
 
 // ————— حسابات الطلاب (دخول الطالب لنظامه) —————
 
-/** يمنح الطالب اسم مستخدم وكلمة مرور، أو يحدّثهما. يرمي عند تكرار الاسم */
+/** يمنح الطالب اسم مستخدم وكلمة مرور، أو يحدّثهما. يرمي عند تكرار الاسم.
+ * من لحظة منح الطالب دخولاً يصبح صاحب هوية موحّدة (M5): user+membership
+ * تنشآن/تُحدَّثان بترانزاكشن التحديث نفسها. */
 export async function setStudentCredentials(
   teacherId: number,
   studentId: string,
   username: string,
   passwordHash: string,
 ): Promise<void> {
-  const exists = await db().sql`
-    SELECT 1 FROM students WHERE teacher_id = ${teacherId} AND id = ${studentId}
-  `;
-  if (exists.length === 0) throw new Error("الطالب غير موجود");
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const exists = await client.query(`SELECT 1 FROM students WHERE teacher_id = $1 AND id = $2`, [
+      teacherId,
+      studentId,
+    ]);
+    if (exists.rowCount === 0) {
+      await client.query("ROLLBACK");
+      throw new Error("الطالب غير موجود");
+    }
 
-  const taken = await db().sql`
-    SELECT 1 FROM students
-    WHERE username = ${username} AND NOT (teacher_id = ${teacherId} AND id = ${studentId})
-  `;
-  if (taken.length > 0) throw new Error("اسم المستخدم مستخدم من قبل");
+    const taken = await client.query(
+      `SELECT 1 FROM students
+       WHERE username = $1 AND NOT (teacher_id = $2 AND id = $3)`,
+      [username, teacherId, studentId],
+    );
+    if ((taken.rowCount ?? 0) > 0) {
+      await client.query("ROLLBACK");
+      throw new Error("اسم المستخدم مستخدم من قبل");
+    }
 
-  await db().sql`
-    UPDATE students SET username = ${username}, password_hash = ${passwordHash}, session_version = session_version + 1
-    WHERE teacher_id = ${teacherId} AND id = ${studentId}
-  `;
+    const updated = await client.query(
+      `UPDATE students SET username = $1, password_hash = $2, session_version = session_version + 1
+       WHERE teacher_id = $3 AND id = $4
+       RETURNING name, active`,
+      [username, passwordHash, teacherId, studentId],
+    );
+    await ensureStudentIdentity(client, {
+      halaqahId: teacherId,
+      id: studentId,
+      name: updated.rows[0].name as string,
+      username,
+      active: updated.rows[0].active === true,
+    });
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /** اسم المستخدم لكل طالب (إن وُجد) — لعرضه في صفحة الطلاب عند المعلّم */
@@ -1607,6 +1690,14 @@ export async function setAssistantActive(halaqahId: number, assistantId: number,
         WHERE id = ${assistantId} AND halaqah_id = ${halaqahId} AND role = 'assistant'
         RETURNING id
       `;
+  // M5: عضوية الهوية تتبع حالة الحساب — أفضل جهد لا أكثر: التحقق الفعلي
+  // عند أي تبديل دور يقرأ صف المعلّم الحي، فبقاء العلم قديماً لا يفتح شيئاً.
+  if (rows.length > 0) {
+    await db().sql`
+      UPDATE memberships SET active = ${active}
+      WHERE legacy_kind = 'teacher' AND legacy_id = ${String(assistantId)}
+    `;
+  }
   return rows.length > 0;
 }
 
@@ -1739,6 +1830,14 @@ export async function createGoogleStudentAccount(
        VALUES ($1, $2, 'google', $3, $4)`,
       [halaqah.id, studentId, input.providerSubject, input.providerEmail],
     );
+    // M5: طالب جوجل جديد = صاحب دخول، فيُنشأ معه user+membership بنفس الترانزاكشن
+    await ensureStudentIdentity(client, {
+      halaqahId: halaqah.id,
+      id: studentId,
+      name: input.studentName,
+      username: null,
+      active: true,
+    });
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

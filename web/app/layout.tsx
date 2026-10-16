@@ -15,8 +15,8 @@ const naskh = Noto_Naskh_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "المعلم — إدارة التحفيظ والمطابقة",
-  description: "تسجيل الحفظ، ومطابقة الطلاب للتسميع المتبادل، وتوليد جدول المراجعة.",
+  title: "MOS — نظام تشغيل الجامع",
+  description: "تسجيل الحفظ، ومطابقة الطلاب للتسميع، وتوليد جدول المراجعة.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

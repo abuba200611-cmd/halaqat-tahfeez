@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { ensureMosqueAdminIdentity, syncMosqueAdminUserHandle } from "@/lib/identity";
 import { FEATURES, type Feature } from "./features";
 import { MAX_PHOTOS_PER_MOSQUE, type TagKind } from "./archive";
 
@@ -275,13 +276,31 @@ export async function releaseRegistration(id: number): Promise<void> {
 
 export type MosqueAdmin = { id: number; mosqueId: number; username: string };
 
-/** ينشئ حساب مدير للجامع، أو يستبدل حساب هذا الجامع الحالي لو موجود أصلاً (جامع = مدير واحد) */
+/** ينشئ حساب مدير للجامع، أو يستبدل حساب هذا الجامع الحالي لو موجود أصلاً
+ * (جامع = مدير واحد). هوية M5 (user+membership) تنشآن بترانزاكشن الحساب
+ * نفسها؛ الاستبدال يحدّث مقبض المستخدم المرتبط (شخص جديد غالباً). */
 export async function upsertMosqueAdmin(mosqueId: number, username: string, passwordHash: string): Promise<void> {
-  await db().sql`
-    INSERT INTO mosque_admins (mosque_id, username, password_hash)
-    VALUES (${mosqueId}, ${username}, ${passwordHash})
-    ON CONFLICT (mosque_id) DO UPDATE SET username = excluded.username, password_hash = excluded.password_hash
-  `;
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const rows = await client.query(
+      `INSERT INTO mosque_admins (mosque_id, username, password_hash)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (mosque_id) DO UPDATE SET username = excluded.username, password_hash = excluded.password_hash
+       RETURNING id, username`,
+      [mosqueId, username, passwordHash],
+    );
+    const adminId = Number(rows.rows[0].id);
+    const finalUsername = rows.rows[0].username as string;
+    await ensureMosqueAdminIdentity(client, { id: adminId, mosqueId, username: finalUsername });
+    await syncMosqueAdminUserHandle(client, adminId, finalUsername);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function findMosqueAdminByUsername(

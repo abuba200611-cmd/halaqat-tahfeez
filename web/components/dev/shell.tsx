@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { RoleSwitcher } from "../role-switcher";
 
 /*
   قالب لوحة المطوّر — سايدبار داكن خاص بهذه اللوحة وحدها (مستقل عن قالب
@@ -65,6 +66,9 @@ export function DevShell({ children }: { children: ReactNode }) {
           <p className="text-xs text-white/50">MOS — نظام تشغيل الجامع</p>
         </div>
         <nav className="flex flex-1 flex-col gap-1">{links(true)}</nav>
+        {/* جلسة الأدمن بلا مستخدم موحّد (ADMIN_SECRET ليس حساباً) فيختفي
+            المبدّل تلقائياً؛ يظهر فقط لو دخلت اللوحة بحساب له عضويات أخرى */}
+        <RoleSwitcher />
         <button
           type="button"
           onClick={logout}

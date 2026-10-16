@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card } from "@/components/mosque/ui";
 
 export default function MosqueLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <MosqueLoginInner />
+    </Suspense>
+  );
+}
+
+/** يقرأ ?username= (تعبئة مسبقة من مبدّل الأدوار عند تحويل المستخدم لإثبات كلمة مرور المدير) */
+function MosqueLoginInner() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const searchParams = useSearchParams();
+  const [username, setUsername] = useState(searchParams.get("username") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,6 +47,7 @@ export default function MosqueLoginPage() {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
       <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">دخول مدير الجامع</h1>
+      <p className="mb-1 text-center text-xs text-muted-foreground">MOS — نظام تشغيل الجامع</p>
       <p className="mb-5 text-center text-sm text-muted-foreground">
         إدارة حلقات جامعك وتوزيع طلابه الجدد
       </p>

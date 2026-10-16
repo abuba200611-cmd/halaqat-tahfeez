@@ -6,18 +6,21 @@ import { useParentSession, type ParentSession } from "./parent-shell";
 /**
  * نموذج دخول/إنشاء حساب ولي الأمر (STEP 61) — مشترك بين /parent/login
  * و/parent/join. بعد النجاح يحدّث سياق الجلسة ويستدعي onDone.
+ * initialEmail تعبئة مسبقة فقط (من مبدّل الأدوار M5).
  */
 export function ParentAuthForm({
   initialMode = "login",
+  initialEmail = "",
   onDone,
 }: {
   initialMode?: "login" | "register";
+  initialEmail?: string;
   onDone?: (parent: ParentSession) => void;
 }) {
   const { setParent } = useParentSession();
   const [mode, setMode] = useState<"login" | "register">(initialMode);
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

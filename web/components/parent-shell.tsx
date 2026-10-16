@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import Link from "next/link";
+import { RoleSwitcher } from "./role-switcher";
 
 /*
   STEP 61 — هيكل ولي الأمر: شريط علوي بسيط (عنوان + خروج) وبطاقات ضيقة،
@@ -63,10 +64,12 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                 👪
               </span>
               <span className="font-naskh text-lg font-bold text-slate-800">متابعة الأبناء</span>
+              <span className="hidden text-[10px] text-slate-400 sm:inline">MOS — نظام تشغيل الجامع</span>
             </Link>
             {parent && (
               <div className="mr-auto flex items-center gap-3">
                 <span className="hidden max-w-40 truncate text-sm text-slate-500 sm:block">{parent.name}</span>
+                <RoleSwitcher tone="light" />
                 <button
                   type="button"
                   onClick={logout}

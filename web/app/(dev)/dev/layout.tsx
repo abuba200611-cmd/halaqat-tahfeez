@@ -11,7 +11,7 @@ import { ImpersonationBannerBar } from "@/components/dev/banner-server";
 */
 
 export const metadata: Metadata = {
-  title: "لوحة المطوّر",
+  title: "لوحة المطوّر — MOS",
   description: "إدارة الجوامع والمستخدمين والمزايا وصحة النظام من مكان واحد.",
 };
 

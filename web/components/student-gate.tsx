@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AuthCard, AuthShell } from "./auth-shell";
+import { RoleSwitcher, RoleSwitcherList } from "./role-switcher";
 import { BellIcon, EyeIcon, EyeOffIcon, LogoutIcon, UserIcon } from "./icons";
 
 export type StudentSession = { id: string; name: string; halaqahName: string };
@@ -107,6 +108,9 @@ function Sidebar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: S
         </span>
         <span className="font-naskh text-lg font-bold text-white">وردي</span>
       </Link>
+      <p className="-mt-3 px-5 pb-2 text-[10px]" style={{ color: B.sidebarText }}>
+        MOS — نظام تشغيل الجامع
+      </p>
 
       <nav className="mt-2 flex-1 space-y-1 overflow-y-auto px-3">
         {nav.map((item) => {
@@ -151,6 +155,7 @@ function Sidebar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: S
             <LogoutIcon size={17} />
           </button>
         </div>
+        <RoleSwitcher />
       </div>
     </aside>
   );
@@ -222,6 +227,7 @@ function TopBar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: St
                 >
                   الإعدادات
                 </Link>
+                <RoleSwitcherList />
                 <button
                   type="button"
                   onClick={() => {
@@ -283,7 +289,8 @@ const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
 function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession) => void }) {
   const searchParams = useSearchParams();
   const googleError = searchParams.get("googleError");
-  const [username, setUsername] = useState("");
+  // تعبئة مسبقة من مبدّل الأدوار (M5) عند تحويل المستخدم لإثبات كلمة مرور الطالب
+  const [username, setUsername] = useState(searchParams.get("username") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
