@@ -13,6 +13,8 @@ vi.mock("@netlify/database", () => ({
 
 const {
   setAgentProposalStatus,
+  claimAgentProposal,
+  finishAgentProposal,
   saveAgentMemory,
   decideAgentLesson,
   listApprovedAgentLessons,
@@ -32,12 +34,12 @@ afterEach(() => {
 describe("setAgentProposalStatus", () => {
   it("تحديث ذرّي: بنطاق الجامع ومن pending فقط، ويرفع decided_at", async () => {
     sqlMock.mockResolvedValueOnce([
-      { id: 5, mosque_id: 1, user_id: 2, kind: "create_family", payload: {}, status: "approved", created_at: "", decided_at: "x" },
+      { id: 5, mosque_id: 1, user_id: 2, kind: "create_family", payload: {}, status: "rejected", created_at: "", decided_at: "x" },
     ]);
 
-    const proposal = await setAgentProposalStatus(1, 5, "approved");
+    const proposal = await setAgentProposalStatus(1, 5, "rejected");
 
-    expect(proposal?.status).toBe("approved");
+    expect(proposal?.status).toBe("rejected");
     const text = sqlText();
     expect(text).toContain("UPDATE agent_proposals");
     expect(text).toContain("WHERE mosque_id =");
@@ -48,6 +50,32 @@ describe("setAgentProposalStatus", () => {
   it("لا صف محدَّث = null (محسوم سابقاً أو جامع آخر) — لا يُفترض النجاح", async () => {
     sqlMock.mockResolvedValueOnce([]);
     expect(await setAgentProposalStatus(9, 5, "rejected")).toBeNull();
+  });
+});
+
+describe("claimAgentProposal / finishAgentProposal", () => {
+  it("الحجز ذرّي: pending → executing بنطاق الجامع", async () => {
+    sqlMock.mockResolvedValueOnce([
+      { id: 5, mosque_id: 1, user_id: 2, kind: "k", payload: {}, status: "executing", created_at: "", decided_at: null },
+    ]);
+    expect((await claimAgentProposal(1, 5))?.status).toBe("executing");
+    const text = sqlText();
+    expect(text).toContain("SET status = 'executing'");
+    expect(text).toContain("WHERE mosque_id =");
+    expect(text).toContain("AND status = 'pending'");
+  });
+
+  it("الحجز الثاني لا يجد صفاً = null", async () => {
+    sqlMock.mockResolvedValueOnce([]);
+    expect(await claimAgentProposal(1, 5)).toBeNull();
+  });
+
+  it("الإنهاء من executing فقط", async () => {
+    sqlMock.mockResolvedValueOnce([
+      { id: 5, mosque_id: 1, user_id: 2, kind: "k", payload: {}, status: "approved", created_at: "", decided_at: "x" },
+    ]);
+    expect((await finishAgentProposal(1, 5, "approved"))?.status).toBe("approved");
+    expect(sqlText()).toContain("AND status = 'executing'");
   });
 });
 

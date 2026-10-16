@@ -63,7 +63,7 @@ describe("توكن «عرض كـ»", () => {
 
   it("توقيع مزوَّر أو وسوم غريبة تُرفض", async () => {
     const good = craftToken("teacher", 1, 0, Date.now(), Date.now() + 60_000);
-    const forged = `${good.slice(0, -1)}0`;
+    const forged = `${good.slice(0, -1)}${good.endsWith("0") ? "1" : "0"}`;
     expect(await readImpersonationToken(forged)).toBeNull();
 
     const wrongTag = craftToken("student", 1, 0, Date.now(), Date.now() + 60_000).replace("imp.", "other.");

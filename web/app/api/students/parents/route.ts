@@ -1,4 +1,5 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
+import { guardImpersonation } from "@/lib/dev-impersonation";
 import { listHalaqahStudentParents, unlinkParentFromStudent } from "@/lib/parent-db";
 
 /** "ab***@gmail.com" — يكفي المشرف ليميّز الولي دون كشف بريده كاملاً */
@@ -28,6 +29,10 @@ export async function DELETE(request: Request) {
   if (teacher.role !== "supervisor") {
     return Response.json({ error: "فكّ الربط لمشرف الحلقة فقط" }, { status: 403 });
   }
+
+  // فكّ ربط ولي = تغيير بيانات — ممنوع أثناء «عرض كـ»
+  const impBlocked = await guardImpersonation();
+  if (impBlocked) return impBlocked;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const studentId = String(body.studentId ?? "").trim();

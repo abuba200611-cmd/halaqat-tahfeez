@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   getMosque: vi.fn(),
   getAgentProposal: vi.fn(),
   setAgentProposalStatus: vi.fn(),
+  claimAgentProposal: vi.fn(),
+  finishAgentProposal: vi.fn(),
   executeAgentProposal: vi.fn(),
   proposalDto: vi.fn(),
 }));
@@ -24,6 +26,8 @@ vi.mock("@/lib/mosque/db", () => ({ isFeatureEnabled: mocks.isFeatureEnabled, ge
 vi.mock("@/lib/agent/store", () => ({
   getAgentProposal: mocks.getAgentProposal,
   setAgentProposalStatus: mocks.setAgentProposalStatus,
+  claimAgentProposal: mocks.claimAgentProposal,
+  finishAgentProposal: mocks.finishAgentProposal,
 }));
 vi.mock("@/lib/agent/execute", () => ({ executeAgentProposal: mocks.executeAgentProposal }));
 vi.mock("@/lib/agent/dto", () => ({ proposalDto: mocks.proposalDto }));
@@ -92,41 +96,71 @@ describe("الإنسان فقط ينفّذ", () => {
     expect(mocks.executeAgentProposal).not.toHaveBeenCalled();
   });
 
-  it("«نفّذ»: إعادة التحقق والتنفيذ بجامع الجلسة ثم approved", async () => {
+  it("«نفّذ»: حجز ثم تنفيذ بجامع الجلسة ثم approved", async () => {
     mocks.getAgentProposal.mockResolvedValue(pendingProposal);
+    mocks.claimAgentProposal.mockResolvedValue({ ...pendingProposal, status: "executing" });
     mocks.executeAgentProposal.mockResolvedValue({ ok: true, message: "أُنشئت أسرة «أسرة النور»" });
-    mocks.setAgentProposalStatus.mockResolvedValue({ ...pendingProposal, status: "approved" });
+    mocks.finishAgentProposal.mockResolvedValue({ ...pendingProposal, status: "approved" });
 
     const res = await POST(request({ action: "execute" }), CONTEXT);
     const body = (await res.json()) as { proposal: { status: string }; message: string };
 
     expect(res.status).toBe(200);
+    expect(mocks.claimAgentProposal).toHaveBeenCalledWith(7, 12);
     expect(mocks.executeAgentProposal).toHaveBeenCalledWith(7, "create_family", { name: "أسرة النور" });
-    expect(mocks.setAgentProposalStatus).toHaveBeenCalledWith(7, 12, "approved");
+    expect(mocks.finishAgentProposal).toHaveBeenCalledWith(7, 12, "approved");
     expect(body.proposal.status).toBe("approved");
     expect(body.message).toContain("أسرة النور");
   });
 
   it("تنفيذ يفشل (هدف لم يعد موجوداً): الحالة failed والسبب يصل", async () => {
     mocks.getAgentProposal.mockResolvedValue(pendingProposal);
+    mocks.claimAgentProposal.mockResolvedValue({ ...pendingProposal, status: "executing" });
     mocks.executeAgentProposal.mockResolvedValue({ ok: false, error: "الهدف ليس من هذا الجامع" });
-    mocks.setAgentProposalStatus.mockResolvedValue({ ...pendingProposal, status: "failed" });
+    mocks.finishAgentProposal.mockResolvedValue({ ...pendingProposal, status: "failed" });
 
     const res = await POST(request({ action: "execute" }), CONTEXT);
     const body = (await res.json()) as { proposal: { status: string }; error: string };
 
     expect(res.status).toBe(200);
-    expect(mocks.setAgentProposalStatus).toHaveBeenCalledWith(7, 12, "failed");
+    expect(mocks.finishAgentProposal).toHaveBeenCalledWith(7, 12, "failed");
     expect(body.proposal.status).toBe("failed");
     expect(body.error).toContain("ليس من هذا الجامع");
   });
 
-  it("سباق حسم مزدوج: التحديث الذرّي يرجع null → 409", async () => {
+  it("الحجز يخسر (طلب آخر حجزه): 409 بلا تنفيذ", async () => {
     mocks.getAgentProposal.mockResolvedValue(pendingProposal);
-    mocks.executeAgentProposal.mockResolvedValue({ ok: true, message: "تم" });
-    mocks.setAgentProposalStatus.mockResolvedValue(null);
+    mocks.claimAgentProposal.mockResolvedValue(null);
 
     const res = await POST(request({ action: "execute" }), CONTEXT);
     expect(res.status).toBe(409);
+    expect(mocks.executeAgentProposal).not.toHaveBeenCalled();
+  });
+
+  it("ضغطتان متزامنتان: ينفَّذ مرة واحدة فقط والثانية 409", async () => {
+    mocks.getAgentProposal.mockResolvedValue(pendingProposal);
+    mocks.claimAgentProposal
+      .mockResolvedValueOnce({ ...pendingProposal, status: "executing" })
+      .mockResolvedValue(null);
+    mocks.executeAgentProposal.mockResolvedValue({ ok: true, message: "تم" });
+    mocks.finishAgentProposal.mockResolvedValue({ ...pendingProposal, status: "approved" });
+
+    const [a, b] = await Promise.all([
+      POST(request({ action: "execute" }), CONTEXT),
+      POST(request({ action: "execute" }), CONTEXT),
+    ]);
+
+    expect([a.status, b.status].sort()).toEqual([200, 409]);
+    expect(mocks.executeAgentProposal).toHaveBeenCalledTimes(1);
+  });
+
+  it("المنفّذ يرمي: تُسجَّل failed ثم يُعاد الرمي", async () => {
+    mocks.getAgentProposal.mockResolvedValue(pendingProposal);
+    mocks.claimAgentProposal.mockResolvedValue({ ...pendingProposal, status: "executing" });
+    mocks.executeAgentProposal.mockRejectedValue(new Error("boom"));
+    mocks.finishAgentProposal.mockResolvedValue({ ...pendingProposal, status: "failed" });
+
+    await expect(POST(request({ action: "execute" }), CONTEXT)).rejects.toThrow("boom");
+    expect(mocks.finishAgentProposal).toHaveBeenCalledWith(7, 12, "failed");
   });
 });

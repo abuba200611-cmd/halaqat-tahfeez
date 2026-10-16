@@ -1,5 +1,5 @@
 import { featureGate, parsePositiveIntParam, paramNotFound } from "@/lib/mosque/api-gate";
-import { getAgentProposal, setAgentProposalStatus } from "@/lib/agent/store";
+import { claimAgentProposal, finishAgentProposal, getAgentProposal, setAgentProposalStatus } from "@/lib/agent/store";
 import { executeAgentProposal } from "@/lib/agent/execute";
 import { proposalDto } from "@/lib/agent/dto";
 
@@ -35,9 +35,18 @@ export async function POST(request: Request, { params }: RouteContext) {
     return Response.json({ proposal: proposalDto(rejected), message: "أُلغي المقترح" });
   }
 
-  const execution = await executeAgentProposal(mosqueId, proposal.kind, proposal.payload);
-  const status = execution.ok ? "approved" : "failed";
-  const decided = await setAgentProposalStatus(mosqueId, proposal.id, status);
+  // حجز ذرّي قبل التنفيذ: pending → executing لطلب واحد فقط، والخاسر 409
+  const claimed = await claimAgentProposal(mosqueId, proposal.id);
+  if (!claimed) return Response.json({ error: "هذا المقترح محسوم سابقاً" }, { status: 409 });
+
+  let execution: Awaited<ReturnType<typeof executeAgentProposal>>;
+  try {
+    execution = await executeAgentProposal(mosqueId, claimed.kind, claimed.payload);
+  } catch (error) {
+    await finishAgentProposal(mosqueId, claimed.id, "failed");
+    throw error;
+  }
+  const decided = await finishAgentProposal(mosqueId, claimed.id, execution.ok ? "approved" : "failed");
   if (!decided) return Response.json({ error: "هذا المقترح محسوم سابقاً" }, { status: 409 });
 
   return Response.json({

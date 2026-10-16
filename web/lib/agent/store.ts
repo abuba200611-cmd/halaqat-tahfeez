@@ -11,7 +11,7 @@ import { riyadhTodayISO } from "@/lib/riyadh-date";
 
 // ————— المقترحات (أدوات الكتابة لا تُنفَّذ، تُقترح) —————
 
-export type AgentProposalStatus = "pending" | "approved" | "rejected" | "failed";
+export type AgentProposalStatus = "pending" | "executing" | "approved" | "rejected" | "failed";
 
 export type AgentProposal = {
   id: number;
@@ -76,18 +76,43 @@ export async function getAgentProposal(mosqueId: number, id: number): Promise<Ag
 }
 
 /**
- * حسم مقترح — ذرّي: ينجح فقط وهو pending وبهذا الجامع، وإلا null.
- * الحالة approved يعني أن التنفيذ جرى فعلاً (يرفعها المنفّذ بعد نجاحه)،
- * لذا لا تُستدعى إلا من مسار التنفيذ أو الرفض.
+ * رفض مقترح — ذرّي: ينجح فقط وهو pending وبهذا الجامع، وإلا null.
  */
 export async function setAgentProposalStatus(
   mosqueId: number,
   id: number,
-  status: Exclude<AgentProposalStatus, "pending">,
+  status: "rejected",
 ): Promise<AgentProposal | null> {
   const rows = await db().sql`
     UPDATE agent_proposals SET status = ${status}, decided_at = now()
     WHERE mosque_id = ${mosqueId} AND id = ${id} AND status = 'pending'
+    RETURNING id, mosque_id, user_id, kind, payload, status, created_at, decided_at
+  `;
+  return rows[0] ? rowToProposal(rows[0]) : null;
+}
+
+/**
+ * حجز مقترح للتنفيذ — ذرّي: pending → executing لطلب واحد فقط. من يخسر
+ * السباق يحصل على null فلا يُنفَّذ المقترح مرتين.
+ */
+export async function claimAgentProposal(mosqueId: number, id: number): Promise<AgentProposal | null> {
+  const rows = await db().sql`
+    UPDATE agent_proposals SET status = 'executing'
+    WHERE mosque_id = ${mosqueId} AND id = ${id} AND status = 'pending'
+    RETURNING id, mosque_id, user_id, kind, payload, status, created_at, decided_at
+  `;
+  return rows[0] ? rowToProposal(rows[0]) : null;
+}
+
+/** إنهاء مقترح محجوز: executing → approved | failed، ويرفع decided_at */
+export async function finishAgentProposal(
+  mosqueId: number,
+  id: number,
+  status: "approved" | "failed",
+): Promise<AgentProposal | null> {
+  const rows = await db().sql`
+    UPDATE agent_proposals SET status = ${status}, decided_at = now()
+    WHERE mosque_id = ${mosqueId} AND id = ${id} AND status = 'executing'
     RETURNING id, mosque_id, user_id, kind, payload, status, created_at, decided_at
   `;
   return rows[0] ? rowToProposal(rows[0]) : null;

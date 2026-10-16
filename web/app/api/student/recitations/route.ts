@@ -92,7 +92,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     await logServerError("recitations:upload", error);
-    id = null;
+    throw error;
   }
   if (id === null) return bad("تعذّر الحفظ", 404);
 
