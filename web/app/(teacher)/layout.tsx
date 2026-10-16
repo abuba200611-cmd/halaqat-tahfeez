@@ -2,7 +2,7 @@ import { AuthGate } from "@/components/auth-gate";
 import { NewWardBadge } from "@/components/new-ward-badge";
 import { PendingRecitationsBadge } from "@/components/pending-recitations-badge";
 import { ImpersonationBannerBar } from "@/components/dev/banner-server";
-import { ChartIcon, CalendarIcon, ClipboardIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, ShuffleIcon, UsersIcon } from "@/components/icons";
+import { ChartIcon, CalendarIcon, ClipboardIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, ShuffleIcon, StarIcon, UsersIcon } from "@/components/icons";
 import type { Metadata } from "next";
 
 /** عنوان تبويب قسم المعلّم — الاسم العربي للقسم يبقى، مع وسم MOS الموحّد (M5) */
@@ -19,6 +19,7 @@ const NAV = [
   { href: "/attendance", label: "الحضور", desc: "تسجيل حضور الطلاب اليومي", icon: <ClipboardIcon size={19} /> },
   { href: "/plans", label: "الخطة الشهرية", desc: "مستهدف الحفظ والمراجعة لكل طالب", icon: <ChartIcon size={19} /> },
   { href: "/cases", label: "دراسة الحالة", desc: "متابعة الطلاب المتعثّرين", icon: <SearchIcon size={19} /> },
+  { href: "/exams", label: "الاختبارات", desc: "ترشيح الطلاب وتقييم جلسات الاختبار", icon: <StarIcon size={19} /> },
   { href: "/suggest", label: "اقتراح / بلاغ", desc: "شاركنا رأيك أو بلاغك", icon: <MessageIcon size={19} /> },
 ];
 

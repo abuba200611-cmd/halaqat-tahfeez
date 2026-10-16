@@ -70,6 +70,12 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
               <div className="mr-auto flex items-center gap-3">
                 <span className="hidden max-w-40 truncate text-sm text-slate-500 sm:block">{parent.name}</span>
                 <Link
+                  href="/parent/exams"
+                  className="hidden rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors duration-200 hover:bg-slate-50 sm:block"
+                >
+                  نتائج الاختبارات
+                </Link>
+                <Link
                   href="/parent/suggest"
                   className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors duration-200 hover:bg-slate-50"
                 >
