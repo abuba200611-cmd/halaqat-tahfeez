@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { recordSeen } from "./activity";
 import { sessionSecret } from "./db";
 import { findParentById, parentSessionVersion, type Parent } from "./parent-db";
 
@@ -75,6 +76,8 @@ export async function currentParent(): Promise<Parent | null> {
   if (session === null) return null;
   const parent = await findParentById(session.parentId);
   if (!parent || parent.sessionVersion !== session.sessionVersion) return null;
+  // نشاط الحسابات: آخر ظهور (مكبوح ١٠ دقائق، صامت الفشل، بلا نسبة أثناء «عرض كـ»)
+  await recordSeen({ role: "parent", parentId: parent.id });
   return parent;
 }
 

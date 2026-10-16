@@ -9,6 +9,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 */
 
 const jar: Record<string, string> = {};
+// مستضيج الطلب الحالي — يتحكم به isAdmin (dev split): localhost بم بيئة
+// الاختبار = مستضيج لوحة، mos.vercel.app = مستضيج عام
+let requestHostValue = "localhost:3000";
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) => (jar[name] ? { value: jar[name] } : undefined),
@@ -17,6 +20,7 @@ vi.mock("next/headers", () => ({
       delete jar[name];
     },
   }),
+  headers: async () => ({ get: (name: string) => (name === "host" ? requestHostValue : null) }),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -95,6 +99,7 @@ const post = (body: unknown) =>
 beforeEach(() => {
   for (const key of Object.keys(jar)) delete jar[key];
   process.env.ADMIN_SECRET = "dev-admin-secret";
+  requestHostValue = "localhost:3000";
 });
 
 describe("مدير جامع A لا يصل لجامع B", () => {
@@ -175,6 +180,14 @@ describe("المشرف العام = جلسة الأدمن القائمة نفس�
     expect((await mosqueGet(new Request("http://x"), ctx("2"))).status).toBe(200);
     expect((await mosquesList()).status).toBe(200);
     expect(await (await adminMe()).json()).toEqual({ admin: true });
+  });
+
+  it("dev split: التوكن نفسه من مستضيج عام لا يُعامل كأدمن — الكوكي لا يعمل خارج مستضيج اللوحة", async () => {
+    jar[ADMIN_COOKIE] = createAdminToken();
+    requestHostValue = "mos.vercel.app";
+    expect(await isAdmin()).toBe(false);
+    expect(await canAccessMosque(1)).toBe(false);
+    expect(await (await adminMe()).json()).toEqual({ admin: false });
   });
 
   it("السرّ الخام أو توكن مزوّر لا يعمل", async () => {

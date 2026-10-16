@@ -1,5 +1,6 @@
 import { consumeStudentGoogleLinkToken, checkStudentLinkRateLimit } from "@/lib/db";
 import { setStudentSessionCookie } from "@/lib/auth";
+import { recordLogin } from "@/lib/activity";
 import {
   clearStudentGoogleLinkPendingCookie,
   readStudentGoogleLinkPendingCookie,
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
   }
 
   await setStudentSessionCookie(result.halaqahId, result.studentId);
+  await recordLogin({ role: "student", halaqahId: result.halaqahId, studentId: result.studentId });
   await clearStudentGoogleLinkPendingCookie();
   return Response.json({ ok: true });
 }

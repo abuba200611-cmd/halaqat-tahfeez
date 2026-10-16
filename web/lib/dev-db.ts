@@ -63,6 +63,16 @@ export async function devOverview(): Promise<DevOverview> {
 
 // ————— بحث المستخدمين —————
 
+/** نشاط الحساب كما يعرض باللوحة — null قبل أول دخول/ظهور */
+export type AccountActivity = { lastLoginAt: string | null; lastSeenAt: string | null };
+
+function activityOf(row: Record<string, unknown>): AccountActivity {
+  return {
+    lastLoginAt: (row.last_login_at as string | null) ?? null,
+    lastSeenAt: (row.last_seen_at as string | null) ?? null,
+  };
+}
+
 export type DevUser =
   | {
       kind: "teacher";
@@ -73,7 +83,7 @@ export type DevUser =
       halaqah: string;
       mosque: string | null;
       active: boolean;
-    }
+    } & AccountActivity
   | {
       kind: "student";
       halaqahId: number;
@@ -83,21 +93,21 @@ export type DevUser =
       halaqah: string;
       mosque: string | null;
       active: boolean;
-    }
+    } & AccountActivity
   | {
       kind: "parent";
       id: number;
       label: string;
       email: string;
       children: { halaqahId: number; studentId: string; studentName: string }[];
-    }
+    } & AccountActivity
   | {
       kind: "mosque_admin";
       id: number;
       label: string;
       username: string;
       mosque: string;
-    };
+    } & AccountActivity;
 
 const SEARCH_LIMIT = 20;
 
@@ -108,6 +118,7 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
   const [teachers, students, parents, mosqueAdmins] = await Promise.all([
     db().sql`
       SELECT t.id, t.username, t.teacher_name, t.role, t.deactivated_at,
+             t.last_login_at, t.last_seen_at,
              h.name AS halaqah_name, m.name AS mosque_name
       FROM teachers t
       JOIN halaqahs h ON h.id = t.halaqah_id
@@ -117,6 +128,7 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
     `,
     db().sql`
       SELECT s.teacher_id, s.id, s.name, s.username, s.deleted_at,
+             s.last_login_at, s.last_seen_at,
              h.name AS halaqah_name, m.name AS mosque_name
       FROM students s
       JOIN halaqahs h ON h.id = s.teacher_id
@@ -125,7 +137,7 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
       ORDER BY s.teacher_id, s.id LIMIT ${SEARCH_LIMIT}
     `,
     db().sql`
-      SELECT p.id, p.email, p.name,
+      SELECT p.id, p.email, p.name, p.last_login_at, p.last_seen_at,
              COALESCE(json_agg(json_build_object(
                'halaqahId', pc.halaqah_id, 'studentId', pc.student_id, 'studentName', s.name
              )) FILTER (WHERE pc.parent_id IS NOT NULL), '[]') AS children
@@ -136,7 +148,7 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
       GROUP BY p.id ORDER BY p.id LIMIT ${SEARCH_LIMIT}
     `,
     db().sql`
-      SELECT a.id, a.username, m.name AS mosque_name
+      SELECT a.id, a.username, a.last_login_at, a.last_seen_at, m.name AS mosque_name
       FROM mosque_admins a JOIN mosques m ON m.id = a.mosque_id
       WHERE a.username ILIKE ${like} OR m.name ILIKE ${like}
       ORDER BY a.id LIMIT ${SEARCH_LIMIT}
@@ -154,6 +166,7 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
         halaqah: r.halaqah_name as string,
         mosque: (r.mosque_name as string) ?? null,
         active: !r.deactivated_at,
+        ...activityOf(r),
       }),
     ),
     ...students.map(
@@ -166,6 +179,7 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
         halaqah: r.halaqah_name as string,
         mosque: (r.mosque_name as string) ?? null,
         active: !r.deleted_at,
+        ...activityOf(r),
       }),
     ),
     ...parents.map((r): DevUser => {
@@ -184,6 +198,7 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
           studentId: c.studentId,
           studentName: c.studentName ?? c.studentId,
         })),
+        ...activityOf(r),
       };
     }),
     ...mosqueAdmins.map(
@@ -193,9 +208,78 @@ export async function searchDevUsers(query: string): Promise<DevUser[]> {
         label: r.username as string,
         username: r.username as string,
         mosque: r.mosque_name as string,
+        ...activityOf(r),
       }),
     ),
   ];
+}
+
+// ————— نظرة عامة على الحسابات —————
+
+export type AccountsOverview = {
+  /** حسابات جديدة بآخر ٧/٣٠ يوماً لكل دور */
+  newAccounts: { days: 7 | 30; teacher: number; student: number; parent: number; mosque_admin: number }[];
+  /** حسابات ظهرت (last_seen_at) بآخر ٧ أيام لكل دور */
+  active7d: { teacher: number; student: number; parent: number; mosque_admin: number };
+};
+
+/**
+ * نظرة «الحسابات» باللوحة: جديد بآخر ٧/٣٠ يوماً ونشط بآخر ٧ أيام لكل
+ * دور. الطلاب المنشؤون قبل عمود created_at (NULL) مستثنون من "الجديد"
+ * — تاريخ إنشائهم غير معروف لا أنهم جدد. حسابات المعلّمين فعّالة فقط
+ * (الموقوفون خارج "الجديد")، والطلاب غير المحذوفين فقط.
+ */
+export async function devAccountsOverview(): Promise<AccountsOverview> {
+  const rows = await db().sql`
+    SELECT
+      (SELECT COUNT(*) FROM teachers
+        WHERE deactivated_at IS NULL
+          AND substring(created_at, 1, 10) >= to_char(now() - interval '7 days', 'YYYY-MM-DD'))::int  AS teachers_7d,
+      (SELECT COUNT(*) FROM teachers
+        WHERE deactivated_at IS NULL
+          AND substring(created_at, 1, 10) >= to_char(now() - interval '30 days', 'YYYY-MM-DD'))::int AS teachers_30d,
+      (SELECT COUNT(*) FROM students
+        WHERE deleted_at IS NULL AND created_at >= now() - interval '7 days')::int   AS students_7d,
+      (SELECT COUNT(*) FROM students
+        WHERE deleted_at IS NULL AND created_at >= now() - interval '30 days')::int  AS students_30d,
+      (SELECT COUNT(*) FROM parents WHERE created_at >= now() - interval '7 days')::int  AS parents_7d,
+      (SELECT COUNT(*) FROM parents WHERE created_at >= now() - interval '30 days')::int AS parents_30d,
+      (SELECT COUNT(*) FROM mosque_admins WHERE created_at >= now() - interval '7 days')::int  AS admins_7d,
+      (SELECT COUNT(*) FROM mosque_admins WHERE created_at >= now() - interval '30 days')::int AS admins_30d,
+      (SELECT COUNT(*) FROM teachers
+        WHERE last_seen_at >= now() - interval '7 days')::int   AS active_teachers,
+      (SELECT COUNT(*) FROM students
+        WHERE last_seen_at >= now() - interval '7 days')::int   AS active_students,
+      (SELECT COUNT(*) FROM parents
+        WHERE last_seen_at >= now() - interval '7 days')::int   AS active_parents,
+      (SELECT COUNT(*) FROM mosque_admins
+        WHERE last_seen_at >= now() - interval '7 days')::int   AS active_admins
+  `;
+  const row = rows[0] ?? {};
+  return {
+    newAccounts: [
+      {
+        days: 7,
+        teacher: Number(row.teachers_7d ?? 0),
+        student: Number(row.students_7d ?? 0),
+        parent: Number(row.parents_7d ?? 0),
+        mosque_admin: Number(row.admins_7d ?? 0),
+      },
+      {
+        days: 30,
+        teacher: Number(row.teachers_30d ?? 0),
+        student: Number(row.students_30d ?? 0),
+        parent: Number(row.parents_30d ?? 0),
+        mosque_admin: Number(row.admins_30d ?? 0),
+      },
+    ],
+    active7d: {
+      teacher: Number(row.active_teachers ?? 0),
+      student: Number(row.active_students ?? 0),
+      parent: Number(row.active_parents ?? 0),
+      mosque_admin: Number(row.active_admins ?? 0),
+    },
+  };
 }
 
 // ————— إجراءات المستخدمين (من اللوحة فقط) —————

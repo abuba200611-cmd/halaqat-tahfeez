@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSharedJson } from "./use-shared-json";
 
 /*
   M5 — مبدّل الأدوار: يعرض عضويات المستخدم الموحّد الأخرى الفعّالة أينما
@@ -21,22 +22,10 @@ export type SwitcherMembership = {
 };
 
 function useSwitcherMemberships() {
-  const [items, setItems] = useState<SwitcherMembership[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/identity/me")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { memberships?: SwitcherMembership[] } | null) => {
-        if (!cancelled) setItems(data?.memberships ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setItems([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // طلب واحد لعنوان الهوية أياً بعدد النسخ المركّبة (السايدبار مركّب مرتين
+  // بهيكل المعلّم، وقائمة الأفاتار بالطالب) — مشترك عبر useSharedJson
+  const data = useSharedJson<{ memberships?: SwitcherMembership[] }>("/api/identity/me");
+  const items = data ? (data.memberships ?? []) : null;
 
   const activate = useCallback(async (item: SwitcherMembership) => {
     // جلسة ذلك النوع صالحة أصلاً على الجهاز — التنقّل إليها يكفي

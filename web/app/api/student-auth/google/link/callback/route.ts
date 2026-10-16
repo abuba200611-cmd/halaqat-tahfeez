@@ -1,6 +1,7 @@
 import { findGoogleStudentAccount } from "@/lib/db";
 import { exchangeGoogleCode } from "@/lib/google-auth";
 import { setStudentSessionCookie } from "@/lib/auth";
+import { recordLogin } from "@/lib/activity";
 import { consumeStudentGoogleLinkState, setStudentGoogleLinkPendingCookie } from "@/lib/student-google-auth";
 
 /** يرجع لصفحة الربط مع حالة توضّح للواجهة ماذا تعرض */
@@ -55,6 +56,7 @@ export async function GET(request: Request) {
     const existing = await findGoogleStudentAccount(profile.sub);
     if (existing) {
       await setStudentSessionCookie(existing.halaqahId, existing.studentId);
+      await recordLogin({ role: "student", halaqahId: existing.halaqahId, studentId: existing.studentId });
       return Response.redirect(`${origin}/student`);
     }
 

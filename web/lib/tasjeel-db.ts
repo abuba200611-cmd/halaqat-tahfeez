@@ -29,6 +29,8 @@ export async function listStudentSuggestions(): Promise<Suggestion[]> {
     message: row.message as string,
     createdAt: row.created_at as string,
     type: (row.type as Suggestion["type"]) ?? "suggestion",
+    // نظام tasjeel بلا عمود حالة — تُعرض دائماً كجديدة بلوحة المطوّر
+    status: "new" as const,
     attachments: [],
   }));
 }

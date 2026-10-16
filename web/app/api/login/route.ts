@@ -4,6 +4,7 @@ import { findParentByEmail, isValidParentEmail, normalizeParentEmail } from "@/l
 import { setParentSessionCookie } from "@/lib/parent-auth";
 import { findMosqueAdminByUsername } from "@/lib/mosque/db";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
+import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 
 /*
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
     // يخبره بسبب المنع صراحة بعد أن أثبت الدخول هناك)
     if (teacher.deactivatedAt) return fail();
     await setSessionCookie(teacher.id);
+    await recordLogin({ role: "teacher", teacherId: teacher.id });
     return Response.json({
       kind: "teacher",
       redirect: "/",
@@ -78,6 +80,7 @@ export async function POST(request: Request) {
   const mosqueAdmin = await findMosqueAdminByUsername(identifier);
   if (mosqueAdmin && verifyPassword(password, mosqueAdmin.passwordHash)) {
     await setMosqueAdminSessionCookie(mosqueAdmin.id);
+    await recordLogin({ role: "mosque_admin", adminId: mosqueAdmin.id });
     return Response.json({ kind: "mosque_admin", redirect: `/mosque/${mosqueAdmin.mosqueId}` });
   }
 
@@ -87,6 +90,7 @@ export async function POST(request: Request) {
     const parent = await findParentByEmail(email);
     if (parent && verifyPassword(password, parent.passwordHash)) {
       await setParentSessionCookie(parent.id);
+      await recordLogin({ role: "parent", parentId: parent.id });
       return Response.json({ kind: "parent", redirect: "/parent" });
     }
   }

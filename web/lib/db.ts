@@ -610,8 +610,8 @@ export async function upsertStudent(teacherId: number, student: Student, sortOrd
   try {
     await client.query("BEGIN");
     await client.query(
-      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
        ON CONFLICT (teacher_id, id) DO UPDATE SET
          name = excluded.name,
          group_name = excluded.group_name,
@@ -715,8 +715,8 @@ export async function replaceStudents(teacherId: number, students: Student[]): P
     for (let i = 0; i < students.length; i++) {
       const s = students[i];
       await client.query(
-        `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())`,
         [
           s.id,
           teacherId,
@@ -1943,8 +1943,8 @@ export async function createGoogleStudentAccount(
   try {
     await client.query("BEGIN");
     await client.query(
-      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
-       VALUES ($1, $2, $3, '', '[]', '{}', true, 0, 0)`,
+      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order, created_at)
+       VALUES ($1, $2, $3, '', '[]', '{}', true, 0, 0, now())`,
       [studentId, halaqah.id, input.studentName],
     );
     await client.query(

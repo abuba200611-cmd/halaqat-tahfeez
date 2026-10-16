@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 
+type AccountActivity = { lastLoginAt: string | null; lastSeenAt: string | null };
+
 type User =
-  | { kind: "teacher"; id: number; label: string; email: string; role: string; halaqah: string; mosque: string | null; active: boolean }
-  | { kind: "student"; halaqahId: number; id: string; label: string; username: string | null; halaqah: string; mosque: string | null; active: boolean }
-  | { kind: "parent"; id: number; label: string; email: string; children: { halaqahId: number; studentId: string; studentName: string }[] }
-  | { kind: "mosque_admin"; id: number; label: string; username: string; mosque: string };
+  | { kind: "teacher"; id: number; label: string; email: string; role: string; halaqah: string; mosque: string | null; active: boolean } & AccountActivity
+  | { kind: "student"; halaqahId: number; id: string; label: string; username: string | null; halaqah: string; mosque: string | null; active: boolean } & AccountActivity
+  | { kind: "parent"; id: number; label: string; email: string; children: { halaqahId: number; studentId: string; studentName: string }[] } & AccountActivity
+  | { kind: "mosque_admin"; id: number; label: string; username: string; mosque: string } & AccountActivity;
+
+type Overview = {
+  newAccounts: { days: 7 | 30; teacher: number; student: number; parent: number; mosque_admin: number }[];
+  active7d: { teacher: number; student: number; parent: number; mosque_admin: number };
+};
 
 const KIND_LABEL: Record<User["kind"], string> = {
   teacher: "معلّم",
@@ -16,11 +23,30 @@ const KIND_LABEL: Record<User["kind"], string> = {
   mosque_admin: "مدير جامع",
 };
 
+/** توقيت النشاط بصيغة قصيرة — أو شرطة إن لم يدخل الحساب قط */
+function when(at: string | null): string {
+  return at ? at.slice(0, 16).replace("T", " ") : "—";
+}
+
 export default function DevUsersPage() {
   const [q, setQ] = useState("");
   const [users, setUsers] = useState<User[] | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [overview, setOverview] = useState<Overview | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/dev/accounts")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: Overview | null) => {
+        if (!cancelled) setOverview(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function search(event: React.FormEvent) {
     event.preventDefault();
@@ -44,6 +70,37 @@ export default function DevUsersPage() {
           بحث موحّد بالاسم أو البريد أو اسم المستخدم — معلّمون وطلاب وأولياء أمور ومدراء جوامع.
         </p>
       </div>
+
+      {overview && (
+        <Card className="p-4">
+          <h2 className="mb-3 text-sm font-semibold">الحسابات — جديد بآخر ٧/٣٠ يوماً ونشط بآخر ٧ أيام</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-125 text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs text-muted-foreground">
+                  <th className="py-2 text-right font-normal">الدور</th>
+                  <th className="py-2 text-right font-normal">جديد ٧ أيام</th>
+                  <th className="py-2 text-right font-normal">جديد ٣٠ يوماً</th>
+                  <th className="py-2 text-right font-normal">نشط ٧ أيام</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Object.keys(KIND_LABEL) as User["kind"][]).map((kind) => {
+                  const byDays = (days: 7 | 30) => overview.newAccounts.find((n) => n.days === days)?.[kind] ?? 0;
+                  return (
+                    <tr key={kind} className="border-b border-border last:border-0">
+                      <td className="py-2">{KIND_LABEL[kind]}</td>
+                      <td className="tabular py-2">{byDays(7)}</td>
+                      <td className="tabular py-2">{byDays(30)}</td>
+                      <td className="tabular py-2">{overview.active7d[kind]}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <form onSubmit={search} className="flex gap-2">
         <input
@@ -123,6 +180,9 @@ function UserRow({ user }: { user: User }) {
               `${user.username ? `${user.username} · ` : ""}حلقة: ${user.halaqah}${user.mosque ? ` · ${user.mosque}` : ""}`}
             {user.kind === "parent" && `${user.email}${user.children.length ? ` · ${user.children.length} أبناء` : ""}`}
             {user.kind === "mosque_admin" && `${user.username} · ${user.mosque}`}
+          </p>
+          <p className="tabular mt-1 text-xs text-muted-foreground" dir="ltr">
+            login {when(user.lastLoginAt)} · seen {when(user.lastSeenAt)}
           </p>
         </div>
 

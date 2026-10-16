@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { recordSeen } from "./activity";
 import {
   findStudentAccount,
   findTeacherById,
@@ -98,6 +99,8 @@ export async function currentTeacher(): Promise<Teacher | null> {
   if (!teacher || teacher.sessionVersion !== session.sessionVersion) return null;
   // حساب موقوف من مشرف الحلقة = غير موثّق مهما كانت صلاحية رمز جلسته
   if (teacher.deactivatedAt) return null;
+  // نشاط الحسابات: آخر ظهور (مكبوح ١٠ دقائق، صامت الفشل، بلا نسبة أثناء «عرض كـ»)
+  await recordSeen({ role: "teacher", teacherId: teacher.id });
   return teacher;
 }
 
@@ -191,6 +194,8 @@ export async function currentStudent(): Promise<StudentAccount | null> {
   const account = await findStudentAccount(parsed.teacherId, parsed.studentId);
   // عدم تطابق نسخة الجلسة = صدرت قبل إعادة تعيين بيانات دخول الطالب — غير موثّق
   if (!account || account.sessionVersion !== parsed.sessionVersion) return null;
+  // نشاط الحسابات: آخر ظهور (مكبوح ١٠ دقائق، صامت الفشل، بلا نسبة أثناء «عرض كـ»)
+  await recordSeen({ role: "student", halaqahId: account.teacherId, studentId: account.id });
   return account;
 }
 

@@ -3,6 +3,7 @@ import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit
 import { findMosqueAdminByUsername } from "@/lib/mosque/db";
 import { verifyPassword } from "@/lib/mosque/password";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
+import { recordLogin } from "@/lib/activity";
 
 const MAX_FAILURES = 8;
 const WINDOW_SECONDS = 60 * 60;
@@ -31,5 +32,6 @@ export async function POST(request: Request) {
   }
 
   await setMosqueAdminSessionCookie(admin.id);
+  await recordLogin({ role: "mosque_admin", adminId: admin.id });
   return Response.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { findOrCreateTeacherByEmail } from "@/lib/db";
 import { setSessionCookie } from "@/lib/auth";
+import { recordLogin } from "@/lib/activity";
 import { exchangeGoogleCode } from "@/lib/google-auth";
 import { safeEqual } from "@/lib/safe-equal";
 
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
     const profile = await exchangeGoogleCode(code, `${origin}/api/auth/google/callback`);
     const teacherId = await findOrCreateTeacherByEmail(profile.email, profile.name);
     await setSessionCookie(teacherId);
+    await recordLogin({ role: "teacher", teacherId });
     return Response.redirect(origin);
   } catch (error) {
     return failure(origin, error instanceof Error ? error.message : "تعذّر الدخول بحساب جوجل");

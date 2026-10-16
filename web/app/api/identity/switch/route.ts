@@ -3,6 +3,7 @@ import { setSessionCookie, setStudentSessionCookie } from "@/lib/auth";
 import { findMembershipById, loginHrefFor, membershipShell, resolveIdentity, studentLegacyKey } from "@/lib/identity";
 import { guardImpersonation } from "@/lib/dev-impersonation";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
+import { recordLogin } from "@/lib/activity";
 import { findParentById } from "@/lib/parent-db";
 import { setParentSessionCookie } from "@/lib/parent-auth";
 
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
         return Response.json({ error: GENERIC_REFUSAL }, { status: 404 });
       }
       await setSessionCookie(teacher.id);
+      await recordLogin({ role: "teacher", teacherId: teacher.id });
       return Response.json({ ok: true, kind: "teacher", redirect: shell.home });
     }
     case "student": {
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
       const account = key ? await findStudentAccount(key.halaqahId, key.studentId) : null;
       if (!account) return Response.json({ error: GENERIC_REFUSAL }, { status: 404 });
       await setStudentSessionCookie(account.teacherId, account.id);
+      await recordLogin({ role: "student", halaqahId: account.teacherId, studentId: account.id });
       return Response.json({ ok: true, kind: "student", redirect: shell.home });
     }
     case "parent": {
@@ -77,6 +80,7 @@ export async function POST(request: Request) {
       const parent = Number.isInteger(parentId) ? await findParentById(parentId) : null;
       if (!parent) return Response.json({ error: GENERIC_REFUSAL }, { status: 404 });
       await setParentSessionCookie(parent.id);
+      await recordLogin({ role: "parent", parentId: parent.id });
       return Response.json({ ok: true, kind: "parent", redirect: shell.home });
     }
     case "mosque_admin": {
@@ -84,6 +88,7 @@ export async function POST(request: Request) {
       const admin = Number.isInteger(adminId) ? await findMosqueAdminById(adminId) : null;
       if (!admin) return Response.json({ error: GENERIC_REFUSAL }, { status: 404 });
       await setMosqueAdminSessionCookie(admin.id);
+      await recordLogin({ role: "mosque_admin", adminId: admin.id });
       return Response.json({ ok: true, kind: "mosque_admin", redirect: shell.home });
     }
     default:
