@@ -17,7 +17,7 @@ import {
   type ExamConfig,
   type NominationStatus,
 } from "@/lib/mosque/exams";
-import { PERIOD_CHOICES, periodLabel, type PeriodChoice, type ReportPeriod } from "@/lib/mosque/report-periods";
+import { PERIOD_CHOICES, type PeriodChoice, type ReportPeriod } from "@/lib/mosque/report-periods";
 
 /*
   لوحة الاختبارات والشهادات للإدارة — تبويبات: الأنواع، الترشيحات والجدولة،

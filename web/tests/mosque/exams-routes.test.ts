@@ -36,6 +36,10 @@ vi.mock("@/lib/db", () => ({
 const examsDb = vi.hoisted(() => ({
   getExamConfig: vi.fn(async () => ({} as never)),
   listExamTypes: vi.fn(async () => [] as never[]),
+  listNominationsByHalaqah: vi.fn(async () => [] as never[]),
+  listScoringSessionsForTeacher: vi.fn(async () => [] as never[]),
+  listActiveExamTypes: vi.fn(async () => [] as never[]),
+  updateExamConfig: vi.fn(async (_id: number, c: Record<string, unknown>) => ({ ...c })),
   seedDefaultExamTypes: vi.fn(async () => [] as never[]),
   listNominations: vi.fn(async () => [] as never[]),
   listSessions: vi.fn(async () => [] as never[]),
@@ -81,6 +85,7 @@ const patch = (body: unknown) =>
 beforeEach(() => {
   for (const key of Object.keys(jar)) delete jar[key];
   vi.clearAllMocks();
+  mosqueDb.isFeatureEnabled.mockResolvedValue(true);
   examsDb.getExamConfig.mockResolvedValue({ ...DEFAULT_EXAM_CONFIG } as never);
   examsDb.listExamTypes.mockResolvedValue([
     { id: 11, name: "اختبار جزء", juzCount: 1, maxScore: 100, passMark: 60, errorRules: {}, active: true },
@@ -144,7 +149,7 @@ describe("ترشيح المعلّم — حلقته وجامعها حصراً", (
     expect(response.status).toBe(200);
     const body = (await response.json()) as { types: unknown[]; nominations: unknown[]; sessions: unknown[] };
     expect(Array.isArray(body.types)).toBe(true);
-    expect(examsDb.listNominations).toHaveBeenCalled();
+    expect(examsDb.listNominationsByHalaqah).toHaveBeenCalled();
   });
 
   it("حلقة بلا جامع أو ميزة معطّلة = 404", async () => {

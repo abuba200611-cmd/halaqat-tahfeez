@@ -40,7 +40,7 @@ function Exams() {
   const parentId = parent?.id ?? null;
 
   const [children, setChildren] = useState<Child[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
   const [results, setResults] = useState<ExamResult[] | null>(null);
 
   useEffect(() => {
@@ -59,10 +59,7 @@ function Exams() {
     };
   }, [parentId]);
 
-  useEffect(() => {
-    const fromUrl = params.get("child");
-    if (fromUrl) setSelected(fromUrl);
-  }, [params]);
+  const selected = picked ?? params.get("child");
 
   useEffect(() => {
     if (selected === null) return;
@@ -94,7 +91,7 @@ function Exams() {
               key={keyOf(child)}
               type="button"
               onClick={() => {
-                setSelected(keyOf(child));
+                setPicked(keyOf(child));
                 setResults(null);
               }}
               className={`cursor-pointer rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${

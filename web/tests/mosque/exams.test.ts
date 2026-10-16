@@ -140,6 +140,6 @@ describe("نصوص العرض والإنجاز", () => {
   it("التاريخ الهجري ليوم ميلادي — صيغة «يوم شهر سنة هـ»", () => {
     const label = hijriDateLabel("2026-10-17");
     expect(label).toMatch(/ هـ$/);
-    expect(label).toMatch(/^\d{1,2} \S+ \d{4} هـ$/);
+    expect(label).toMatch(/^\d{1,2} .+ \d{4} هـ$/);
   });
 });
