@@ -31,7 +31,7 @@ export function MosquePage({
 
   useEffect(() => {
     async function check() {
-      const superRes = await fetch("/api/admin/me").then((r) => r.json());
+      const superRes = await fetch("/api/admin/me").then((r) => r.json()).catch(() => ({ admin: false })); // 404 على المستضيف العام
       if (superRes.admin) {
         setRole("super");
         return;

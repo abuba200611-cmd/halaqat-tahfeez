@@ -73,9 +73,13 @@ export function useSharedJson<T>(url: string, pollMs = 0): T | null {
     }
     return () => {
       entry.listeners.delete(notify);
-      if (entry.listeners.size === 0 && entry.timer !== null) {
-        clearInterval(entry.timer);
-        entry.timer = null;
+      if (entry.listeners.size === 0) {
+        if (entry.timer !== null) {
+          clearInterval(entry.timer);
+          entry.timer = null;
+        }
+        // آخر مشترك غادر (خروج/تبديل دور): لا تبقَ بيانات مستخدم سابق للقادم
+        entry.data = null;
       }
     };
   }, [url, pollMs]);
