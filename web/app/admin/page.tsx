@@ -148,7 +148,9 @@ function AdminLogin({ onIn }: { onIn: () => Promise<void> }) {
         body: JSON.stringify({ secret }),
       });
       if (!res.ok) {
-        setError("كلمة السر غير صحيحة");
+        // نعرض رسالة الخادم كما هي حتى لا يختلط «محاولات كثيرة» بـ«كلمة سر خاطئة»
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(data?.error ?? "كلمة السر غير صحيحة");
         return;
       }
       await onIn();
