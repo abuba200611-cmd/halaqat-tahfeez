@@ -11,6 +11,7 @@ import {
 import { sendPushToParentsOfAbsence } from "@/lib/push";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
+import { logServerError } from "@/lib/dev-error-log";
 
 /*
   STEP 62 — الحضور اليومي لمعلّمي الحلقة (المشرف والمساعدون بصلاحية
@@ -65,24 +66,30 @@ export async function PUT(request: Request) {
     note = body.note.trim().slice(0, ATTENDANCE_NOTE_MAX);
   }
 
-  const result = await setAttendance(teacher.halaqahId, studentId, date, body.status, note, teacher.id);
-  if (!result.found) return bad("طالب غير موجود", 404);
+  // فشل الحفظ يبقى ٥٠٠ كما هو — نسجّله فقط لقسم «الصحة» بالوحة المطوّر
+  try {
+    const result = await setAttendance(teacher.halaqahId, studentId, date, body.status, note, teacher.id);
+    if (!result.found) return bad("طالب غير موجود", 404);
 
-  // إشعار أولياء الأمر عند أول تحويل إلى غائب ليوم اليوم فقط — لا يُفشل الحفظ ولا يؤخّر الرد
-  if (body.status === "absent" && result.previous !== "absent" && date === today) {
-    after(async () => {
-      try {
-        await Promise.race([
-          sendPushToParentsOfAbsence(teacher.halaqahId, studentId),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch {
-        // فشل الإشعار لا يغيّر نتيجة الحفظ — الرد أُرسل مسبقاً
-      }
-    });
+    // إشعار أولياء الأمر عند أول تحويل إلى غائب ليوم اليوم فقط — لا يُفشل الحفظ ولا يؤخّر الرد
+    if (body.status === "absent" && result.previous !== "absent" && date === today) {
+      after(async () => {
+        try {
+          await Promise.race([
+            sendPushToParentsOfAbsence(teacher.halaqahId, studentId),
+            new Promise((resolve) => setTimeout(resolve, 3000)),
+          ]);
+        } catch {
+          // فشل الإشعار لا يغيّر نتيجة الحفظ — الرد أُرسل مسبقاً
+        }
+      });
+    }
+
+    return Response.json({ ok: true });
+  } catch (error) {
+    await logServerError("attendance:put", error);
+    throw error;
   }
-
-  return Response.json({ ok: true });
 }
 
 /** "تحديد الكل حاضر": حاضر لكل من ليس له قرار صريح فقط — لا يمسّ غائباً/مستأذناً سبق تحديده */

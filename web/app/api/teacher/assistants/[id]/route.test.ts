@@ -9,6 +9,12 @@ vi.mock("@/lib/auth", () => authMocks);
 const dbMocks = vi.hoisted(() => ({ setAssistantActive: vi.fn() }));
 vi.mock("@/lib/db", () => dbMocks);
 
+// M3: حارس «عرض كـ» وسجل التدقيق — تُحاكى كما تُحاكى طبقة القاعدة
+const impMocks = vi.hoisted(() => ({ guardImpersonation: vi.fn() }));
+vi.mock("@/lib/dev-impersonation", () => impMocks);
+const auditMocks = vi.hoisted(() => ({ logDevAction: vi.fn() }));
+vi.mock("@/lib/dev-audit", () => auditMocks);
+
 const { PATCH } = await import("./route");
 
 const SUPERVISOR = { id: 2, halaqahId: 7, role: "supervisor" as const };
@@ -26,6 +32,7 @@ function call(id: string, body: unknown): Promise<Response> {
 describe("PATCH /api/teacher/assistants/[id] — إيقاف المساعد وتفعيله (STEP 60)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    impMocks.guardImpersonation.mockResolvedValue(null);
   });
 
   it("المشرف يوقف مساعداً بحلقته: 200 والحلقة من جلسته حصراً", async () => {
@@ -92,5 +99,32 @@ describe("PATCH /api/teacher/assistants/[id] — إيقاف المساعد وت�
     authMocks.currentTeacher.mockResolvedValue(null);
 
     expect((await call("5", { active: false })).status).toBe(401);
+  });
+
+  it("أثناء «عرض كـ» (imp=1): 403 ولا يُلمس أي صف ولا يُسجَّل إيقاف", async () => {
+    authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
+    impMocks.guardImpersonation.mockResolvedValue(
+      Response.json({ error: "غير متاح أثناء «عرض كـ»" }, { status: 403 }),
+    );
+
+    const res = await call("5", { active: false });
+
+    expect(res.status).toBe(403);
+    expect(dbMocks.setAssistantActive).not.toHaveBeenCalled();
+    expect(auditMocks.logDevAction).not.toHaveBeenCalled();
+  });
+
+  it("الإيقاف الناجح يكتب سجل تدقيق", async () => {
+    authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
+    dbMocks.setAssistantActive.mockResolvedValue(true);
+
+    await call("5", { active: false });
+
+    expect(auditMocks.logDevAction).toHaveBeenCalledWith(
+      "assistant_deactivate",
+      "teacher",
+      5,
+      expect.objectContaining({ halaqahId: 7 }),
+    );
   });
 });

@@ -3,6 +3,7 @@ import { unauthorized } from "@/lib/mosque/admin-auth";
 import { canAccessMosque } from "@/lib/mosque/access";
 import { getMosque, getMosqueFeatures, setMosqueFeature } from "@/lib/mosque/db";
 import { getFeature } from "@/lib/mosque/features";
+import { logDevAction } from "@/lib/dev-audit";
 
 /** مزايا الجامع كما هي فعلياً — السجل مدموجاً مع تجاوزات هذا الجامع */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -32,5 +33,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   await setMosqueFeature(mosqueId, feature.key, body.enabled);
+  await logDevAction("feature_toggle", "mosque", mosqueId, { key: feature.key, enabled: body.enabled });
   return Response.json({ features: await getMosqueFeatures(mosqueId) });
 }

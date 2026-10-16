@@ -8,6 +8,7 @@ import {
   validateRecitationRange,
 } from "@/lib/recitations";
 import { insertRecitation, listStudentRecitations } from "@/lib/recitations-db";
+import { logServerError } from "@/lib/dev-error-log";
 
 /*
   STEP 64 — تلاوات الطالب. halaqahId وstudentId من جلسة currentStudent()
@@ -79,14 +80,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "وصلت الحد اليومي للتلاوات (10) — حاول غداً" }, { status: 429 });
   }
 
-  const id = await insertRecitation({
-    halaqahId: student.teacherId,
-    studentId: student.id,
-    range: range.range,
-    mime: audio.mime,
-    durationSec: duration.seconds,
-    bytes,
-  });
+  let id: number | null;
+  try {
+    id = await insertRecitation({
+      halaqahId: student.teacherId,
+      studentId: student.id,
+      range: range.range,
+      mime: audio.mime,
+      durationSec: duration.seconds,
+      bytes,
+    });
+  } catch (error) {
+    await logServerError("recitations:upload", error);
+    id = null;
+  }
   if (id === null) return bad("تعذّر الحفظ", 404);
 
   return Response.json({ ok: true, id });

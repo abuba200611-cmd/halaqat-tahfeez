@@ -9,6 +9,7 @@ import {
   setRegistrationStudent,
 } from "@/lib/mosque/db";
 import { addStudentToHalaqah } from "@/lib/mosque/halaqat";
+import { logServerError } from "@/lib/dev-error-log";
 
 /**
  * يوزّع تسجيلاً بانتظار التوزيع على حلقة من حلقات الجامع: يُحجز التسجيل
@@ -44,7 +45,8 @@ export async function POST(request: Request) {
   let studentId: string;
   try {
     studentId = await addStudentToHalaqah(halaqah.id, registration.name);
-  } catch {
+  } catch (error) {
+    await logServerError("assign:post", error);
     await releaseRegistration(registration.id);
     return Response.json({ error: "تعذّر إضافة الطالب للحلقة — حاول مرة ثانية" }, { status: 500 });
   }

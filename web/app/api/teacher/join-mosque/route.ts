@@ -1,6 +1,7 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { findMosqueByTeacherJoinCode, joinHalaqahToMosqueByCode } from "@/lib/mosque/db";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
+import { logServerError } from "@/lib/dev-error-log";
 
 const MAX_PER_HOUR = 10;
 const WINDOW_SECONDS = 60 * 60;
@@ -39,7 +40,14 @@ export async function POST(request: Request) {
   const code = String(body.code ?? "").trim();
   if (!code) return Response.json({ error: "رابط الانضمام ناقص" }, { status: 400 });
 
-  const result = await joinHalaqahToMosqueByCode(teacher.halaqahId, code);
+  // الفشل يبقى ٥٠٠ كما هو — نسجّله فقط لقسم «الصحة» بالوحة المطوّر
+  let result: Awaited<ReturnType<typeof joinHalaqahToMosqueByCode>>;
+  try {
+    result = await joinHalaqahToMosqueByCode(teacher.halaqahId, code);
+  } catch (error) {
+    await logServerError("teacher:join-mosque", error);
+    throw error;
+  }
   if (!result.ok) {
     if (result.reason === "invalid") return Response.json({ error: "رابط الانضمام غير صحيح" }, { status: 404 });
     if (result.reason === "disabled") return Response.json({ error: "الحلقات غير مفعّلة لهذا الجامع" }, { status: 404 });

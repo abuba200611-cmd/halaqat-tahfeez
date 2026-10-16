@@ -1,5 +1,6 @@
 import { currentTeacher, hashPassword, unauthorized } from "@/lib/auth";
 import { setStudentCredentials, studentUsernames } from "@/lib/db";
+import { guardImpersonation } from "@/lib/dev-impersonation";
 
 /** خريطة معرّف الطالب ← اسم مستخدمه، لعرض من يملك حساباً في صفحة الطلاب */
 export async function GET() {
@@ -16,6 +17,10 @@ export async function GET() {
 export async function POST(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
+
+  // منح/استبدال دخول طالب = تغيير بيانات دخول — ممنوع أثناء «عرض كـ»
+  const impBlocked = await guardImpersonation();
+  if (impBlocked) return impBlocked;
 
   try {
     const body = (await request.json()) as Record<string, unknown>;
