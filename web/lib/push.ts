@@ -205,7 +205,8 @@ export async function sendPushToParentsOfAbsence(halaqahId: number, studentId: s
 /**
  * يرسل إشعاراً لأولياء أمر طالب بعينه عند تقييم المعلّم لتلاوته (STEP 64).
  * النص يحمل اسم الابن والدرجة فقط — لا ملاحظة المعلّم. لا يرمي أبداً.
- */export async function sendPushToParentsOfRecitation(
+ */
+export async function sendPushToParentsOfRecitation(
   halaqahId: number,
   studentId: string,
   score: number,

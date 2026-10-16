@@ -683,7 +683,7 @@ export async function recordResult(
     VALUES (${mosqueId}::int, ${input.nominationId}::int, ${input.sessionId}::int, ${input.halaqahId}::int,
             ${input.studentId}::text, ${input.juzFrom}::int, ${input.juzTo}::int, ${input.maxScore}::int,
             ${input.passMark}::int, ${JSON.stringify(input.errors)}::jsonb, ${input.score}::int, ${input.passed}::boolean,
-            ${input.examinerId}::int, ${input.notes}::text, ${publish ? "now()" : "NULL"})
+            ${input.examinerId}::int, ${input.notes}::text, CASE WHEN ${publish}::boolean THEN now() ELSE NULL END)
     ON CONFLICT (nomination_id) DO UPDATE SET
       session_id = excluded.session_id, errors = excluded.errors, score = excluded.score,
       passed = excluded.passed, examiner_id = excluded.examiner_id, notes = excluded.notes,
@@ -930,7 +930,7 @@ export async function getCertificate(mosqueId: number, id: number): Promise<Cert
 }
 
 function newCertificateCode(prefix: string): string {
-  return `${prefix}-${randomBytes(9).toString("base64url")}`;
+  return `${prefix}-${randomBytes(12).toString("base64url")}`;
 }
 
 /** إصدار شهادة برمز تحقق فريد — بيانات الحامل لقطة (تبقى بعد حذف الأصل) */
@@ -968,7 +968,7 @@ export async function issueCertificate(
 /** سحب/إعادة شهادة — false إن لم توجد بهذا الجامع */
 export async function setCertificateRevoked(mosqueId: number, id: number, revoked: boolean): Promise<CertificateView | null> {
   const rows = await db().sql`
-    UPDATE certificates SET revoked_at = ${revoked ? "now()" : "NULL"}
+    UPDATE certificates SET revoked_at = CASE WHEN ${revoked}::boolean THEN now() ELSE NULL END
     WHERE mosque_id = ${mosqueId} AND id = ${id}
     RETURNING ${CERT_COLUMNS}
   `;
