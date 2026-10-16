@@ -19,6 +19,7 @@ const NAV = [
   { href: "/attendance", label: "الحضور", desc: "تسجيل حضور الطلاب اليومي", icon: <ClipboardIcon size={19} /> },
   { href: "/plans", label: "الخطة الشهرية", desc: "مستهدف الحفظ والمراجعة لكل طالب", icon: <ChartIcon size={19} /> },
   { href: "/cases", label: "دراسة الحالة", desc: "متابعة الطلاب المتعثّرين", icon: <SearchIcon size={19} /> },
+  { href: "/discipline", label: "الانضباط", desc: "سُلّم الغياب والمخالفات وكشف المتابعة الشهري", icon: <ClipboardIcon size={19} /> },
   { href: "/suggest", label: "اقتراح / بلاغ", desc: "شاركنا رأيك أو بلاغك", icon: <MessageIcon size={19} /> },
 ];
 

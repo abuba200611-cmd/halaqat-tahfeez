@@ -9,6 +9,8 @@ import {
   mergeDayAttendance,
 } from "@/lib/attendance";
 import { sendPushToParentsOfAbsence } from "@/lib/push";
+import { disciplineContextForHalaqah, runAbsenceLadder } from "@/lib/discipline-db";
+import { notifyParentsOfLadderEvents } from "@/lib/discipline-notify";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { logServerError } from "@/lib/dev-error-log";
@@ -71,16 +73,29 @@ export async function PUT(request: Request) {
     const result = await setAttendance(teacher.halaqahId, studentId, date, body.status, note, teacher.id);
     if (!result.found) return bad("طالب غير موجود", 404);
 
-    // إشعار أولياء الأمر عند أول تحويل إلى غائب ليوم اليوم فقط — لا يُفشل الحفظ ولا يؤخّر الرد
-    if (body.status === "absent" && result.previous !== "absent" && date === today) {
+    // إشعار أولياء الأمر عند أول تحويل إلى غائب ليوم اليوم فقط، وحساب سُلّم
+    // الغياب (A2) عند أي تسجيل غياب — كلاهما بعد الرد ولا يُفشل الحفظ ولا يؤخّره
+    if (body.status === "absent") {
       after(async () => {
+        if (result.previous !== "absent" && date === today) {
+          try {
+            await Promise.race([
+              sendPushToParentsOfAbsence(teacher.halaqahId, studentId),
+              new Promise((resolve) => setTimeout(resolve, 3000)),
+            ]);
+          } catch {
+            // فشل الإشعار لا يغيّر نتيجة الحفظ — الرد أُرسل مسبقاً
+          }
+        }
+        // سُلّم الغياب: لا شيء لجوامع لم تفعّل الانضباط — فحص الميزة أول شيء
         try {
-          await Promise.race([
-            sendPushToParentsOfAbsence(teacher.halaqahId, studentId),
-            new Promise((resolve) => setTimeout(resolve, 3000)),
-          ]);
+          const ctx = await disciplineContextForHalaqah(teacher.halaqahId);
+          if (ctx) {
+            const inserted = await runAbsenceLadder(teacher.halaqahId, today, ctx.config);
+            if (inserted.length > 0) await notifyParentsOfLadderEvents(teacher.halaqahId, inserted);
+          }
         } catch {
-          // فشل الإشعار لا يغيّر نتيجة الحفظ — الرد أُرسل مسبقاً
+          // فشل حساب السُلّم لا يغيّر نتيجة الحفظ — الفحص الكسول عند فتح الصفحة يكمّله
         }
       });
     }
