@@ -516,22 +516,48 @@ export async function listStudents(teacherId: number): Promise<Student[]> {
   return rows.map(rowToStudent);
 }
 
+/** إدخال/تحديث طالب — الإدخال ينشئ معه هويته الموحّدة (M5) بنفس الترانزاكشن،
+ * بنفس قاعدة backfill الترحيل: طالب بلا اسم مستخدم يُنشأ له مقبض اصطناعي. */
 export async function upsertStudent(teacherId: number, student: Student, sortOrder = 0): Promise<void> {
-  await db().sql`
-    INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
-    VALUES (
-      ${student.id}, ${teacherId}, ${student.name}, ${student.group ?? ""},
-      ${JSON.stringify(student.ranges ?? [])}, ${JSON.stringify(student.mastery ?? {})},
-      ${!!student.active}, ${student.rating ?? 0}, ${sortOrder}
-    )
-    ON CONFLICT (teacher_id, id) DO UPDATE SET
-      name = excluded.name,
-      group_name = excluded.group_name,
-      ranges = excluded.ranges,
-      mastery = excluded.mastery,
-      active = excluded.active,
-      rating = excluded.rating
-  `;
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (teacher_id, id) DO UPDATE SET
+         name = excluded.name,
+         group_name = excluded.group_name,
+         ranges = excluded.ranges,
+         mastery = excluded.mastery,
+         active = excluded.active,
+         rating = excluded.rating`,
+      [
+        student.id,
+        teacherId,
+        student.name,
+        student.group ?? "",
+        JSON.stringify(student.ranges ?? []),
+        JSON.stringify(student.mastery ?? {}),
+        !!student.active,
+        student.rating ?? 0,
+        sortOrder,
+      ],
+    );
+    await ensureStudentIdentity(client, {
+      halaqahId: teacherId,
+      id: student.id,
+      name: student.name,
+      username: null,
+      active: !!student.active,
+    });
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /** يحدّث تقييم النجوم فقط دون المساس بباقي بيانات الطالب */
@@ -591,7 +617,9 @@ export async function restoreStudent(teacherId: number, id: string): Promise<boo
   return rows.length > 0;
 }
 
-/** يستبدل قائمة الطلاب كاملة — تُستخدم للحلقة التجريبية ولمسح البيانات */
+/** يستبدل قائمة الطلاب كاملة — تُستخدم للحلقة التجريبية ولمسح البيانات.
+ * كل طالب مدرج يحصل على هويته الموحّدة (M5) بنفس الترانزاكشن؛ صفوف من
+ * استُبدلوا تبقى عضوياتهم القديمة بلا إسناد (لا FK عمداً) ولا تُفتح شيئاً. */
 export async function replaceStudents(teacherId: number, students: Student[]): Promise<void> {
   const client = await db().pool.connect();
   try {
@@ -614,6 +642,13 @@ export async function replaceStudents(teacherId: number, students: Student[]): P
           i,
         ],
       );
+      await ensureStudentIdentity(client, {
+        halaqahId: teacherId,
+        id: s.id,
+        name: s.name,
+        username: null,
+        active: !!s.active,
+      });
     }
     await client.query("COMMIT");
   } catch (error) {

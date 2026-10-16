@@ -24,7 +24,7 @@ import { currentStudent, currentTeacher } from "./auth";
 
 const sqlMock = vi.fn();
 
-const { resolveIdentity, membershipShell } = await import("./identity");
+const { resolveIdentity, membershipShell, ensureIdentity } = await import("./identity");
 
 function membershipRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -181,3 +181,138 @@ function baseMembership() {
     mosqueName: null,
   };
 }
+
+// ————— ensureIdentity — النصف التشغيلي من backfill الترحيل —————
+// عميل ترانزاكشن مزوَّر يحاكي قيود SQL ذاتها (users.email UNIQUE،
+// memberships UNIQUE(legacy_kind, legacy_id, role, student_id)) فيُختبر
+// سلوك الدالة الحقيقي: الخلق، تجاوز الموجود، ودمج البريد الواحد.
+
+type FakeRow = Record<string, unknown>;
+
+function fakeIdentityClient(existingUsers: FakeRow[] = [], existingMemberships: FakeRow[] = []) {
+  const users = [...existingUsers];
+  const memberships = [...existingMemberships];
+  const calls: string[] = [];
+  let nextId = 100;
+
+  const client = {
+    async query(text: string): Promise<{ rows: FakeRow[]; rowCount: number }> {
+      calls.push(text);
+      if (text.startsWith("SELECT id FROM memberships")) {
+        return { rows: memberships, rowCount: memberships.length };
+      }
+      if (text.startsWith("SELECT id FROM users WHERE email")) {
+        return { rows: users, rowCount: users.length };
+      }
+      if (text.startsWith("INSERT INTO users")) {
+        // ON CONFLICT (email) DO NOTHING: بريد موجود = لا صف جديد
+        if (users.length > 0) return { rows: [], rowCount: 0 };
+        const row = { id: nextId++ };
+        users.push(row);
+        return { rows: [row], rowCount: 1 };
+      }
+      if (text.startsWith("INSERT INTO memberships")) {
+        if (memberships.length > 0) return { rows: [], rowCount: 0 };
+        memberships.push({ id: nextId++ });
+        return { rows: [{ id: nextId - 1 }], rowCount: 1 };
+      }
+      throw new Error(`استعلام غير متوقع في الاختبار: ${text}`);
+    },
+  };
+
+  return {
+    client,
+    calls,
+    /** مستخدم أُنشئ فعلاً هذه المرة (معرّفه) — null لو أُعيد استخدام موجود */
+    createdUserId: () => (users[0]?.id === 100 ? 100 : null),
+    membershipCreated: () => memberships.length > existingMemberships.length,
+  };
+}
+
+describe("ensureIdentity — إنشاء الهوية داخل ترانزاكشن المنشئ", () => {
+  it("حساب جديد: مستخدم ثم عضوية", async () => {
+    const fake = fakeIdentityClient();
+    await ensureIdentity(fake.client, {
+      user: { displayName: "أم محمد", email: "p@x.com", username: null },
+      membership: {
+        role: "parent",
+        mosqueId: null,
+        halaqahId: null,
+        studentId: null,
+        legacyKind: "parent",
+        legacyId: "9",
+        active: true,
+      },
+    });
+    expect(fake.createdUserId()).toBe(100);
+    expect(fake.membershipCreated()).toBe(true);
+  });
+
+  it("عضوية موجودة مسبقاً = لا شيء (متكرر التشغيل مثل الترحيل)", async () => {
+    const fake = fakeIdentityClient([], [{ id: 7 }]);
+    await ensureIdentity(fake.client, {
+      user: { displayName: "أم محمد", email: "p@x.com", username: null },
+      membership: {
+        role: "parent",
+        mosqueId: null,
+        halaqahId: null,
+        studentId: null,
+        legacyKind: "parent",
+        legacyId: "9",
+        active: true,
+      },
+    });
+    expect(fake.calls).toHaveLength(1); // فحص الوجود وحده، لا إنشاء بعده
+    expect(fake.membershipCreated()).toBe(false);
+  });
+
+  it("بريد موجود (معلّم+ولي أمر) = إعادة استخدام المستخدم بعضوية ثانية", async () => {
+    const fake = fakeIdentityClient([{ id: 42 }]); // مستخدم المعلّم بالبريد نفسه
+    await ensureIdentity(fake.client, {
+      user: { displayName: "أم محمد", email: "a@x.com", username: null },
+      membership: {
+        role: "parent",
+        mosqueId: null,
+        halaqahId: null,
+        studentId: null,
+        legacyKind: "parent",
+        legacyId: "9",
+        active: true,
+      },
+    });
+    expect(fake.createdUserId()).toBeNull(); // لم يُنشأ مستخدم جديد
+    expect(fake.membershipCreated()).toBe(true); // والعضوية الثانية أُضيفت
+  });
+
+  it("سباق INSERT المتزامن بنفس البريد: الفائز يُتبنّى بلا رمي", async () => {
+    const fake = fakeIdentityClient();
+    // INSERT الأول «يفشل» (DO NOTHING) ثم SELECT يجد صف الفائز
+    let insertUsersCalled = false;
+    const original = fake.client.query.bind(fake.client);
+    fake.client.query = async (text: string) => {
+      if (text.startsWith("INSERT INTO users") && !insertUsersCalled) {
+        insertUsersCalled = true;
+        fake.calls.push(text);
+        return { rows: [], rowCount: 0 };
+      }
+      if (text.startsWith("SELECT id FROM users WHERE email") && insertUsersCalled) {
+        fake.calls.push(text);
+        return { rows: [{ id: 55 }], rowCount: 1 };
+      }
+      return original(text);
+    };
+    await ensureIdentity(fake.client, {
+      user: { displayName: "أم محمد", email: "a@x.com", username: null },
+      membership: {
+        role: "parent",
+        mosqueId: null,
+        halaqahId: null,
+        studentId: null,
+        legacyKind: "parent",
+        legacyId: "9",
+        active: true,
+      },
+    });
+    expect(fake.membershipCreated()).toBe(true); // عضوية الولي على صف الفائز 55
+  });
+});
