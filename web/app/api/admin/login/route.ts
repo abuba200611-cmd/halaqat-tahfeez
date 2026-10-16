@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { checkAdminLoginRateLimit, recordFailedAdminLoginAttempt } from "@/lib/db";
 import { createAdminToken } from "@/lib/admin-session";
 import { expectedAdminSecret, safeEqual } from "@/lib/safe-equal";
+import { devHostGate } from "@/lib/host-gate";
 
 export const ADMIN_COOKIE = "admin_session";
 
@@ -11,6 +12,11 @@ function clientIp(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  // dev split: دخول الأدمن (الذي تُبنى عليه لوحة المطوّر وإدارة الجوامع)
+  // من مستضيج عام = 404 قبل أي تحقق — لا يُكشف وجود هذا المسار أصلاً
+  const hostGate = await devHostGate();
+  if (hostGate) return hostGate;
+
   const ip = clientIp(request);
   if (!(await checkAdminLoginRateLimit(ip))) {
     return Response.json({ error: "محاولات كثيرة، حاول بعد شوي" }, { status: 429 });

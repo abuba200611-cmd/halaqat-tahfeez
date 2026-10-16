@@ -24,6 +24,7 @@ vi.mock("@/lib/mosque/admin-auth", () => ({
   isAdmin: mocks.isAdmin,
   unauthorized: () => Response.json({ error: "غير مصرّح" }, { status: 401 }),
 }));
+vi.mock("@/lib/host-gate", () => ({ isDevConsoleRequest: async () => true }));
 vi.mock("@/lib/dev-impersonation", () => ({
   currentImpersonation: mocks.currentImpersonation,
   impersonationBlocked: () => Response.json({ error: "أثناء العرض كـ" }, { status: 403 }),

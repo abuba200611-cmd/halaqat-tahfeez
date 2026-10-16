@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { ADMIN_COOKIE } from "@/app/api/admin/login/route";
 import { verifyAdminToken } from "@/lib/admin-session";
+import { isDevConsoleRequest } from "@/lib/host-gate";
 
 /*
   المشرف العام بنظام الجامع = لوحة الأدمن القائمة بهذا التطبيق نفسه
@@ -10,10 +11,15 @@ import { verifyAdminToken } from "@/lib/admin-session";
   lib/admin-session.ts). لا آلية ثانية هنا إطلاقاً — هذه الدوال مجرد
   غلاف يقرأ الجلسة نفسها، فمن يدخل لوحة الأدمن يدخل إدارة الجوامع
   تلقائياً وبالعكس.
+
+  dev split: الجلسة نفسها لا وجود لها خارج مستضيج اللوحة — دخول الأدمن
+  وتسجيل خروجه يجريان هناك، فأي طلب من مستضيج عام (حتى بكوكي منسوخ
+  يدوياً) يُعامل بلا جلسة. هذا خط الدفاع الثاني خلف proxy.ts.
 */
 
 /** هل جلسة الأدمن القائمة صالحة الآن؟ — تُستخدم داخل كل مسار محمي بنظام الجامع */
 export async function isAdmin(): Promise<boolean> {
+  if (!(await isDevConsoleRequest())) return false;
   const store = await cookies();
   const session = store.get(ADMIN_COOKIE)?.value;
   return !!session && verifyAdminToken(session);

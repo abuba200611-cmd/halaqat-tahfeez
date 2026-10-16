@@ -14,6 +14,7 @@ const NAV = [
   { href: "/dev", label: "نظرة عامة", icon: "📊" },
   { href: "/dev/mosques", label: "الجوامع", icon: "🕌" },
   { href: "/dev/users", label: "المستخدمون", icon: "👥" },
+  { href: "/dev/reports", label: "البلاغات", icon: "📮" },
   { href: "/dev/health", label: "الصحة", icon: "🩺" },
   { href: "/admin", label: "الاقتراحات", icon: "💡" },
   { href: "/dev/agent-lessons", label: "دروس الإيجنت", icon: "🤖" },

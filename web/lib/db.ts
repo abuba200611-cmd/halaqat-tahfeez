@@ -258,9 +258,14 @@ export type Suggestion = {
   type: SuggestionType;
   /** من أرسله — يُضاف عند دمج اقتراحات النظامين بلوحة المطوّر، اختياري هنا */
   source?: "teacher" | "student";
+  /** حالة المعالجة بلوحة المطوّر — الصفوف القديمة قبل الترحيل = "new" (افتراضي العمود) */
+  status: ReportStatus;
   /** بيانات وصفية فقط (id وsize_bytes) — لا BYTEA إطلاقاً بقائمة الاقتراحات (STEP 55ب) */
   attachments: SuggestionAttachmentMeta[];
 };
+
+/** حالة بلاغ/اقتراح بلوحة المطوّر: جديد → مرئي → منجز (أو العودة لأي حالة) */
+export type ReportStatus = "new" | "seen" | "done";
 
 /** يستخرج {id, sizeBytes}[] من عمود JSON نصّي (json_agg مُجمَّع بالاستعلام) — [] لعدم وجود أي مرفق */
 function parseAttachmentsJson(raw: unknown): SuggestionAttachmentMeta[] {
@@ -303,7 +308,7 @@ export async function addSuggestion(
 
 export async function listSuggestions(): Promise<Suggestion[]> {
   const rows = await db().sql`
-    SELECT s.id, s.sender_label, s.message, s.type, s.created_at,
+    SELECT s.id, s.sender_label, s.message, s.type, s.created_at, s.status,
     (SELECT json_agg(json_build_object('id', a.id, 'sizeBytes', a.size_bytes) ORDER BY a.id)::text
      FROM suggestion_attachments a WHERE a.teacher_suggestion_id = s.id) AS attachments_json
     FROM suggestions s ORDER BY s.created_at DESC
@@ -314,6 +319,7 @@ export async function listSuggestions(): Promise<Suggestion[]> {
     message: row.message as string,
     createdAt: row.created_at as string,
     type: (row.type as SuggestionType) ?? "suggestion",
+    status: (row.status as ReportStatus) ?? "new",
     attachments: parseAttachmentsJson(row.attachments_json),
   }));
 }
@@ -339,17 +345,18 @@ export async function checkStudentSuggestionRateLimit(teacherId: number, student
 /** يُدرج مرفقات بلاغ — يُستدعى داخل ترانزاكشن قائمة فقط. الحد الأقصى (٣) يُتحقَّق منه قبل استدعائها في مسار الـAPI */
 async function insertSuggestionAttachments(
   client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
-  target: { teacherSuggestionId?: number; studentSuggestionId?: number },
+  target: { teacherSuggestionId?: number; studentSuggestionId?: number; reportId?: number },
   images: ProcessedImage[],
 ): Promise<void> {
   for (const img of images) {
     await client.query(
       `INSERT INTO suggestion_attachments
-        (teacher_suggestion_id, student_suggestion_id, mime, bytes, size_bytes, width, height)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        (teacher_suggestion_id, student_suggestion_id, report_id, mime, bytes, size_bytes, width, height)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [
         target.teacherSuggestionId ?? null,
         target.studentSuggestionId ?? null,
+        target.reportId ?? null,
         img.mime,
         img.bytes,
         img.sizeBytes,
@@ -390,7 +397,7 @@ export async function addStudentSuggestion(
 /** اقتراحات/بلاغات الطلاب — لدمجها بلوحة المطوّر (source: "student") مع اسم الطالب وحلقته الفعليين وقت العرض، لا نسخة محفوظة وقت الإرسال */
 export async function listNativeStudentSuggestions(): Promise<Suggestion[]> {
   const rows = await db().sql`
-    SELECT ss.id, ss.kind, ss.body, ss.created_at, st.name AS student_name, h.name AS halaqah_name,
+    SELECT ss.id, ss.kind, ss.body, ss.created_at, ss.status, st.name AS student_name, h.name AS halaqah_name,
     (SELECT json_agg(json_build_object('id', a.id, 'sizeBytes', a.size_bytes) ORDER BY a.id)::text
      FROM suggestion_attachments a WHERE a.student_suggestion_id = ss.id) AS attachments_json
     FROM student_suggestions ss
@@ -404,6 +411,7 @@ export async function listNativeStudentSuggestions(): Promise<Suggestion[]> {
     message: row.body as string,
     createdAt: row.created_at as string,
     type: (row.kind as StudentSuggestionKind) === "bug" ? "problem" : "suggestion",
+    status: (row.status as ReportStatus) ?? "new",
     attachments: parseAttachmentsJson(row.attachments_json),
   }));
 }
@@ -415,6 +423,85 @@ export async function getSuggestionAttachmentImage(id: number): Promise<{ mime: 
   `;
   if (rows.length === 0) return null;
   return { mime: rows[0].mime as string, bytes: rows[0].bytes as Buffer };
+}
+
+// ————— بلاغات أولياء الأمور ومدراء الجوامع (dev split) —————
+// نفس نمط اقتراحات المعلّم/الطالب تماماً لكن بجدول مستقل: reporter_kind
+// يحدد جدول المرسل (parents أو mosque_admins) وتسميته تُحسب وقت العرض
+// بربط الجدولين فتبقى صحيحة بعد أي تغيير اسم.
+
+export type ReportReporterKind = "parent" | "mosque_admin";
+
+/** ينشئ بلاغ ولي أمر/مدير جامع بمرفقاته في ترانزاكشن واحد — نفس مبدأ addSuggestion */
+export async function addReport(
+  reporterKind: ReportReporterKind,
+  reporterId: number,
+  message: string,
+  type: SuggestionType = "suggestion",
+  images: ProcessedImage[] = [],
+): Promise<number> {
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO reports (reporter_kind, reporter_id, type, message) VALUES ($1,$2,$3,$4) RETURNING id`,
+      [reporterKind, reporterId, type, message],
+    );
+    const id = Number(inserted.rows[0].id);
+    await insertSuggestionAttachments(client, { reportId: id }, images);
+    await client.query("COMMIT");
+    return id;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** بلاغات أولياء الأمور ومدراء الجوامع — تسمية المرسل محسوبة وقت العرض (ولي: name+email، مدير: username+الجامع) */
+export async function listReports(): Promise<(Suggestion & { reporterKind: ReportReporterKind })[]> {
+  const rows = await db().sql`
+    SELECT r.id, r.reporter_kind, r.type, r.message, r.status, r.created_at,
+           CASE WHEN r.reporter_kind = 'parent'
+                THEN p.name || ' (' || p.email || ')'
+                ELSE a.username || ' (' || COALESCE(m.name, '') || ')' END AS sender_label,
+    (SELECT json_agg(json_build_object('id', at.id, 'sizeBytes', at.size_bytes) ORDER BY at.id)::text
+     FROM suggestion_attachments at WHERE at.report_id = r.id) AS attachments_json
+    FROM reports r
+    LEFT JOIN parents p ON r.reporter_kind = 'parent' AND p.id = r.reporter_id
+    LEFT JOIN mosque_admins a ON r.reporter_kind = 'mosque_admin' AND a.id = r.reporter_id
+    LEFT JOIN mosques m ON m.id = a.mosque_id
+    ORDER BY r.created_at DESC
+  `;
+  return rows.map((row) => ({
+    id: row.id as number,
+    senderLabel: row.sender_label as string,
+    message: row.message as string,
+    createdAt: row.created_at as string,
+    type: (row.type as SuggestionType) ?? "suggestion",
+    status: (row.status as ReportStatus) ?? "new",
+    reporterKind: row.reporter_kind as ReportReporterKind,
+    attachments: parseAttachmentsJson(row.attachments_json),
+  }));
+}
+
+/** يغيّر حالة بلاغ معلّم — false إن لم يوجد الصف */
+export async function setTeacherSuggestionStatus(id: number, status: ReportStatus): Promise<boolean> {
+  const rows = await db().sql`UPDATE suggestions SET status = ${status} WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
+}
+
+/** يغيّر حالة بلاغ طالب — false إن لم يوجد الصف */
+export async function setStudentSuggestionStatus(id: number, status: ReportStatus): Promise<boolean> {
+  const rows = await db().sql`UPDATE student_suggestions SET status = ${status} WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
+}
+
+/** يغيّر حالة بلاغ ولي أمر/مدير جامع — false إن لم يوجد الصف */
+export async function setReportStatus(id: number, status: ReportStatus): Promise<boolean> {
+  const rows = await db().sql`UPDATE reports SET status = ${status} WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
 }
 
 // ————— استرجاع كلمة المرور —————

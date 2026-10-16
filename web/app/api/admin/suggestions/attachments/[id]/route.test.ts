@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const cookieStore = vi.hoisted(() => ({ value: undefined as string | undefined }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => (cookieStore.value === undefined ? undefined : { value: cookieStore.value }) }),
+  // dev split: فحص المستضيج يقرأ ترويسات الطلب — بيئة الاختبار localhost
+  headers: async () => ({ get: (name: string) => (name === "host" ? "localhost:3000" : null) }),
 }));
 
 const dbMocks = vi.hoisted(() => ({ getSuggestionAttachmentImage: vi.fn() }));

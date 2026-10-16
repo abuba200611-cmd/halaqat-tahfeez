@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AwardIcon, BrainIcon, CalendarIcon, ChartIcon, ClipboardIcon, HomeIcon, ImageIcon, SettingsIcon, ShieldIcon, StarIcon, TrophyIcon, UsersIcon } from "./icons";
+import { AwardIcon, BrainIcon, CalendarIcon, ChartIcon, ClipboardIcon, HomeIcon, ImageIcon, MessageIcon, SettingsIcon, ShieldIcon, StarIcon, TrophyIcon, UsersIcon } from "./icons";
 
 export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean };
 
@@ -54,6 +54,14 @@ export function mosqueNavItems(opts: {
   feature("archive", "archive", "أرشيف الأنشطة", <ImageIcon />);
 
   if (extra) items.push(extra);
+
+  // بلاغ إلى المطوّر — ليس ميزة جامع بل منفذ منصة لكل الأدوار (dev split)
+  items.push({
+    href: `/mosque/${mosqueId}/suggest`,
+    label: "اقتراح / بلاغ",
+    icon: <MessageIcon />,
+    active: activeHref === `/mosque/${mosqueId}/suggest`,
+  });
 
   items.push({
     href: `/mosque/${mosqueId}/settings`,

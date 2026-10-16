@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /*
-  بوابة /api/dev: بلا جلسة أدمن = 401، وأثناء «عرض كـ» = 403 — تشمل
+  بوابة /api/dev: بلا جلسة أدمن = 401، وأثناء «عرض كـ» = 403، ومن
+  مستضيج عام = 404 (dev split — خط الدفاع الثاني خلف proxy.ts) — تشمل
   نظرة عامة والمستخدمين والصحة وسجل التدقيق.
 */
 
 const mocks = vi.hoisted(() => ({
   isAdmin: vi.fn(),
+  isDevConsoleRequest: vi.fn(),
   currentImpersonation: vi.fn(),
   devOverview: vi.fn(),
   searchDevUsers: vi.fn(),
@@ -18,6 +20,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/mosque/admin-auth", () => ({
   isAdmin: mocks.isAdmin,
   unauthorized: () => Response.json({ error: "غير مصرّح" }, { status: 401 }),
+}));
+vi.mock("@/lib/host-gate", () => ({
+  isDevConsoleRequest: mocks.isDevConsoleRequest,
+  hostNotFound: () => new Response(null, { status: 404 }),
+  devHostGate: async () => (await mocks.isDevConsoleRequest() ? null : new Response(null, { status: 404 })),
 }));
 vi.mock("@/lib/dev-impersonation", () => ({
   currentImpersonation: mocks.currentImpersonation,
@@ -38,10 +45,30 @@ const { GET: auditGET } = await import("@/app/api/dev/audit/route");
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.isDevConsoleRequest.mockResolvedValue(true);
   mocks.currentImpersonation.mockResolvedValue(null);
 });
 
 describe("حماية مسارات اللوحة", () => {
+  it("من مستضيج عام: 404 ولا تُلمس القاعدة ولا جلسة الأدمن نفسها", async () => {
+    mocks.isDevConsoleRequest.mockResolvedValue(false);
+    mocks.isAdmin.mockResolvedValue(true);
+
+    for (const res of [
+      await overviewGET(),
+      await usersGET(new Request("http://localhost/api/dev/users?q=ab")),
+      await healthGET(),
+      await auditGET(),
+    ]) {
+      expect(res.status).toBe(404);
+    }
+    expect(mocks.isAdmin).not.toHaveBeenCalled();
+    expect(mocks.devOverview).not.toHaveBeenCalled();
+    expect(mocks.searchDevUsers).not.toHaveBeenCalled();
+    expect(mocks.devHealth).not.toHaveBeenCalled();
+    expect(mocks.listDevAudit).not.toHaveBeenCalled();
+  });
+
   it("بلا جلسة أدمن: كل مسارات /api/dev ترجع 401 ولا تلمس القاعدة", async () => {
     mocks.isAdmin.mockResolvedValue(false);
 

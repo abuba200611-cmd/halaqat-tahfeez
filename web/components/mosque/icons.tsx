@@ -197,3 +197,16 @@ export function ImageIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function MessageIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className}>
+      <path
+        d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-4 4v-4H6a2 2 0 0 1-2-2V6Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8.5 9.5h7M8.5 12.5h4" strokeLinecap="round" />
+    </svg>
+  );
+}

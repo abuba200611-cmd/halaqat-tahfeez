@@ -4,7 +4,8 @@ import { useState } from "react";
 
 /**
  * الشريط الأحمر الثابت أثناء «عرض كـ» — يظهر على كل صفحة يدخلها الدور
- * المنتحَل، وزر «إنهاء» يوقف العرض ويعيد تحميل الصفحة.
+ * المنتحَل، وزر «إنهاء» يوقف العرض ويرجع للوحة المطوّر /dev (البقاء
+ * بصفحة الدور بعد حذف كوكيزه يُظهر شاشة دخول ذلك الدور بلا داعٍ).
  */
 export function ImpersonationBanner({ label }: { label: string }) {
   const [busy, setBusy] = useState(false);
@@ -14,7 +15,7 @@ export function ImpersonationBanner({ label }: { label: string }) {
     try {
       await fetch("/api/dev/impersonate/end", { method: "POST" });
     } finally {
-      window.location.reload();
+      window.location.href = "/dev";
     }
   }
 
