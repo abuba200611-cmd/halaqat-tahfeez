@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { recordSeen } from "./activity";
 import { findMosqueAdminById, sessionSecret, type MosqueAdmin } from "./db";
 
 /*
@@ -68,5 +69,10 @@ export async function currentMosqueAdmin(): Promise<MosqueAdmin | null> {
   if (!token) return null;
 
   const adminId = await readMosqueAdminSessionToken(token);
-  return adminId === null ? null : findMosqueAdminById(adminId);
+  if (adminId === null) return null;
+  const admin = await findMosqueAdminById(adminId);
+  if (!admin) return null;
+  // نشاط الحسابات: آخر ظهور (مكبوح ١٠ دقائق، صامت الفشل، بلا نسبة أثناء «عرض كـ»)
+  await recordSeen({ role: "mosque_admin", adminId: admin.id });
+  return admin;
 }

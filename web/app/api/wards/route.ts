@@ -13,6 +13,7 @@ import {
 } from "@/lib/db";
 import { sendPushToHalaqah, sendPushToParentsOfStudent, sendPushToStudent } from "@/lib/push";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
+import { logServerError } from "@/lib/dev-error-log";
 import type { WardStatus } from "@/lib/types";
 
 /** يقرأ موضع سورة/آية من الجسم بأمان — null لأي قيمة غير رقمية */
@@ -147,6 +148,7 @@ export async function POST(request: Request) {
 
     return Response.json({ ok: true });
   } catch (error) {
+    await logServerError("wards:post", error);
     return Response.json(
       { error: error instanceof Error ? error.message : "تعذّر إرسال الورد" },
       { status: 400 },

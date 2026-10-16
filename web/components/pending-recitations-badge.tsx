@@ -1,28 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSharedJson } from "./use-shared-json";
 
-/** وسم عدد التلاوات بانتظار التقييم بجانب رابط «التلاوات» — يستفتي الخادم كل دقيقة */
+/**
+ * وسم عدد التلاوات بانتظار التقييم بجانب رابط «التلاوات» — نسخ الوسم
+ * المركّبة بنفس الصفحة تتشارك جلباً و Refresh واحداً كل دقيقة عبر
+ * useSharedJson.
+ */
 export function PendingRecitationsBadge() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    const load = () => {
-      fetch("/api/recitations?count=1")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data: { pendingCount?: number } | null) => {
-          if (active && data) setCount(data.pendingCount ?? 0);
-        })
-        .catch(() => {});
-    };
-    load();
-    const timer = setInterval(load, 60000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, []);
+  const data = useSharedJson<{ pendingCount?: number }>("/api/recitations?count=1", 60000);
+  const count = data?.pendingCount ?? 0;
 
   if (count === 0) return null;
   return (

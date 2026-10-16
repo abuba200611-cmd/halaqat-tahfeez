@@ -1,5 +1,6 @@
 import { hashPassword } from "@/lib/auth";
 import { setParentSessionCookie } from "@/lib/parent-auth";
+import { recordLogin } from "@/lib/activity";
 import { createParent, isValidParentEmail, normalizeParentEmail } from "@/lib/parent-db";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 
@@ -31,5 +32,6 @@ export async function POST(request: Request) {
   }
 
   await setParentSessionCookie(id);
+  await recordLogin({ role: "parent", parentId: id });
   return Response.json({ parent: { id, name, email } });
 }

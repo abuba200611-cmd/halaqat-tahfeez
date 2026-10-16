@@ -1,5 +1,7 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { setAssistantActive } from "@/lib/db";
+import { guardImpersonation } from "@/lib/dev-impersonation";
+import { logDevAction } from "@/lib/dev-audit";
 
 /**
  * إيقاف مساعد/إعادة تفعيله — مشرف الحلقة فقط، بنمط /api/teacher/settings.
@@ -13,6 +15,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (teacher.role !== "supervisor") {
     return Response.json({ error: "إيقاف المساعدين وتفعيلهم متاح لمشرف الحلقة فقط" }, { status: 403 });
   }
+  // إيقاف حساب هدّام — ممنوع أثناء «عرض كـ»
+  const impBlocked = await guardImpersonation();
+  if (impBlocked) return impBlocked;
 
   const { id } = await params;
   const assistantId = Number(id);
@@ -29,5 +34,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!updated) {
     return Response.json({ error: "لا يوجد مساعد بهذا المعرّف في حلقتك" }, { status: 404 });
   }
+  await logDevAction(body.active ? "assistant_reactivate" : "assistant_deactivate", "teacher", assistantId, {
+    halaqahId: teacher.halaqahId,
+    by: `teacher:${teacher.id}`,
+  });
   return Response.json({ ok: true });
 }

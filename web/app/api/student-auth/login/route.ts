@@ -1,5 +1,6 @@
 import { checkLoginRateLimit, findStudentByUsername, recordFailedLoginAttempt } from "@/lib/db";
 import { setStudentSessionCookie, verifyPassword } from "@/lib/auth";
+import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
@@ -33,5 +34,6 @@ export async function POST(request: Request) {
   }
 
   await setStudentSessionCookie(student.teacherId, student.id);
+  await recordLogin({ role: "student", halaqahId: student.teacherId, studentId: student.id });
   return Response.json({ student: { id: student.id, name: student.name } });
 }

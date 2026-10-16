@@ -1,7 +1,12 @@
 import { AuthGate } from "@/components/auth-gate";
 import { NewWardBadge } from "@/components/new-ward-badge";
 import { PendingRecitationsBadge } from "@/components/pending-recitations-badge";
+import { ImpersonationBannerBar } from "@/components/dev/banner-server";
 import { ChartIcon, CalendarIcon, ClipboardIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, ShuffleIcon, UsersIcon } from "@/components/icons";
+import type { Metadata } from "next";
+
+/** عنوان تبويب قسم المعلّم — الاسم العربي للقسم يبقى، مع وسم MOS الموحّد (M5) */
+export const metadata: Metadata = { title: "المعلم — MOS" };
 
 const NAV = [
   { href: "/", label: "لوحة الحلقة", desc: "نظرة عامة على حلقتك اليوم", icon: <HomeIcon size={19} /> },
@@ -17,6 +22,12 @@ const NAV = [
   { href: "/suggest", label: "اقتراح / بلاغ", desc: "شاركنا رأيك أو بلاغك", icon: <MessageIcon size={19} /> },
 ];
 
-export default function TeacherLayout({ children }: { children: React.ReactNode }) {
-  return <AuthGate nav={NAV}>{children}</AuthGate>;
+export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
+  // شريط «أنت تشاهد كـ» يظهر أعلى كل صفحات المعلّم أثناء العرض المنتحَل
+  return (
+    <>
+      <ImpersonationBannerBar />
+      <AuthGate nav={NAV}>{children}</AuthGate>
+    </>
+  );
 }

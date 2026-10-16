@@ -2,6 +2,7 @@ import "server-only";
 
 import { getDatabase } from "@netlify/database";
 import { createHash, randomBytes } from "node:crypto";
+import { ensureStudentIdentity, ensureTeacherIdentity } from "./identity";
 import type { ProcessedImage } from "./image-processing";
 import { juzesOfRange } from "./quran";
 import type {
@@ -87,7 +88,9 @@ function rowToTeacherAccount(row: Record<string, unknown>): Teacher & { password
 
 /**
  * ينشئ حلقة جديدة وأول معلّم لها (مشرف) معاً — هذا هو مسار "أنشئ حلقة"
- * بشاشة التسجيل. يرجع معرّف حساب المعلّم الجديد.
+ * بشاشة التسجيل. يرجع معرّف حساب المعلّم الجديد. ترانزاكشن واحدة تشمل
+ * هوية M5 (user+membership) فلا يوجد معلّم بلا هوية موحّدة إلا لو فشل
+ * إنشاؤه كله.
  */
 export async function createHalaqahWithSupervisor(
   username: string,
@@ -96,22 +99,41 @@ export async function createHalaqahWithSupervisor(
   emailVerified = false,
   teacherName = "",
 ): Promise<number> {
-  const halaqahRows = await db().sql`
-    INSERT INTO halaqahs (name) VALUES (${halaqahName || "حلقتي"}) RETURNING id
-  `;
-  const halaqahId = Number(halaqahRows[0].id);
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const halaqahRows = await client.query(`INSERT INTO halaqahs (name) VALUES ($1) RETURNING id`, [
+      halaqahName || "حلقتي",
+    ]);
+    const halaqahId = Number(halaqahRows.rows[0].id);
 
-  const rows = await db().sql`
-    INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
-    VALUES (${username}, ${passwordHash}, ${halaqahId}, 'supervisor', ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
-    RETURNING id
-  `;
-  return Number(rows[0].id);
+    const rows = await client.query(
+      `INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
+       VALUES ($1, $2, $3, 'supervisor', $4, $5, $6) RETURNING id`,
+      [username, passwordHash, halaqahId, teacherName, emailVerified, new Date().toISOString()],
+    );
+    const teacherId = Number(rows.rows[0].id);
+    await ensureTeacherIdentity(client, {
+      id: teacherId,
+      username,
+      teacherName,
+      halaqahId,
+      role: "supervisor",
+    });
+    await client.query("COMMIT");
+    return teacherId;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /**
  * ينضم معلّم جديد (مساعد مشرف) لحلقة قائمة عبر رمز دعوة المعلّمين
  * الخاص بها (منفصل عن رمز دعوة الطلاب). يرجع null لو الرمز غير صحيح.
+ * إنشاء الحساب وهويته الموحّدة (M5) بترانزاكشن واحدة.
  */
 export async function joinHalaqahAsAssistant(
   teacherInviteCode: string,
@@ -124,12 +146,30 @@ export async function joinHalaqahAsAssistant(
   const halaqahId = halaqahRows[0]?.id as number | undefined;
   if (!halaqahId) return null;
 
-  const rows = await db().sql`
-    INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
-    VALUES (${username}, ${passwordHash}, ${halaqahId}, 'assistant', ${teacherName}, ${emailVerified}, ${new Date().toISOString()})
-    RETURNING id
-  `;
-  return Number(rows[0].id);
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const rows = await client.query(
+      `INSERT INTO teachers (username, password_hash, halaqah_id, role, teacher_name, email_verified, created_at)
+       VALUES ($1, $2, $3, 'assistant', $4, $5, $6) RETURNING id`,
+      [username, passwordHash, halaqahId, teacherName, emailVerified, new Date().toISOString()],
+    );
+    const teacherId = Number(rows.rows[0].id);
+    await ensureTeacherIdentity(client, {
+      id: teacherId,
+      username,
+      teacherName,
+      halaqahId,
+      role: "assistant",
+    });
+    await client.query("COMMIT");
+    return teacherId;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function findTeacherByUsername(
@@ -218,9 +258,14 @@ export type Suggestion = {
   type: SuggestionType;
   /** من أرسله — يُضاف عند دمج اقتراحات النظامين بلوحة المطوّر، اختياري هنا */
   source?: "teacher" | "student";
+  /** حالة المعالجة بلوحة المطوّر — الصفوف القديمة قبل الترحيل = "new" (افتراضي العمود) */
+  status: ReportStatus;
   /** بيانات وصفية فقط (id وsize_bytes) — لا BYTEA إطلاقاً بقائمة الاقتراحات (STEP 55ب) */
   attachments: SuggestionAttachmentMeta[];
 };
+
+/** حالة بلاغ/اقتراح بلوحة المطوّر: جديد → مرئي → منجز (أو العودة لأي حالة) */
+export type ReportStatus = "new" | "seen" | "done";
 
 /** يستخرج {id, sizeBytes}[] من عمود JSON نصّي (json_agg مُجمَّع بالاستعلام) — [] لعدم وجود أي مرفق */
 function parseAttachmentsJson(raw: unknown): SuggestionAttachmentMeta[] {
@@ -263,7 +308,7 @@ export async function addSuggestion(
 
 export async function listSuggestions(): Promise<Suggestion[]> {
   const rows = await db().sql`
-    SELECT s.id, s.sender_label, s.message, s.type, s.created_at,
+    SELECT s.id, s.sender_label, s.message, s.type, s.created_at, s.status,
     (SELECT json_agg(json_build_object('id', a.id, 'sizeBytes', a.size_bytes) ORDER BY a.id)::text
      FROM suggestion_attachments a WHERE a.teacher_suggestion_id = s.id) AS attachments_json
     FROM suggestions s ORDER BY s.created_at DESC
@@ -274,6 +319,7 @@ export async function listSuggestions(): Promise<Suggestion[]> {
     message: row.message as string,
     createdAt: row.created_at as string,
     type: (row.type as SuggestionType) ?? "suggestion",
+    status: (row.status as ReportStatus) ?? "new",
     attachments: parseAttachmentsJson(row.attachments_json),
   }));
 }
@@ -299,17 +345,18 @@ export async function checkStudentSuggestionRateLimit(teacherId: number, student
 /** يُدرج مرفقات بلاغ — يُستدعى داخل ترانزاكشن قائمة فقط. الحد الأقصى (٣) يُتحقَّق منه قبل استدعائها في مسار الـAPI */
 async function insertSuggestionAttachments(
   client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
-  target: { teacherSuggestionId?: number; studentSuggestionId?: number },
+  target: { teacherSuggestionId?: number; studentSuggestionId?: number; reportId?: number },
   images: ProcessedImage[],
 ): Promise<void> {
   for (const img of images) {
     await client.query(
       `INSERT INTO suggestion_attachments
-        (teacher_suggestion_id, student_suggestion_id, mime, bytes, size_bytes, width, height)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        (teacher_suggestion_id, student_suggestion_id, report_id, mime, bytes, size_bytes, width, height)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [
         target.teacherSuggestionId ?? null,
         target.studentSuggestionId ?? null,
+        target.reportId ?? null,
         img.mime,
         img.bytes,
         img.sizeBytes,
@@ -350,7 +397,7 @@ export async function addStudentSuggestion(
 /** اقتراحات/بلاغات الطلاب — لدمجها بلوحة المطوّر (source: "student") مع اسم الطالب وحلقته الفعليين وقت العرض، لا نسخة محفوظة وقت الإرسال */
 export async function listNativeStudentSuggestions(): Promise<Suggestion[]> {
   const rows = await db().sql`
-    SELECT ss.id, ss.kind, ss.body, ss.created_at, st.name AS student_name, h.name AS halaqah_name,
+    SELECT ss.id, ss.kind, ss.body, ss.created_at, ss.status, st.name AS student_name, h.name AS halaqah_name,
     (SELECT json_agg(json_build_object('id', a.id, 'sizeBytes', a.size_bytes) ORDER BY a.id)::text
      FROM suggestion_attachments a WHERE a.student_suggestion_id = ss.id) AS attachments_json
     FROM student_suggestions ss
@@ -364,6 +411,7 @@ export async function listNativeStudentSuggestions(): Promise<Suggestion[]> {
     message: row.body as string,
     createdAt: row.created_at as string,
     type: (row.kind as StudentSuggestionKind) === "bug" ? "problem" : "suggestion",
+    status: (row.status as ReportStatus) ?? "new",
     attachments: parseAttachmentsJson(row.attachments_json),
   }));
 }
@@ -375,6 +423,85 @@ export async function getSuggestionAttachmentImage(id: number): Promise<{ mime: 
   `;
   if (rows.length === 0) return null;
   return { mime: rows[0].mime as string, bytes: rows[0].bytes as Buffer };
+}
+
+// ————— بلاغات أولياء الأمور ومدراء الجوامع (dev split) —————
+// نفس نمط اقتراحات المعلّم/الطالب تماماً لكن بجدول مستقل: reporter_kind
+// يحدد جدول المرسل (parents أو mosque_admins) وتسميته تُحسب وقت العرض
+// بربط الجدولين فتبقى صحيحة بعد أي تغيير اسم.
+
+export type ReportReporterKind = "parent" | "mosque_admin";
+
+/** ينشئ بلاغ ولي أمر/مدير جامع بمرفقاته في ترانزاكشن واحد — نفس مبدأ addSuggestion */
+export async function addReport(
+  reporterKind: ReportReporterKind,
+  reporterId: number,
+  message: string,
+  type: SuggestionType = "suggestion",
+  images: ProcessedImage[] = [],
+): Promise<number> {
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const inserted = await client.query(
+      `INSERT INTO reports (reporter_kind, reporter_id, type, message) VALUES ($1,$2,$3,$4) RETURNING id`,
+      [reporterKind, reporterId, type, message],
+    );
+    const id = Number(inserted.rows[0].id);
+    await insertSuggestionAttachments(client, { reportId: id }, images);
+    await client.query("COMMIT");
+    return id;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/** بلاغات أولياء الأمور ومدراء الجوامع — تسمية المرسل محسوبة وقت العرض (ولي: name+email، مدير: username+الجامع) */
+export async function listReports(): Promise<(Suggestion & { reporterKind: ReportReporterKind })[]> {
+  const rows = await db().sql`
+    SELECT r.id, r.reporter_kind, r.type, r.message, r.status, r.created_at,
+           CASE WHEN r.reporter_kind = 'parent'
+                THEN p.name || ' (' || p.email || ')'
+                ELSE a.username || ' (' || COALESCE(m.name, '') || ')' END AS sender_label,
+    (SELECT json_agg(json_build_object('id', at.id, 'sizeBytes', at.size_bytes) ORDER BY at.id)::text
+     FROM suggestion_attachments at WHERE at.report_id = r.id) AS attachments_json
+    FROM reports r
+    LEFT JOIN parents p ON r.reporter_kind = 'parent' AND p.id = r.reporter_id
+    LEFT JOIN mosque_admins a ON r.reporter_kind = 'mosque_admin' AND a.id = r.reporter_id
+    LEFT JOIN mosques m ON m.id = a.mosque_id
+    ORDER BY r.created_at DESC
+  `;
+  return rows.map((row) => ({
+    id: row.id as number,
+    senderLabel: row.sender_label as string,
+    message: row.message as string,
+    createdAt: row.created_at as string,
+    type: (row.type as SuggestionType) ?? "suggestion",
+    status: (row.status as ReportStatus) ?? "new",
+    reporterKind: row.reporter_kind as ReportReporterKind,
+    attachments: parseAttachmentsJson(row.attachments_json),
+  }));
+}
+
+/** يغيّر حالة بلاغ معلّم — false إن لم يوجد الصف */
+export async function setTeacherSuggestionStatus(id: number, status: ReportStatus): Promise<boolean> {
+  const rows = await db().sql`UPDATE suggestions SET status = ${status} WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
+}
+
+/** يغيّر حالة بلاغ طالب — false إن لم يوجد الصف */
+export async function setStudentSuggestionStatus(id: number, status: ReportStatus): Promise<boolean> {
+  const rows = await db().sql`UPDATE student_suggestions SET status = ${status} WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
+}
+
+/** يغيّر حالة بلاغ ولي أمر/مدير جامع — false إن لم يوجد الصف */
+export async function setReportStatus(id: number, status: ReportStatus): Promise<boolean> {
+  const rows = await db().sql`UPDATE reports SET status = ${status} WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
 }
 
 // ————— استرجاع كلمة المرور —————
@@ -476,22 +603,48 @@ export async function listStudents(teacherId: number): Promise<Student[]> {
   return rows.map(rowToStudent);
 }
 
+/** إدخال/تحديث طالب — الإدخال ينشئ معه هويته الموحّدة (M5) بنفس الترانزاكشن،
+ * بنفس قاعدة backfill الترحيل: طالب بلا اسم مستخدم يُنشأ له مقبض اصطناعي. */
 export async function upsertStudent(teacherId: number, student: Student, sortOrder = 0): Promise<void> {
-  await db().sql`
-    INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
-    VALUES (
-      ${student.id}, ${teacherId}, ${student.name}, ${student.group ?? ""},
-      ${JSON.stringify(student.ranges ?? [])}, ${JSON.stringify(student.mastery ?? {})},
-      ${!!student.active}, ${student.rating ?? 0}, ${sortOrder}
-    )
-    ON CONFLICT (teacher_id, id) DO UPDATE SET
-      name = excluded.name,
-      group_name = excluded.group_name,
-      ranges = excluded.ranges,
-      mastery = excluded.mastery,
-      active = excluded.active,
-      rating = excluded.rating
-  `;
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+       ON CONFLICT (teacher_id, id) DO UPDATE SET
+         name = excluded.name,
+         group_name = excluded.group_name,
+         ranges = excluded.ranges,
+         mastery = excluded.mastery,
+         active = excluded.active,
+         rating = excluded.rating`,
+      [
+        student.id,
+        teacherId,
+        student.name,
+        student.group ?? "",
+        JSON.stringify(student.ranges ?? []),
+        JSON.stringify(student.mastery ?? {}),
+        !!student.active,
+        student.rating ?? 0,
+        sortOrder,
+      ],
+    );
+    await ensureStudentIdentity(client, {
+      halaqahId: teacherId,
+      id: student.id,
+      name: student.name,
+      username: null,
+      active: !!student.active,
+    });
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /** يحدّث تقييم النجوم فقط دون المساس بباقي بيانات الطالب */
@@ -504,13 +657,21 @@ export async function setStudentRating(teacherId: number, studentId: string, rat
   return rows.length > 0;
 }
 
-/** حذف ناعم — يبقى السطر ٢٤ ساعة قابلاً للاسترجاع بدل حذفه فوراً */
+/** حذف ناعم — يبقى السطر ٢٤ ساعة قابلاً للاسترجاع بدل حذفه فوراً.
+ * يُطفئ عضوية هوية الطالب (M5) إن وُجدت — أفضل جهد لا أكثر: التحقق الفعلي
+ * عند أي تبديل دور يقرأ صف الطالب الحي، فبقاء العلم قديماً لا يفتح شيئاً. */
 export async function deleteStudent(teacherId: number, id: string): Promise<boolean> {
   const rows = await db().sql`
     UPDATE students SET deleted_at = now()
     WHERE teacher_id = ${teacherId} AND id = ${id} AND deleted_at IS NULL
     RETURNING id
   `;
+  if (rows.length > 0) {
+    await db().sql`
+      UPDATE memberships SET active = FALSE
+      WHERE legacy_kind = 'student' AND legacy_id = ${`${teacherId}:${id}`}
+    `;
+  }
   return rows.length > 0;
 }
 
@@ -534,10 +695,18 @@ export async function restoreStudent(teacherId: number, id: string): Promise<boo
       AND deleted_at IS NOT NULL AND deleted_at > now() - interval '24 hours'
     RETURNING id
   `;
+  if (rows.length > 0) {
+    await db().sql`
+      UPDATE memberships SET active = TRUE
+      WHERE legacy_kind = 'student' AND legacy_id = ${`${teacherId}:${id}`}
+    `;
+  }
   return rows.length > 0;
 }
 
-/** يستبدل قائمة الطلاب كاملة — تُستخدم للحلقة التجريبية ولمسح البيانات */
+/** يستبدل قائمة الطلاب كاملة — تُستخدم للحلقة التجريبية ولمسح البيانات.
+ * كل طالب مدرج يحصل على هويته الموحّدة (M5) بنفس الترانزاكشن؛ صفوف من
+ * استُبدلوا تبقى عضوياتهم القديمة بلا إسناد (لا FK عمداً) ولا تُفتح شيئاً. */
 export async function replaceStudents(teacherId: number, students: Student[]): Promise<void> {
   const client = await db().pool.connect();
   try {
@@ -546,8 +715,8 @@ export async function replaceStudents(teacherId: number, students: Student[]): P
     for (let i = 0; i < students.length; i++) {
       const s = students[i];
       await client.query(
-        `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())`,
         [
           s.id,
           teacherId,
@@ -560,6 +729,13 @@ export async function replaceStudents(teacherId: number, students: Student[]): P
           i,
         ],
       );
+      await ensureStudentIdentity(client, {
+        halaqahId: teacherId,
+        id: s.id,
+        name: s.name,
+        username: null,
+        active: !!s.active,
+      });
     }
     await client.query("COMMIT");
   } catch (error) {
@@ -639,28 +815,57 @@ export async function deleteSchedule(teacherId: number, id: number): Promise<boo
 
 // ————— حسابات الطلاب (دخول الطالب لنظامه) —————
 
-/** يمنح الطالب اسم مستخدم وكلمة مرور، أو يحدّثهما. يرمي عند تكرار الاسم */
+/** يمنح الطالب اسم مستخدم وكلمة مرور، أو يحدّثهما. يرمي عند تكرار الاسم.
+ * من لحظة منح الطالب دخولاً يصبح صاحب هوية موحّدة (M5): user+membership
+ * تنشآن/تُحدَّثان بترانزاكشن التحديث نفسها. */
 export async function setStudentCredentials(
   teacherId: number,
   studentId: string,
   username: string,
   passwordHash: string,
 ): Promise<void> {
-  const exists = await db().sql`
-    SELECT 1 FROM students WHERE teacher_id = ${teacherId} AND id = ${studentId}
-  `;
-  if (exists.length === 0) throw new Error("الطالب غير موجود");
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const exists = await client.query(`SELECT 1 FROM students WHERE teacher_id = $1 AND id = $2`, [
+      teacherId,
+      studentId,
+    ]);
+    if (exists.rowCount === 0) {
+      await client.query("ROLLBACK");
+      throw new Error("الطالب غير موجود");
+    }
 
-  const taken = await db().sql`
-    SELECT 1 FROM students
-    WHERE username = ${username} AND NOT (teacher_id = ${teacherId} AND id = ${studentId})
-  `;
-  if (taken.length > 0) throw new Error("اسم المستخدم مستخدم من قبل");
+    const taken = await client.query(
+      `SELECT 1 FROM students
+       WHERE username = $1 AND NOT (teacher_id = $2 AND id = $3)`,
+      [username, teacherId, studentId],
+    );
+    if ((taken.rowCount ?? 0) > 0) {
+      await client.query("ROLLBACK");
+      throw new Error("اسم المستخدم مستخدم من قبل");
+    }
 
-  await db().sql`
-    UPDATE students SET username = ${username}, password_hash = ${passwordHash}, session_version = session_version + 1
-    WHERE teacher_id = ${teacherId} AND id = ${studentId}
-  `;
+    const updated = await client.query(
+      `UPDATE students SET username = $1, password_hash = $2, session_version = session_version + 1
+       WHERE teacher_id = $3 AND id = $4
+       RETURNING name, active`,
+      [username, passwordHash, teacherId, studentId],
+    );
+    await ensureStudentIdentity(client, {
+      halaqahId: teacherId,
+      id: studentId,
+      name: updated.rows[0].name as string,
+      username,
+      active: updated.rows[0].active === true,
+    });
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 /** اسم المستخدم لكل طالب (إن وُجد) — لعرضه في صفحة الطلاب عند المعلّم */
@@ -1607,6 +1812,14 @@ export async function setAssistantActive(halaqahId: number, assistantId: number,
         WHERE id = ${assistantId} AND halaqah_id = ${halaqahId} AND role = 'assistant'
         RETURNING id
       `;
+  // M5: عضوية الهوية تتبع حالة الحساب — أفضل جهد لا أكثر: التحقق الفعلي
+  // عند أي تبديل دور يقرأ صف المعلّم الحي، فبقاء العلم قديماً لا يفتح شيئاً.
+  if (rows.length > 0) {
+    await db().sql`
+      UPDATE memberships SET active = ${active}
+      WHERE legacy_kind = 'teacher' AND legacy_id = ${String(assistantId)}
+    `;
+  }
   return rows.length > 0;
 }
 
@@ -1730,8 +1943,8 @@ export async function createGoogleStudentAccount(
   try {
     await client.query("BEGIN");
     await client.query(
-      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order)
-       VALUES ($1, $2, $3, '', '[]', '{}', true, 0, 0)`,
+      `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order, created_at)
+       VALUES ($1, $2, $3, '', '[]', '{}', true, 0, 0, now())`,
       [studentId, halaqah.id, input.studentName],
     );
     await client.query(
@@ -1739,6 +1952,14 @@ export async function createGoogleStudentAccount(
        VALUES ($1, $2, 'google', $3, $4)`,
       [halaqah.id, studentId, input.providerSubject, input.providerEmail],
     );
+    // M5: طالب جوجل جديد = صاحب دخول، فيُنشأ معه user+membership بنفس الترانزاكشن
+    await ensureStudentIdentity(client, {
+      halaqahId: halaqah.id,
+      id: studentId,
+      name: input.studentName,
+      username: null,
+      active: true,
+    });
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

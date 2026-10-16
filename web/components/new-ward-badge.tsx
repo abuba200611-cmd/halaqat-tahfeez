@@ -1,31 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSharedJson } from "./use-shared-json";
 
 /**
- * وسم عدد الأوراد الجديدة بجانب رابط «الوارد». يستفتي الخادم كل نصف دقيقة
- * حتى يظهر ما يرسله الطلاب دون إعادة تحميل الصفحة.
+ * وسم عدد الأوراد الجديدة بجانب رابط «الوارد». نسخ الوسم المركّبة بنفس
+ * الصفحة (السايدبار + الشريط العلوي) تتشارك جلباً و Refresh واحداً كل
+ * نصف دقيقة عبر useSharedJson — فلا تتضاعف الطلبات بعدد النسخ.
  */
 export function NewWardBadge() {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    const load = () => {
-      fetch("/api/wards?new=1")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data: { newCount?: number } | null) => {
-          if (active && data) setCount(data.newCount ?? 0);
-        })
-        .catch(() => {});
-    };
-    load();
-    const timer = setInterval(load, 30000);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
-  }, []);
+  const data = useSharedJson<{ newCount?: number }>("/api/wards?new=1", 30000);
+  const count = data?.newCount ?? 0;
 
   if (count === 0) return null;
   return (

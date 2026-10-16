@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "./db";
+import { ensureParentIdentity } from "./identity";
 import type { PushSubscriptionData } from "./types";
 
 /*
@@ -57,15 +58,34 @@ function rowToParent(row: Record<string, unknown>): Parent {
 
 // ————— الحساب —————
 
-/** ينشئ حساباً جديداً؛ null إن كان البريد مسجّلاً سابقاً */
+/** ينشئ حساباً جديداً؛ null إن كان البريد مسجّلاً سابقاً. هوية M5
+ * (user+membership) تنشآن بترانزاكشن الحساب نفسها — بريد مطابق لبريد معلّم
+ * يعيد استخدام مستخدمه فيصبح الشخص واحداً بعضويتين. */
 export async function createParent(email: string, name: string, passwordHash: string): Promise<number | null> {
-  const rows = await db().sql`
-    INSERT INTO parents (email, name, password_hash)
-    VALUES (${email}, ${name}, ${passwordHash})
-    ON CONFLICT (email) DO NOTHING
-    RETURNING id
-  `;
-  return rows[0] ? Number(rows[0].id) : null;
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const rows = await client.query(
+      `INSERT INTO parents (email, name, password_hash)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (email) DO NOTHING
+       RETURNING id`,
+      [email, name, passwordHash],
+    );
+    if (!rows.rows[0]) {
+      await client.query("COMMIT");
+      return null;
+    }
+    const id = Number(rows.rows[0].id);
+    await ensureParentIdentity(client, { id, email, name });
+    await client.query("COMMIT");
+    return id;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function findParentByEmail(email: string): Promise<(Parent & { passwordHash: string }) | null> {

@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/suggestions": ["./node_modules/@img/**/*"],
     "/api/student/suggestions": ["./node_modules/@img/**/*"],
+    // M6: دليل MOS يُقرأ من القرص وقت التشغيل (lib/agent/guide.md) — يُدرَج
+    // صراحة بتبعيات مسارات الإيجنت لأن قراءة readFileSync لا يكتشفها التتبّع الساكن
+    "/api/mosques/[id]/agent/**": ["./lib/agent/guide.md"],
   },
   async headers() {
     return [

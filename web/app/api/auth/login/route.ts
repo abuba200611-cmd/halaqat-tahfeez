@@ -1,5 +1,6 @@
 import { checkLoginRateLimit, findTeacherByUsername, recordFailedLoginAttempt } from "@/lib/db";
 import { setSessionCookie, verifyPassword } from "@/lib/auth";
+import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
   }
 
   await setSessionCookie(teacher.id);
+  await recordLogin({ role: "teacher", teacherId: teacher.id });
   return Response.json({
     teacher: {
       id: teacher.id,

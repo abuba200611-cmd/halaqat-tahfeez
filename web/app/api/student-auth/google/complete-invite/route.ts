@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { checkInviteRateLimit, createGoogleStudentAccount, recordFailedInviteAttempt } from "@/lib/db";
 import { setStudentSessionCookie } from "@/lib/auth";
+import { recordLogin } from "@/lib/activity";
 import { clientIp } from "@/lib/client-ip";
 import {
   clearStudentGooglePendingCookie,
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
     }
 
     await setStudentSessionCookie(result.halaqahId, result.studentId);
+    await recordLogin({ role: "student", halaqahId: result.halaqahId, studentId: result.studentId });
     return Response.json({ ok: true });
   } catch (error) {
     // بلوغ هذا الفرع يعني أن رمز الدعوة كان صحيحاً فعلاً (تجاوز فرع

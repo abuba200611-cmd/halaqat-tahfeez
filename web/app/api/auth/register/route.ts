@@ -7,6 +7,7 @@ import {
   joinHalaqahAsAssistant,
 } from "@/lib/db";
 import { hashPassword, setSessionCookie } from "@/lib/auth";
+import { recordLogin } from "@/lib/activity";
 import { sendMail } from "@/lib/mail";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي */
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
     id = await createHalaqahWithSupervisor(username, hashPassword(password), halaqahName, false, teacherName);
   }
   await setSessionCookie(id);
+  await recordLogin({ role: "teacher", teacherId: id });
 
   const token = await createEmailVerification(id);
   const origin = new URL(request.url).origin;

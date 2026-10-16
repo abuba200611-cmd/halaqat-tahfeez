@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@netlify/database": "^1.1.0",
     "@sentry/nextjs": "^10.70.0",
     "@types/web-push": "^3.6.4",

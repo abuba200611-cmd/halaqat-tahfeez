@@ -1,6 +1,7 @@
 import { checkLoginRateLimit, recordFailedLoginAttempt } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
 import { setParentSessionCookie } from "@/lib/parent-auth";
+import { recordLogin } from "@/lib/activity";
 import { findParentByEmail, normalizeParentEmail } from "@/lib/parent-db";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 
@@ -35,5 +36,6 @@ export async function POST(request: Request) {
   }
 
   await setParentSessionCookie(parent.id);
+  await recordLogin({ role: "parent", parentId: parent.id });
   return Response.json({ parent: { id: parent.id, name: parent.name, email: parent.email } });
 }

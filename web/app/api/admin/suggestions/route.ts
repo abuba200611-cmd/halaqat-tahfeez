@@ -2,9 +2,14 @@ import { cookies } from "next/headers";
 import { listNativeStudentSuggestions, listSuggestions, type Suggestion } from "@/lib/db";
 import { listStudentSuggestions } from "@/lib/tasjeel-db";
 import { verifyAdminToken } from "@/lib/admin-session";
+import { devHostGate } from "@/lib/host-gate";
 import { ADMIN_COOKIE } from "../login/route";
 
 export async function GET() {
+  // dev split: اقتراحات اللوحة من مستضيج عام = 404 (خط الدفاع الثاني)
+  const hostGate = await devHostGate();
+  if (hostGate) return hostGate;
+
   const store = await cookies();
   const session = store.get(ADMIN_COOKIE)?.value;
 

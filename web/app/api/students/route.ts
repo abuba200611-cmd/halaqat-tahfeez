@@ -1,5 +1,6 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { deleteStudent, listStudents, replaceStudents, upsertStudent } from "@/lib/db";
+import { guardImpersonation } from "@/lib/dev-impersonation";
 import { TOTAL_JUZ, TOTAL_PAGES } from "@/lib/quran";
 import type { MemorizedRange, Student } from "@/lib/types";
 
@@ -97,6 +98,10 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
+
+  // حذف بيانات هدّام — ممنوع أثناء «عرض كـ» (المسار نفسه يظل متاحاً للجلسات الحقيقية)
+  const impBlocked = await guardImpersonation();
+  if (impBlocked) return impBlocked;
 
   const body = (await request.json().catch(() => ({}))) as { id?: unknown };
   const id = String(body.id ?? "").trim();

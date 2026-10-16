@@ -1,7 +1,12 @@
 import { consumePasswordReset, updateTeacherPassword } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
+import { guardImpersonation } from "@/lib/dev-impersonation";
 
 export async function POST(request: Request) {
+  // تغيير كلمة المرور هدّام — ممنوع أثناء «عرض كـ» حتى لو تسلّل الرمز
+  const impBlocked = await guardImpersonation();
+  if (impBlocked) return impBlocked;
+
   const body = (await request.json().catch(() => ({}))) as { token?: unknown; password?: unknown };
   const token = String(body.token ?? "").trim();
   const password = String(body.password ?? "");

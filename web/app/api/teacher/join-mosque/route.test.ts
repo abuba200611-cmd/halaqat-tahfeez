@@ -1,4 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+/*
+  انضمام الحلقة لجامع صار داخل التطبيق (دمج المنصة M2): لا نداء لخادم الجامع
+  ولا LINK_SECRET — المسار يقرأ الجامع ويضبط halaqahs.mosque_id مباشرة من
+  قاعدة الحلقات نفسها عبر lib/mosque/db.
+*/
 
 const authMocks = vi.hoisted(() => ({
   currentTeacher: vi.fn(),
@@ -6,8 +12,11 @@ const authMocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/auth", () => authMocks);
 
-const dbMocks = vi.hoisted(() => ({ halaqahInviteCode: vi.fn() }));
-vi.mock("@/lib/db", () => dbMocks);
+const mosqueDbMocks = vi.hoisted(() => ({
+  findMosqueByTeacherJoinCode: vi.fn(),
+  joinHalaqahToMosqueByCode: vi.fn(),
+}));
+vi.mock("@/lib/mosque/db", () => mosqueDbMocks);
 
 const rateMocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(),
@@ -32,38 +41,27 @@ function getReq(code = "abc"): Request {
   return new Request(`http://localhost/api/teacher/join-mosque?code=${code}`);
 }
 
-function mosqueResponse(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-}
-
 const fetchMock = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("fetch", fetchMock);
-  process.env.LINK_SECRET = "shared-secret";
-  delete process.env.MOSQUE_APP_URL;
   rateMocks.checkRateLimit.mockResolvedValue(true);
-  dbMocks.halaqahInviteCode.mockResolvedValue("INVITE1234");
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 describe("POST /api/teacher/join-mosque", () => {
-  it("غير مسجّل: 401 بلا أي نداء للجامع", async () => {
+  it("غير مسجّل: 401 بلا أي كتابة", async () => {
     authMocks.currentTeacher.mockResolvedValue(null);
     expect((await POST(postReq({ code: "abc" }))).status).toBe(401);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mosqueDbMocks.joinHalaqahToMosqueByCode).not.toHaveBeenCalled();
   });
 
-  it("المساعد: 403 بلا نداء ولا استهلاك من حدّ المعدّل", async () => {
+  it("المساعد: 403 بلا كتابة ولا استهلاك من حدّ المعدّل", async () => {
     authMocks.currentTeacher.mockResolvedValue(ASSISTANT);
     const res = await POST(postReq({ code: "abc" }));
     expect(res.status).toBe(403);
     expect(((await res.json()) as { error: string }).error).toContain("مشرف الحلقة");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mosqueDbMocks.joinHalaqahToMosqueByCode).not.toHaveBeenCalled();
     expect(rateMocks.checkRateLimit).not.toHaveBeenCalled();
   });
 
@@ -72,7 +70,7 @@ describe("POST /api/teacher/join-mosque", () => {
     rateMocks.checkRateLimit.mockResolvedValue(false);
     expect((await POST(postReq({ code: "abc" }))).status).toBe(429);
     expect(rateMocks.checkRateLimit).toHaveBeenCalledWith("mosque-join:2", 10, 3600);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mosqueDbMocks.joinHalaqahToMosqueByCode).not.toHaveBeenCalled();
   });
 
   it("رمز ناقص: 400", async () => {
@@ -80,53 +78,38 @@ describe("POST /api/teacher/join-mosque", () => {
     expect((await POST(postReq({}))).status).toBe(400);
   });
 
-  it("المشرف: يرسل رمز دعوة حلقته وسرّ الربط لعنوان الجامع الافتراضي", async () => {
+  it("المشرف: يربط حلقة جلسته مباشرة بجامع الرمز، بلا أي نداء خارجي", async () => {
     authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
-    fetchMock.mockResolvedValue(mosqueResponse(200, { ok: true, alreadyJoined: false, mosqueName: "جامع النور" }));
+    mosqueDbMocks.joinHalaqahToMosqueByCode.mockResolvedValue({ ok: true, alreadyJoined: false, mosqueName: "جامع النور" });
 
     const res = await POST(postReq({ code: "abc" }));
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, alreadyJoined: false, mosqueName: "جامع النور" });
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://masjid-idara.vercel.app/api/link/join-mosque");
-    expect((init.headers as Record<string, string>)["x-link-secret"]).toBe("shared-secret");
-    expect(JSON.parse(init.body as string)).toEqual({
-      code: "abc",
-      halaqahInviteCode: "INVITE1234",
-      halaqahName: "حلقة الفجر",
-      teacherName: "أحمد",
-    });
-  });
-
-  it("MOSQUE_APP_URL يغيّر العنوان (بلا شرطة أخيرة)", async () => {
-    process.env.MOSQUE_APP_URL = "https://mosque.example/";
-    authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
-    fetchMock.mockResolvedValue(mosqueResponse(200, { ok: true, alreadyJoined: true, mosqueName: "م" }));
-    await POST(postReq({ code: "abc" }));
-    expect((fetchMock.mock.calls[0] as [string])[0]).toBe("https://mosque.example/api/link/join-mosque");
+    expect(mosqueDbMocks.joinHalaqahToMosqueByCode).toHaveBeenCalledWith(7, "abc");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("إعادة الانضمام: يمرّر alreadyJoined", async () => {
     authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
-    fetchMock.mockResolvedValue(mosqueResponse(200, { ok: true, alreadyJoined: true, mosqueName: "جامع النور" }));
+    mosqueDbMocks.joinHalaqahToMosqueByCode.mockResolvedValue({ ok: true, alreadyJoined: true, mosqueName: "جامع النور" });
     expect(await (await POST(postReq({ code: "abc" }))).json()).toMatchObject({ alreadyJoined: true });
   });
 
-  it("حلقة بجامع آخر: 409 برسالة الجامع", async () => {
+  it("حلقة بجامع آخر: 409 برسالة عربية", async () => {
     authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
-    fetchMock.mockResolvedValue(mosqueResponse(409, { error: "هذي الحلقة مضافة أصلاً لجامع آخر" }));
+    mosqueDbMocks.joinHalaqahToMosqueByCode.mockResolvedValue({ ok: false, reason: "conflict" });
     const res = await POST(postReq({ code: "abc" }));
     expect(res.status).toBe(409);
     expect(((await res.json()) as { error: string }).error).toContain("جامع آخر");
   });
 
-  it("رمز جامع غير صحيح: 404؛ ونظام الجامع معطّل: 502", async () => {
+  it("رمز جامع غير صحيح أو ميزة الحلقات معطّلة: 404", async () => {
     authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
-    fetchMock.mockResolvedValueOnce(mosqueResponse(404, { error: "رابط الانضمام غير صحيح" }));
+    mosqueDbMocks.joinHalaqahToMosqueByCode.mockResolvedValueOnce({ ok: false, reason: "invalid" });
     expect((await POST(postReq({ code: "bad" }))).status).toBe(404);
-    fetchMock.mockRejectedValueOnce(new Error("down"));
-    expect((await POST(postReq({ code: "abc" }))).status).toBe(502);
+    mosqueDbMocks.joinHalaqahToMosqueByCode.mockResolvedValueOnce({ ok: false, reason: "disabled" });
+    expect((await POST(postReq({ code: "abc" }))).status).toBe(404);
   });
 });
 
@@ -136,20 +119,20 @@ describe("GET /api/teacher/join-mosque", () => {
     expect((await GET(getReq())).status).toBe(401);
   });
 
-  it("المساعد: يرجع دوره فقط بلا نداء للجامع", async () => {
+  it("المساعد: يرجع دوره فقط بلا استعلام عن الجامع", async () => {
     authMocks.currentTeacher.mockResolvedValue(ASSISTANT);
     const res = await GET(getReq());
     expect(await res.json()).toEqual({ role: "assistant", halaqahName: "حلقة الفجر" });
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mosqueDbMocks.findMosqueByTeacherJoinCode).not.toHaveBeenCalled();
   });
 
   it("المشرف: اسم الجامع ومدينته، ورمز مجهول = 404", async () => {
     authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
-    fetchMock.mockResolvedValueOnce(mosqueResponse(200, { mosqueName: "جامع النور", city: "جدة" }));
+    mosqueDbMocks.findMosqueByTeacherJoinCode.mockResolvedValueOnce({ id: 5, name: "جامع النور", city: "جدة", createdAt: "" });
     expect(await (await GET(getReq())).json()).toMatchObject({ mosqueName: "جامع النور", city: "جدة", role: "supervisor" });
-    expect((fetchMock.mock.calls[0] as [string, RequestInit])[1].headers).toMatchObject({ "x-link-secret": "shared-secret" });
+    expect(mosqueDbMocks.findMosqueByTeacherJoinCode).toHaveBeenCalledWith("abc");
 
-    fetchMock.mockResolvedValueOnce(mosqueResponse(404, { error: "x" }));
+    mosqueDbMocks.findMosqueByTeacherJoinCode.mockResolvedValueOnce(null);
     expect((await GET(getReq("nope"))).status).toBe(404);
   });
 });
