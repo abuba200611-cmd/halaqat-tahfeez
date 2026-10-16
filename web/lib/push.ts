@@ -245,8 +245,53 @@ export async function sendPushToParentsOfRecitation(
   );
 }
 
-export type ReminderResult = { sent: number; skipped: number; removed: number; failed: number };
+/**
+ * يرسل إشعاراً لأولياء أمر طالب بعينه عند نشر نتيجة اختباره (الاختبارات
+ * والشهادات). النص يحمل اسم الابن واسم الاختبار والنجاح فقط — لا الدرجة
+ * ولا تفصيل الأخطاء ولا ملاحظات الممتحن. لا يرمي أبداً — نفس مبدأ
+ * sendPushToParentsOfRecitation.
+ */
+export async function sendPushToParentsOfExam(
+  halaqahId: number,
+  studentId: string,
+  examName: string,
+  passed: boolean,
+): Promise<void> {
+  const publicKey = await ensureConfigured();
+  if (!publicKey) return;
 
+  let targets;
+  try {
+    targets = await listParentPushTargetsForStudent(halaqahId, studentId);
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    targets.map(async (target) => {
+      const payload: PushPayload = {
+        title: `نتيجة اختبار ${target.studentName}`,
+        body: passed ? `اجتاز ${examName} بنجاح، والتفاصيل بالتطبيق.` : `لم يجتز ${examName} هذه المرة، والتفاصيل بالتطبيق.`,
+        url: "/parent/exams",
+        tag: `parent-exam-${studentId}`,
+      };
+      try {
+        await webpush.sendNotification(
+          { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
+          JSON.stringify(payload),
+        );
+        await markParentPushSubscriptionSuccess(target.endpoint);
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await deleteParentPushSubscription(target.parentId, target.endpoint).catch(() => {});
+        }
+      }
+    }),
+  );
+}
+
+export type ReminderResult = { sent: number; skipped: number; removed: number; failed: number };
 /**
  * التذكير اليومي (STEP 54) — يرسل فقط لاشتراكات الطلاب الذين لم يسجّلوا
  * ورداً بتاريخ `today` (يُحسب بتوقيت الرياض في المستدعي، مسار الـcron).

@@ -107,6 +107,13 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "exams",
+    nameAr: "الاختبارات والشهادات",
+    descriptionAr: "ترشيح الطلاب لاختبارات الحفظ، وجلسات بلجان ممتحنة، ونتائج تصل للطالب وولي الأمر، وشهادات قابلة للتحقق.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */
