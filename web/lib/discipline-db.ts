@@ -472,6 +472,12 @@ export async function dismissStudent(input: {
     upd AS (
       UPDATE students SET active = false
       WHERE (teacher_id, id) = (${input.halaqahId}, ${input.studentId}) AND EXISTS (SELECT 1 FROM ins)
+    ),
+    -- إيقاف ساري لطالب فُصل: يُغلق دون استرجاع كي لا يعيده الاسترجاع التلقائي فعّالاً
+    closed AS (
+      UPDATE student_suspensions SET restored_at = now()
+      WHERE halaqah_id = ${input.halaqahId} AND student_id = ${input.studentId}
+        AND restored_at IS NULL AND EXISTS (SELECT 1 FROM ins)
     )
     SELECT (SELECT count(*) FROM ins) AS written
   `;
