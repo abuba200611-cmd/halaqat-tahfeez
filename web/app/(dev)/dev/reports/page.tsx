@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 
 /*
@@ -41,28 +41,33 @@ export default function DevReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      if (source) params.set("role", source);
-      if (status) params.set("status", status);
-      const res = await fetch(`/api/dev/reports?${params}`);
-      if (!res.ok) {
-        setError(res.status === 401 ? "الجلسة انتهت — سجّل الدخول من جديد." : "تعذّر التحميل.");
-        setReports([]);
-        return;
-      }
-      const data = (await res.json()) as { reports?: Report[] };
-      setReports(data.reports ?? []);
-    } catch {
-      setError("تعذّر الاتصال بالخادم.");
-    }
-  }, [source, status]);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    const params = new URLSearchParams();
+    if (source) params.set("role", source);
+    if (status) params.set("status", status);
+    fetch(`/api/dev/reports?${params}`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(res.status === 401 ? "الجلسة انتهت — سجّل الدخول من جديد." : "تعذّر التحميل.");
+          setReports([]);
+          return;
+        }
+        const data = (await res.json()) as { reports?: Report[] };
+        if (cancelled) return;
+        setError(null);
+        setReports(data.reports ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("تعذّر الاتصال بالخادم.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [source, status, tick]);
 
   async function changeStatus(report: Report, next: Report["status"]) {
     setBusyKey(report.key);
@@ -77,7 +82,7 @@ export default function DevReportsPage() {
         setError((((await res.json().catch(() => ({})))) as { error?: string }).error ?? "تعذّر التحديث");
         return;
       }
-      await load();
+      setTick((t) => t + 1);
     } finally {
       setBusyKey(null);
     }
