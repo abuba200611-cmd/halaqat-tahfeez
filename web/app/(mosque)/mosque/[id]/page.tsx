@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Badge, Button, Card, Empty, Stat } from "@/components/mosque/ui";
 import { DashboardShell } from "@/components/mosque/shell";
 import { mosqueNavItems } from "@/components/mosque/mosque-nav";
+import { AgentChatPanel } from "@/components/mosque/agent-chat";
 import { BookIcon, LinkIcon, ShieldIcon, TrendUpIcon, UsersIcon } from "@/components/mosque/icons";
 
 type Mosque = { id: number; name: string; city: string };
@@ -138,6 +139,8 @@ export default function MosqueDetailPage() {
     >
       <div className="space-y-5">
         {data.features.stats && <MosqueStatsSection mosqueId={mosqueId} />}
+
+        {data.features.agent && <AgentChatPanel mosqueId={mosqueId} />}
 
         {role === "super" && <MosqueAdminAccountCard mosqueId={mosqueId} />}
 

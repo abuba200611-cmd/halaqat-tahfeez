@@ -24,14 +24,11 @@ describe("سجل المزايا", () => {
     }
   });
 
-  it("المزايا القادمة (soon) لا يمكن تفعيلها", () => {
-    const soonKeys = ["agent"];
-    for (const key of soonKeys) {
-      const feature = getFeature(key);
-      expect(feature, key).toBeDefined();
-      expect(feature?.status).toBe("soon");
-      expect(feature?.defaultEnabled, key).toBe(false);
-    }
+  it("المساعد الذكي جاهز من M6 لكنه معطّل افتراضياً لكل جامع", () => {
+    const feature = getFeature("agent");
+    expect(feature).toBeDefined();
+    expect(feature?.status).toBe("ready");
+    expect(feature?.defaultEnabled).toBe(false);
   });
 
   it("مفتاح غير معروف يعطي undefined", () => {

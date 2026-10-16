@@ -20,7 +20,7 @@ import { getMosque, getMosqueFeatures, setMosqueFeature, type MosqueFeature } fr
 const featuresList: MosqueFeature[] = [
   { key: "stats", nameAr: "الإحصائيات", descriptionAr: "", defaultEnabled: true, status: "ready", enabled: true },
   { key: "badges", nameAr: "الأوسمة", descriptionAr: "", defaultEnabled: false, status: "ready", enabled: false },
-  { key: "agent", nameAr: "المساعد الذكي", descriptionAr: "", defaultEnabled: false, status: "soon", enabled: false },
+  { key: "agent", nameAr: "المساعد الذكي", descriptionAr: "", defaultEnabled: false, status: "ready", enabled: false },
 ];
 
 function ctx(id = "1") {
@@ -77,12 +77,6 @@ describe("PATCH /api/mosques/[id]/features", () => {
     expect(setMosqueFeature).not.toHaveBeenCalled();
   });
 
-  it("ميزة قريباً = 400 ولا يمكن تفعيلها", async () => {
-    const res = await PATCH(patchRequest({ key: "agent", enabled: true }), ctx());
-    expect(res.status).toBe(400);
-    expect(setMosqueFeature).not.toHaveBeenCalled();
-  });
-
   it("enabled ليس boolean = 400", async () => {
     const res = await PATCH(patchRequest({ key: "stats", enabled: "نعم" }), ctx());
     expect(res.status).toBe(400);
@@ -95,5 +89,11 @@ describe("PATCH /api/mosques/[id]/features", () => {
     expect(setMosqueFeature).toHaveBeenCalledWith(1, "stats", false);
     const data = (await res.json()) as { features: typeof featuresList };
     expect(data.features).toEqual(featuresList);
+  });
+
+  it("تفعيل ميزة المساعد (جاهزة من M6): يكتب كأي ميزة", async () => {
+    const res = await PATCH(patchRequest({ key: "agent", enabled: true }), ctx());
+    expect(res.status).toBe(200);
+    expect(setMosqueFeature).toHaveBeenCalledWith(1, "agent", true);
   });
 });

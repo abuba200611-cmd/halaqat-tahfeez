@@ -103,9 +103,9 @@ export const FEATURES: readonly Feature[] = [
   {
     key: "agent",
     nameAr: "المساعد الذكي",
-    descriptionAr: "مساعد ذكي يجيب عن بيانات الجامع وملاحظاته.",
+    descriptionAr: "مساعد MOS: يجيب عن بيانات الجامع من أقسامها، ويقترح إجراءات لا تُنفَّذ إلا بموافقتك.",
     defaultEnabled: false,
-    status: "soon",
+    status: "ready",
   },
 ];
 
