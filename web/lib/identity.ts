@@ -2,10 +2,12 @@ import "server-only";
 
 import { currentStudent, currentTeacher } from "./auth";
 import { db } from "./db";
+import { currentAssociationAdmin } from "./association-auth";
 import { currentMosqueAdmin } from "./mosque-auth";
 import { isAdmin } from "./mosque/admin-auth";
 import { currentParent } from "./parent-auth";
 import {
+  mapAssociationAdminIdentity,
   mapMosqueAdminIdentity,
   mapParentIdentity,
   mapStudentIdentity,
@@ -29,7 +31,7 @@ import {
      backfill الترحيل حرفياً (identity-mapping.ts هو العقد المشترك).
 */
 
-export type IdentityKind = "teacher" | "student" | "parent" | "mosque_admin" | "developer";
+export type IdentityKind = "teacher" | "student" | "parent" | "mosque_admin" | "association_admin" | "developer";
 
 export type UnifiedUser = {
   id: number;
@@ -192,6 +194,11 @@ export async function resolveIdentity(): Promise<Identity> {
     return identityForLegacy("mosque_admin", "mosque_admin", String(mosqueAdmin.id), "mosque_admin");
   }
 
+  const associationAdmin = await currentAssociationAdmin();
+  if (associationAdmin) {
+    return identityForLegacy("association_admin", "association_admin", String(associationAdmin.id), "association_admin");
+  }
+
   if (await isAdmin()) return { kind: "developer", user: null, current: null, memberships: [] };
 
   return { kind: null, user: null, current: null, memberships: [] };
@@ -297,6 +304,11 @@ export function ensureMosqueAdminIdentity(client: IdentityClient, row: {
   return ensureIdentity(client, mapMosqueAdminIdentity(row));
 }
 
+/** داخل ترانزاكشن إنشاء حساب مدير جمعية (createAssociationAdmin) */
+export function ensureAssociationAdminIdentity(client: IdentityClient, row: { id: number; username: string }): Promise<void> {
+  return ensureIdentity(client, mapAssociationAdminIdentity(row));
+}
+
 /**
  * استبدال حساب مدير جامع غيّر الشخص (اسم مستخدم جديد): يحدّث مقبض المستخدم
  * المرتبط ببقاء العضوية نفسها — داخل ترانزاكشن upsertMosqueAdmin.
@@ -349,6 +361,8 @@ export function membershipShell(membership: Membership): {
         home: membership.mosqueId ? `/mosque/${membership.mosqueId}` : "/mosque",
         label: `مدير جامع${membership.mosqueName ? ` — ${membership.mosqueName}` : ""}`,
       };
+    case "association_admin":
+      return { kind: "association_admin", home: "/association", label: "مدير جمعية" };
     case "developer":
       return { kind: "developer", home: "/dev", label: "مطوّر" };
   }
@@ -363,6 +377,8 @@ export function loginHrefFor(kind: string, user: { email: string | null; usernam
       return `/parent/login?email=${encodeURIComponent(user.email ?? "")}`;
     case "mosque_admin":
       return `/mosque-login?username=${encodeURIComponent(user.username ?? "")}`;
+    case "association_admin":
+      return `/association-login?username=${encodeURIComponent(user.username ?? "")}`;
     default:
       return "/student";
   }

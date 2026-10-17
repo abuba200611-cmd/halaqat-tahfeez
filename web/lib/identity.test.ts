@@ -15,8 +15,10 @@ vi.mock("./auth", () => ({
 }));
 vi.mock("./parent-auth", () => ({ currentParent: vi.fn() }));
 vi.mock("./mosque-auth", () => ({ currentMosqueAdmin: vi.fn() }));
+vi.mock("./association-auth", () => ({ currentAssociationAdmin: vi.fn() }));
 vi.mock("./mosque/admin-auth", () => ({ isAdmin: vi.fn() }));
 
+import { currentAssociationAdmin } from "./association-auth";
 import { currentMosqueAdmin } from "./mosque-auth";
 import { isAdmin } from "./mosque/admin-auth";
 import { currentParent } from "./parent-auth";
@@ -24,7 +26,7 @@ import { currentStudent, currentTeacher } from "./auth";
 
 const sqlMock = vi.fn();
 
-const { resolveIdentity, membershipShell, ensureIdentity } = await import("./identity");
+const { resolveIdentity, membershipShell, ensureIdentity, loginHrefFor } = await import("./identity");
 
 function membershipRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -53,6 +55,7 @@ beforeEach(() => {
   vi.mocked(currentStudent).mockResolvedValue(null);
   vi.mocked(currentParent).mockResolvedValue(null);
   vi.mocked(currentMosqueAdmin).mockResolvedValue(null);
+  vi.mocked(currentAssociationAdmin).mockResolvedValue(null);
   vi.mocked(isAdmin).mockResolvedValue(false);
 });
 
@@ -120,6 +123,30 @@ describe("resolveIdentity — الترتيب الثابت للأنواع", () =>
     expect(adminIdentity.current?.mosqueName).toBe("جامع النور");
   });
 
+  it("جلسة مدير جمعية: عضوية association_admin، وتأتي بعد مدير الجامع وقبل الأدمن", async () => {
+    vi.mocked(currentAssociationAdmin).mockResolvedValue({ id: 6, associationId: 2, username: "assoc", sessionVersion: 0 });
+    vi.mocked(isAdmin).mockResolvedValue(true);
+    sqlMock
+      .mockResolvedValueOnce([membershipRow({ role: "association_admin", legacy_kind: "association_admin", legacy_id: "6" })])
+      .mockResolvedValueOnce([userRow({ email: null, username: "assoc" })])
+      .mockResolvedValueOnce([]);
+    const identity = await resolveIdentity();
+    expect(identity.kind).toBe("association_admin");
+    expect(identity.current?.legacyId).toBe("6");
+    // الاستعلام بالمفتاح القديم الصحيح (legacy_kind=association_admin)
+    expect(sqlMock.mock.calls[0] as unknown[]).toContain("association_admin");
+  });
+
+  it("مدير جامع وجمعية معاً: يغلب مدير الجامع (الأقدم بالترتيب) ولا يتغيّر سلوك دخوله", async () => {
+    vi.mocked(currentMosqueAdmin).mockResolvedValue({ id: 4, mosqueId: 11, username: "admin" });
+    vi.mocked(currentAssociationAdmin).mockResolvedValue({ id: 6, associationId: 2, username: "assoc", sessionVersion: 0 });
+    sqlMock
+      .mockResolvedValueOnce([membershipRow({ role: "mosque_admin", legacy_kind: "mosque_admin", legacy_id: "4" })])
+      .mockResolvedValueOnce([userRow({ email: null, username: "admin" })])
+      .mockResolvedValueOnce([]);
+    expect((await resolveIdentity()).kind).toBe("mosque_admin");
+  });
+
   it("جلسة أدمن = developer بلا مستخدم (ADMIN_SECRET ليس حساباً)", async () => {
     vi.mocked(isAdmin).mockResolvedValue(true);
     const identity = await resolveIdentity();
@@ -163,6 +190,9 @@ describe("membershipShell — تسمية الأدوار ووجهاتها", () =>
     const mosque = membershipShell({ ...baseMembership(), role: "mosque_admin", mosqueId: 11 });
     expect(mosque.home).toBe("/mosque/11");
     expect(membershipShell({ ...baseMembership(), role: "developer" }).kind).toBe("developer");
+    const association = membershipShell({ ...baseMembership(), role: "association_admin" });
+    expect(association).toMatchObject({ kind: "association_admin", home: "/association" });
+    expect(loginHrefFor("association_admin", { email: null, username: "assoc" })).toBe("/association-login?username=assoc");
   });
 });
 
