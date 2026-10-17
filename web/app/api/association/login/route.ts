@@ -1,0 +1,36 @@
+import { clientIp } from "@/lib/client-ip";
+import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { findAssociationAdminByUsername, markAssociationAdminLogin } from "@/lib/association-db";
+import { setAssociationAdminSessionCookie } from "@/lib/association-auth";
+import { verifyPassword } from "@/lib/mosque/password";
+
+const MAX_FAILURES = 8;
+const WINDOW_SECONDS = 60 * 60;
+
+/**
+ * دخول مدير الجمعية. نفس نهج دخول مدير الجامع: حدّ للمحاولات الفاشلة فقط
+ * (لكل IP ولكل اسم مستخدم) على عدّاد rate_limits بمفاتيح خاصة به، ورسالة
+ * خطأ واحدة لا تفرّق بين اسم مستخدم مجهول وكلمة مرور خاطئة.
+ */
+export async function POST(request: Request) {
+  const body = (await request.json().catch(() => ({}))) as { username?: unknown; password?: unknown };
+  const username = String(body.username ?? "").trim().toLowerCase();
+  const password = String(body.password ?? "");
+
+  const ipKey = `association-login:ip:${clientIp(request)}`;
+  const userKey = `association-login:user:${username}`;
+  if (!(await peekRateLimit(ipKey, MAX_FAILURES, WINDOW_SECONDS)) || !(await peekRateLimit(userKey, MAX_FAILURES, WINDOW_SECONDS))) {
+    return rateLimited();
+  }
+
+  const admin = await findAssociationAdminByUsername(username);
+  if (!admin || !verifyPassword(password, admin.passwordHash)) {
+    await recordRateLimitHit(ipKey, WINDOW_SECONDS);
+    await recordRateLimitHit(userKey, WINDOW_SECONDS);
+    return Response.json({ error: "بيانات الدخول غير صحيحة" }, { status: 401 });
+  }
+
+  await setAssociationAdminSessionCookie(admin.id, admin.sessionVersion);
+  await markAssociationAdminLogin(admin.id);
+  return Response.json({ ok: true });
+}

@@ -1,6 +1,7 @@
 import { currentStudent, currentTeacher } from "@/lib/auth";
 import { loginHrefFor, membershipShell, resolveIdentity } from "@/lib/identity";
 import { currentMosqueAdmin } from "@/lib/mosque-auth";
+import { currentAssociationAdmin } from "@/lib/association-auth";
 import { currentParent } from "@/lib/parent-auth";
 import { studentLegacyId } from "@/lib/identity-mapping";
 
@@ -28,6 +29,10 @@ async function sessionMatches(kind: string, legacyId: string): Promise<boolean> 
     }
     case "mosque_admin": {
       const admin = await currentMosqueAdmin();
+      return admin !== null && String(admin.id) === legacyId;
+    }
+    case "association_admin": {
+      const admin = await currentAssociationAdmin();
       return admin !== null && String(admin.id) === legacyId;
     }
     default:

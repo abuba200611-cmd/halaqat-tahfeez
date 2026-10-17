@@ -13,9 +13,10 @@ export type MembershipRole =
   | "supervisor"
   | "assistant"
   | "student"
-  | "parent";
+  | "parent"
+  | "association_admin";
 
-export type LegacyKind = "teacher" | "parent" | "mosque_admin" | "student" | "super_admin";
+export type LegacyKind = "teacher" | "parent" | "mosque_admin" | "student" | "super_admin" | "association_admin";
 
 /** حقول صف users الجديد — email دوماً بحروف صغيرة أو NULL */
 export type NewIdentityUser = {
@@ -145,6 +146,26 @@ export function mapMosqueAdminIdentity(row: { id: number; mosqueId: number; user
       halaqahId: null,
       studentId: null,
       legacyKind: "mosque_admin",
+      legacyId: String(row.id),
+      active: true,
+    },
+  };
+}
+
+/** مدير جمعية → مستخدم باسم المستخدم + عضوية association_admin (بلا جامع: الجمعية فوق الجوامع) */
+export function mapAssociationAdminIdentity(row: { id: number; username: string }): IdentityMapping {
+  return {
+    user: {
+      displayName: row.username,
+      email: null,
+      username: row.username,
+    },
+    membership: {
+      role: "association_admin",
+      mosqueId: null,
+      halaqahId: null,
+      studentId: null,
+      legacyKind: "association_admin",
       legacyId: String(row.id),
       active: true,
     },

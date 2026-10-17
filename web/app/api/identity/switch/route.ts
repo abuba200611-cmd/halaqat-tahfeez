@@ -3,6 +3,8 @@ import { setSessionCookie, setStudentSessionCookie } from "@/lib/auth";
 import { findMembershipById, loginHrefFor, membershipShell, resolveIdentity, studentLegacyKey } from "@/lib/identity";
 import { guardImpersonation } from "@/lib/dev-impersonation";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
+import { setAssociationAdminSessionCookie } from "@/lib/association-auth";
+import { findAssociationAdminById } from "@/lib/association-db";
 import { recordLogin } from "@/lib/activity";
 import { findParentById } from "@/lib/parent-db";
 import { setParentSessionCookie } from "@/lib/parent-auth";
@@ -90,6 +92,13 @@ export async function POST(request: Request) {
       await setMosqueAdminSessionCookie(admin.id);
       await recordLogin({ role: "mosque_admin", adminId: admin.id });
       return Response.json({ ok: true, kind: "mosque_admin", redirect: shell.home });
+    }
+    case "association_admin": {
+      const adminId = Number(membership.legacyId);
+      const admin = Number.isInteger(adminId) ? await findAssociationAdminById(adminId) : null;
+      if (!admin) return Response.json({ error: GENERIC_REFUSAL }, { status: 404 });
+      await setAssociationAdminSessionCookie(admin.id, admin.sessionVersion);
+      return Response.json({ ok: true, kind: "association_admin", redirect: shell.home });
     }
     default:
       return Response.json({ error: GENERIC_REFUSAL }, { status: 404 });

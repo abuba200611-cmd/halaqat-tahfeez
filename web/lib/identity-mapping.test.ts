@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 */
 
 import {
+  mapAssociationAdminIdentity,
   mapMosqueAdminIdentity,
   mapParentIdentity,
   mapStudentIdentity,
@@ -157,5 +158,22 @@ describe("mapSuperAdminIdentity", () => {
     expect(membership.role).toBe("developer");
     expect(membership.legacyKind).toBe("super_admin");
     expect(membership.legacyId).toBe("1");
+  });
+});
+
+describe("مدير جمعية → association_admin", () => {
+  it("مستخدم باسم المستخدم وعضوية بلا جامع تشير لصف association_admin القديم", () => {
+    expect(mapAssociationAdminIdentity({ id: 6, username: "assoc" })).toEqual({
+      user: { displayName: "assoc", email: null, username: "assoc" },
+      membership: {
+        role: "association_admin",
+        mosqueId: null,
+        halaqahId: null,
+        studentId: null,
+        legacyKind: "association_admin",
+        legacyId: "6",
+        active: true,
+      },
+    });
   });
 });

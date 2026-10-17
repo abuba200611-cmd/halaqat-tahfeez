@@ -122,6 +122,22 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "permits",
+    nameAr: "تصاريح الحلقات",
+    descriptionAr:
+      "تصريح لكل حلقة بالعام الدراسي: إصدار وتجديد وإيقاف وسحب يدوي مسجَّل، مع اقتراحات تلقائية (قلة الطلاب، موعد التجديد، الترقية إلى مجمع).",
+    defaultEnabled: false,
+    status: "ready",
+  },
+  {
+    key: "teacher_eval",
+    nameAr: "تقييم المعلّمين والحوافز",
+    descriptionAr:
+      "نموذج تقييم سنوي/فصلي لكل معلّم بمعايير وأوزان يضبطها الجامع، ومؤشرات تُملأ تلقائياً، وتوصية بالتجديد، وتقرير حوافز للعرض والطباعة.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

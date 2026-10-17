@@ -13,6 +13,7 @@ import { RoleSwitcher } from "../role-switcher";
 const NAV = [
   { href: "/dev", label: "نظرة عامة", icon: "📊" },
   { href: "/dev/mosques", label: "الجوامع", icon: "🕌" },
+  { href: "/dev/associations", label: "الجمعيات", icon: "🏛️" },
   { href: "/dev/users", label: "المستخدمون", icon: "👥" },
   { href: "/dev/reports", label: "البلاغات", icon: "📮" },
   { href: "/dev/health", label: "الصحة", icon: "🩺" },

@@ -19,6 +19,7 @@ export function DashboardShell({
   subtitle,
   userLabel,
   onLogout,
+  brandTitle = "إدارة الجامع",
   children,
 }: {
   nav: NavItem[];
@@ -26,6 +27,8 @@ export function DashboardShell({
   subtitle?: string;
   userLabel?: string;
   onLogout: () => void;
+  /** عنوان رأس السايدبار — "إدارة الجامع" افتراضياً */
+  brandTitle?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -34,7 +37,7 @@ export function DashboardShell({
     <>
       <div className="mb-6 flex items-center justify-between px-2">
         <div>
-          <p className="font-naskh text-lg font-bold">إدارة الجامع</p>
+          <p className="font-naskh text-lg font-bold">{brandTitle}</p>
           <p className="text-xs text-white/60">MOS — نظام تشغيل الجامع</p>
         </div>
         <button
