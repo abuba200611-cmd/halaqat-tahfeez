@@ -114,6 +114,14 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "discipline",
+    nameAr: "الانضباط والمتابعة",
+    descriptionAr:
+      "سُلّم غياب ومخالفات متدرّج بإشعار الأولياء، وخطابات وتعهّدات قابلة للطباعة، وكشف متابعة شهري لكل حلقة.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

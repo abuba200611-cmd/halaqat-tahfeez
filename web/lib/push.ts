@@ -338,3 +338,55 @@ export async function runStudentDailyReminder(today: string): Promise<ReminderRe
 
   return result;
 }
+
+/**
+ * يرسل إشعاراً لأولياء أمر طالب بعينه عند حدث انضباط يخصّهم (A2): إنذار غياب
+ * أو استدعاء ولي أمر. النص يحمل اسم الابن فقط. لا يرمي أبداً — نفس مبدأ
+ * بقية إشعارات الأولياء.
+ */
+export async function sendPushToParentsOfDiscipline(
+  halaqahId: number,
+  studentId: string,
+  kind: "warning" | "summons",
+): Promise<void> {
+  const publicKey = await ensureConfigured();
+  if (!publicKey) return;
+
+  let targets;
+  try {
+    targets = await listParentPushTargetsForStudent(halaqahId, studentId);
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    targets.map(async (target) => {
+      const payload: PushPayload =
+        kind === "summons"
+          ? {
+              title: `استدعاء ولي أمر ${target.studentName}`,
+              body: "رجاء التواصل مع معلّم الحلقة لاستدعاء رسمي وتعهّد.",
+              url: "/parent",
+              tag: `parent-discipline-${studentId}`,
+            }
+          : {
+              title: `إنذار غياب لـ${target.studentName}`,
+              body: "تجاوز ابنك حدّ الغياب المقرر بالجامع.",
+              url: "/parent",
+              tag: `parent-discipline-${studentId}`,
+            };
+      try {
+        await webpush.sendNotification(
+          { endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } },
+          JSON.stringify(payload),
+        );
+        await markParentPushSubscriptionSuccess(target.endpoint);
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await deleteParentPushSubscription(target.parentId, target.endpoint).catch(() => {});
+        }
+      }
+    }),
+  );
+}

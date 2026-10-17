@@ -53,6 +53,7 @@ export function mosqueNavItems(opts: {
   feature("reports", "reports", "التقارير", <ChartIcon />);
   feature("honor_board", "honor-board", "لوحة الشرف", <TrophyIcon />);
   feature("archive", "archive", "أرشيف الأنشطة", <ImageIcon />);
+  feature("discipline", "discipline", "الانضباط والمتابعة", <ShieldIcon />);
 
   if (extra) items.push(extra);
 

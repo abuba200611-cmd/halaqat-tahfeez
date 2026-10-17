@@ -9,6 +9,7 @@ import { AttendanceSummaryCard } from "@/components/attendance-summary";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { MonthlyPlanCard } from "@/components/monthly-plan-card";
 import { RecitationCard } from "@/components/recitation-card";
+import { ParentDisciplineCard } from "@/components/parent-discipline-card";
 import type { RecitationView } from "@/lib/recitations";
 import type { PlanView } from "@/lib/monthly-plan";
 import type { ParentChildSummary } from "@/lib/parent-summary";
@@ -251,6 +252,8 @@ function ChildPanel({ child }: { child: Child }) {
       <MonthlyPlanCard view={monthlyPlan} title="خطة هذا الشهر" />
 
       <AttendanceSummaryCard summary={attendance} />
+
+      <ParentDisciplineCard child={child} />
 
       {recitations.length > 0 && (
         <section className="space-y-2">

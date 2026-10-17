@@ -130,7 +130,9 @@ describe("PUT /api/attendance — التحقق (STEP 62)", () => {
     dbMocks.setAttendance.mockResolvedValue({ found: true, previous: null });
     await PUT(put({ date: yesterday, studentId: "s1", status: "absent" }));
     await PUT(put({ date: TODAY, studentId: "s1", status: "late" }));
-    expect(afterMocks.after).not.toHaveBeenCalled();
+    // A2: تسجيل الغياب يسجّل after() لحساب سُلّم الغياب دائماً، لكن إشعار
+    // الغياب نفسه لا يُرسل إلا لشرطه الأصلي — والاستدعاءات المسجّلة لا تُنفَّذ هنا
+    expect(pushMocks.sendPushToParentsOfAbsence).not.toHaveBeenCalled();
   });
 });
 
