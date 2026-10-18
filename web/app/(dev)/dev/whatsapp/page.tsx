@@ -32,10 +32,10 @@ const STATUS_LABEL: Record<Row["status"], string> = {
 };
 
 const STATUS_TONE: Record<Row["status"], string> = {
-  queued: "bg-amber-50 text-amber-700",
-  sent: "bg-emerald-50 text-emerald-700",
-  failed: "bg-red-50 text-red-700",
-  skipped: "bg-slate-100 text-slate-500",
+  queued: "bg-accent-soft text-accent-ink",
+  sent: "bg-success-soft text-success",
+  failed: "bg-destructive-soft text-destructive",
+  skipped: "bg-stone-100 text-stone-500",
 };
 
 const SKIP_REASON: Record<string, string> = {
@@ -142,17 +142,17 @@ export default function DevWhatsappOutboxPage() {
                   </span>
                 </div>
                 {row.error !== "" && (
-                  <p className="mt-1 text-xs text-red-600">{SKIP_REASON[row.error] ?? row.error}</p>
+                  <p className="mt-1 text-xs text-destructive">{SKIP_REASON[row.error] ?? row.error}</p>
                 )}
                 {row.status === "queued" && (
-                  <p className="mt-1 text-xs text-amber-600">بانتظار محاولة الإرسال</p>
+                  <p className="mt-1 text-xs text-accent-ink">بانتظار محاولة الإرسال</p>
                 )}
                 {row.status === "failed" && (
                   <button
                     type="button"
                     onClick={() => resend(row.id)}
                     disabled={resending === row.id}
-                    className="mt-1 cursor-pointer rounded-lg bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-1 cursor-pointer rounded-lg bg-accent-soft px-2 py-1 text-xs font-semibold text-accent-ink hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {resending === row.id ? "لحظة…" : "↺ إعادة الإرسال"}
                   </button>

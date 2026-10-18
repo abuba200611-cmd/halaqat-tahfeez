@@ -108,22 +108,22 @@ export function ParentWhatsappCard() {
     setInfo(outcome.info ?? null);
   }
 
-  if (info === null) return <p className="text-xs text-slate-500">جارٍ تحميل إعدادات واتساب…</p>;
+  if (info === null) return <p className="text-xs text-stone-500">جارٍ تحميل إعدادات واتساب…</p>;
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-slate-700">💬 رسائل واتساب</p>
+      <p className="text-xs font-semibold text-stone-700">💬 رسائل واتساب</p>
 
       {info.optedIn ? (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-emerald-700">
+          <span className="text-xs text-success">
             مفعّلة على <span dir="ltr" className="tabular">{info.phone}</span> ✓
           </span>
           <button
             type="button"
             onClick={disableOptIn}
             disabled={busy}
-            className="cursor-pointer text-xs font-semibold text-slate-500 underline hover:no-underline disabled:opacity-50"
+            className="cursor-pointer text-xs font-semibold text-stone-500 underline hover:no-underline disabled:opacity-50"
           >
             إيقاف
           </button>
@@ -131,7 +131,7 @@ export function ParentWhatsappCard() {
       ) : info.phone && !editingPhone ? (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-slate-600">
+            <span className="text-xs text-stone-600">
               الرقم المحفوظ: <span dir="ltr" className="tabular">{info.phone}</span>
             </span>
             <button
@@ -140,16 +140,16 @@ export function ParentWhatsappCard() {
                 setPhone(info.phone ?? "");
                 setEditingPhone(true);
               }}
-              className="cursor-pointer text-xs font-semibold text-slate-500 underline hover:no-underline"
+              className="cursor-pointer text-xs font-semibold text-stone-500 underline hover:no-underline"
             >
               تغيير الرقم
             </button>
           </div>
-          <p className="text-xs leading-5 text-slate-600">
+          <p className="text-xs leading-5 text-stone-600">
             أوافق على استلام رسائل واتساب عن أبنائي (اعتماد الأوراد، الغياب والانضباط، نتائج الاختبارات، إصدار
             الشهادات)، وأعلم أنني أستطيع الإيقاف في أي وقت من هنا أو بالرد بكلمة «إيقاف».
           </p>
-          <label className="flex items-start gap-2 text-xs text-slate-700">
+          <label className="flex items-start gap-2 text-xs text-stone-700">
             <input
               type="checkbox"
               checked={consented}
@@ -167,19 +167,19 @@ export function ParentWhatsappCard() {
                 dir="ltr"
                 inputMode="numeric"
                 autoComplete="one-time-code"
-                className="tabular w-32 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800"
+                className="tabular w-32 rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs text-stone-800"
               />
               <button
                 type="button"
                 onClick={confirmCode}
                 disabled={!consented || busy || code.length !== 6}
-                className="cursor-pointer rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="cursor-pointer rounded-lg bg-success-soft px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busy ? "لحظة…" : "تأكيد وتفعيل رسائل واتساب"}
               </button>
             </div>
           ) : (
-            <p className="text-xs text-amber-700">
+            <p className="text-xs text-accent-ink">
               لا رمز تأكيد صالح — اضغط «تغيير الرقم» وأعد حفظ رقمك ليصلك رمز جديد (حدّ 3 مرات يومياً).
             </p>
           )}
@@ -193,13 +193,13 @@ export function ParentWhatsappCard() {
               placeholder="05xxxxxxxx"
               dir="ltr"
               inputMode="tel"
-              className="tabular w-40 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800"
+              className="tabular w-40 rounded-lg border border-stone-200 px-2.5 py-1.5 text-xs text-stone-800"
             />
             <button
               type="button"
               onClick={savePhone}
               disabled={busy || phone.trim() === ""}
-              className="cursor-pointer rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="cursor-pointer rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent-ink hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy ? "لحظة…" : "حفظ الرقم"}
             </button>
@@ -210,21 +210,21 @@ export function ParentWhatsappCard() {
                   setPhone("");
                   setEditingPhone(false);
                 }}
-                className="cursor-pointer text-xs font-semibold text-slate-500 underline hover:no-underline"
+                className="cursor-pointer text-xs font-semibold text-stone-500 underline hover:no-underline"
               >
                 إلغاء
               </button>
             )}
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-stone-500">
             رقم جوال سعودي لاستلام رسائل الجامع عن أبنائك — يُطلب بعد الحفظ تأكيد الموافقة، وتغيير الرقم لاحقاً
             يُعيد طلبها.
           </p>
         </div>
       )}
 
-      {notice && !error && <p className="text-xs text-slate-600">{notice}</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {notice && !error && <p className="text-xs text-stone-600">{notice}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }
