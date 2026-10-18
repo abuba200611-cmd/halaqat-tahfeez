@@ -26,7 +26,7 @@ import {
   rotateTeacherJoinCode,
 } from "@/lib/mosque/db";
 
-const MOSQUE = { id: 5, name: "جامع النور", city: "جدة", createdAt: "" };
+const MOSQUE = { id: 5, name: "جامع النور", city: "مكة", createdAt: "" };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -151,7 +151,7 @@ describe("joinHalaqahToMosqueByCode / attachHalaqahToMosque (قاعدة وهمي
         sql: async (strings: TemplateStringsArray, ...values: unknown[]) => {
           const text = strings.join("?");
           if (/WHERE teacher_join_code/.test(text)) {
-            return mosqueFound ? [{ id: 5, name: "جامع النور", city: "جدة", created_at: "" }] : [];
+            return mosqueFound ? [{ id: 5, name: "جامع النور", city: "مكة", created_at: "" }] : [];
           }
           if (/FROM mosque_features/.test(text)) return [];
           if (/^\s*UPDATE halaqahs SET mosque_id/.test(text)) {

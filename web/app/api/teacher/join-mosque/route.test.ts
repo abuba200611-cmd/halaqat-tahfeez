@@ -128,8 +128,8 @@ describe("GET /api/teacher/join-mosque", () => {
 
   it("المشرف: اسم الجامع ومدينته، ورمز مجهول = 404", async () => {
     authMocks.currentTeacher.mockResolvedValue(SUPERVISOR);
-    mosqueDbMocks.findMosqueByTeacherJoinCode.mockResolvedValueOnce({ id: 5, name: "جامع النور", city: "جدة", createdAt: "" });
-    expect(await (await GET(getReq())).json()).toMatchObject({ mosqueName: "جامع النور", city: "جدة", role: "supervisor" });
+    mosqueDbMocks.findMosqueByTeacherJoinCode.mockResolvedValueOnce({ id: 5, name: "جامع النور", city: "مكة", createdAt: "" });
+    expect(await (await GET(getReq())).json()).toMatchObject({ mosqueName: "جامع النور", city: "مكة", role: "supervisor" });
     expect(mosqueDbMocks.findMosqueByTeacherJoinCode).toHaveBeenCalledWith("abc");
 
     mosqueDbMocks.findMosqueByTeacherJoinCode.mockResolvedValueOnce(null);

@@ -80,11 +80,11 @@ describe("isDemoInviteCode — رموز العرض", () => {
 describe("matchMosqueByNameCity — مطابقة الجوامع", () => {
   const target = [
     { id: 1, name: "جامع النور", city: "الرياض" },
-    { id: 2, name: "جامع النور", city: "جدة" },
+    { id: 2, name: "جامع النور", city: "مكة" },
   ];
 
   it("تطابق تام بالاسم والمدينة", () => {
-    expect(matchMosqueByNameCity("جامع النور", "جدة", target)).toBe(2);
+    expect(matchMosqueByNameCity("جامع النور", "مكة", target)).toBe(2);
   });
 
   it("مدينة مختلفة أو اسم مختلف → null (إدراج جديد)", () => {

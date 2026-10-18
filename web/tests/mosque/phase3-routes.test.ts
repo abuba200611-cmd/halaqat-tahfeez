@@ -101,7 +101,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   enabled = new Set(["badges", "weekly_schedule", "reports", "halaqat", "registration", "families", "committees", "weekly_evaluation"]);
   vi.mocked(canAccessMosque).mockResolvedValue(true);
-  vi.mocked(db.getMosque).mockResolvedValue({ id: 1, name: "جامع النور", city: "جدة", createdAt: "" });
+  vi.mocked(db.getMosque).mockResolvedValue({ id: 1, name: "جامع النور", city: "مكة", createdAt: "" });
   vi.mocked(db.isFeatureEnabled).mockImplementation(async (_id, key) => enabled.has(key));
   vi.mocked(db.getBadge).mockResolvedValue(badge);
   vi.mocked(db.createBadge).mockResolvedValue(badge);

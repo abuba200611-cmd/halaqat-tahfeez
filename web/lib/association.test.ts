@@ -15,7 +15,7 @@ function row(overrides: Partial<MosqueKpiRow> = {}): MosqueKpiRow {
   return {
     mosqueId: 1,
     name: "جامع النور",
-    city: "جدة",
+    city: "مكة",
     halaqat: 3,
     activeStudents: 40,
     attendanceRate: 90,
@@ -58,7 +58,7 @@ describe("تجميع المؤشرات", () => {
 
 describe("تصدير CSV", () => {
   it("خلية بفاصلة أو علامة اقتباس تُقتبس", () => {
-    expect(csvCell('جامع "الهدى", جدة')).toBe('"جامع ""الهدى"", جدة"');
+    expect(csvCell('جامع "الهدى", مكة')).toBe('"جامع ""الهدى"", مكة"');
     expect(csvCell(null)).toBe("");
     expect(csvCell(5)).toBe("5");
   });
@@ -86,7 +86,7 @@ describe("تصدير CSV", () => {
 
 describe("المدخلات", () => {
   it("جمعية: اسم ٢..١٠٠", () => {
-    expect(parseAssociationBody({ name: " جمعية النور ", city: "جدة" })).toEqual({ ok: true, name: "جمعية النور", city: "جدة" });
+    expect(parseAssociationBody({ name: " جمعية النور ", city: "مكة" })).toEqual({ ok: true, name: "جمعية النور", city: "مكة" });
     expect(parseAssociationBody({ name: "ا" }).ok).toBe(false);
     expect(parseAssociationBody({ name: "x".repeat(101) }).ok).toBe(false);
     expect(parseAssociationBody(null).ok).toBe(false);

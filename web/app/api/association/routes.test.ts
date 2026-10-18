@@ -33,7 +33,7 @@ const db = vi.hoisted(() => ({
 vi.mock("@/lib/association-db", () => db);
 
 vi.mock("@/lib/mosque/db", () => ({
-  getMosque: vi.fn(async (id: number) => ({ id, name: `جامع ${id}`, city: "جدة", createdAt: "" })),
+  getMosque: vi.fn(async (id: number) => ({ id, name: `جامع ${id}`, city: "مكة", createdAt: "" })),
   getMosqueFeatures: vi.fn(async () => []),
 }));
 vi.mock("@/lib/mosque/exams-db", () => ({ examStatsBetween: vi.fn() }));
