@@ -18,7 +18,7 @@ const NAV = [
   { href: "/dev/users", label: "المستخدمون", icon: "👥" },
   { href: "/dev/reports", label: "البلاغات", icon: "📮" },
   { href: "/dev/health", label: "الصحة", icon: "🩺" },
-  { href: "/admin", label: "الاقتراحات", icon: "💡" },
+  { href: "/dev/suggestions", label: "الاقتراحات", icon: "💡" },
   { href: "/dev/agent-lessons", label: "دروس الإيجنت", icon: "🤖" },
   { href: "/dev/whatsapp", label: "صادر واتساب", icon: "💬" },
   { href: "/dev/audit", label: "سجل التدقيق", icon: "🧾" },
@@ -40,7 +40,7 @@ export function DevShell({ children }: { children: ReactNode }) {
 
   const links = (vertical: boolean) =>
     NAV.map((item) => {
-      const active = vertical && (pathname === item.href || (item.href !== "/admin" && pathname.startsWith(`${item.href}/`)));
+      const active = vertical && (pathname === item.href || (item.href !== "/dev" && pathname.startsWith(`${item.href}/`)));
       return (
         <Link
           key={item.href}
