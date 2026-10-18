@@ -1,4 +1,4 @@
-import { actorFeatureGate, resolveMessagingActor, startConversation } from "@/lib/messaging";
+import { actorFeatureGate, resolveMessagingActor, startConversation, type StartInput } from "@/lib/messaging";
 
 /*
   B2 — بدء محادثة (أو إيجاد القائمة منها). لا تُقبل إلا عبر علاقة حقيقية
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "طلب غير صالح" }, { status: 400 });
   }
 
-  const result = await startConversation(actor, (input ?? {}) as Record<string, unknown>);
+  const result = await startConversation(actor, (input && typeof input === "object" ? input : {}) as StartInput);
   if (result.ok) return Response.json({ conversationId: result.conversationId });
   if (result.reason === "invalid") return Response.json({ error: "طلب غير صالح" }, { status: 400 });
   if (result.reason === "feature-off") return FEATURE_OFF();

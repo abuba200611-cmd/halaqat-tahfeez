@@ -6,7 +6,7 @@ import { RoleSwitcher } from "../role-switcher";
 import { BrandLockup } from "../brand";
 import { LogoutIcon, MenuIcon, XIcon } from "./icons";
 
-type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean };
+type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode };
 
 /**
  * قالب لوحة SaaS: سايدبار داكن كامل (شعار + قائمة أيقونة/تسمية + بطاقة
@@ -57,7 +57,8 @@ export function DashboardShell({
             }`}
           >
             <span className="shrink-0">{item.icon}</span>
-            <span className="truncate">{item.label}</span>
+            <span className="flex-1 truncate">{item.label}</span>
+            {item.badge}
           </Link>
         ))}
       </nav>

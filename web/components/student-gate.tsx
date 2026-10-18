@@ -9,7 +9,7 @@ import { RoleSwitcher, RoleSwitcherList } from "./role-switcher";
 import { BellIcon, EyeIcon, EyeOffIcon, LogoutIcon, UserIcon } from "./icons";
 
 export type StudentSession = { id: string; name: string; halaqahName: string };
-export type StudentNavItem = { href: string; label: string; desc?: string; icon: React.ReactNode };
+export type StudentNavItem = { href: string; label: string; desc?: string; icon: React.ReactNode; badge?: React.ReactNode };
 
 type StudentContextValue = { student: StudentSession; logout: () => Promise<void> };
 const StudentContext = createContext<StudentContextValue | null>(null);
@@ -123,6 +123,7 @@ function Sidebar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: S
             >
               {item.icon}
               <span className="flex-1">{item.label}</span>
+              {item.badge}
             </Link>
           );
         })}
@@ -267,7 +268,10 @@ function BottomNav({ nav }: { nav: StudentNavItem[] }) {
             }`}
             style={active ? { color: "var(--color-accent-ink)" } : undefined}
           >
-            {item.icon}
+            <span className="relative">
+              {item.icon}
+              {item.badge && <span className="absolute -top-1.5 -left-2.5">{item.badge}</span>}
+            </span>
             <span className="truncate">{item.label}</span>
           </Link>
         );

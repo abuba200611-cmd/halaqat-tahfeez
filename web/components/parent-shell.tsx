@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import Link from "next/link";
 import { RoleSwitcher } from "./role-switcher";
 import { BrandLockup } from "./brand";
+import { MessagesBadge } from "./messages-badge";
 
 /*
   STEP 61 — هيكل ولي الأمر: شريط علوي بسيط (عنوان + خروج) وبطاقات ضيقة،
@@ -71,6 +72,13 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                   className="hidden rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50 sm:block"
                 >
                   نتائج الاختبارات
+                </Link>
+                <Link
+                  href="/parent/messages"
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors duration-200 hover:bg-accent-soft"
+                >
+                  الرسائل
+                  <MessagesBadge role="parent" />
                 </Link>
                 <Link
                   href="/parent/suggest"

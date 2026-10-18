@@ -52,6 +52,12 @@ const SEND_WINDOW_SECONDS = 600;
 
 export const MAX_MESSAGE_CHARS = 2000;
 
+/**
+ * هوية الطالب كطرف: (الحلقة:المعرّف) — مفتاح students مركّب (teacher_id, id)،
+ * فمعرّف الطالب وحده قد يتكرر بين حلقتين ولا يصلح هوية مستقلة.
+ */
+export const studentParticipantId = (halaqahId: number, studentId: string): string => `${halaqahId}:${studentId}`;
+
 /** يقرأ الجلسة الصالحة للدور المطلوب فقط — أو null. role محدَّد = جلسة ذلك الدور حصراً. */
 async function actorForRole(role: MessagingRole): Promise<MessagingActor | null> {
   if (role === "teacher") {
@@ -70,7 +76,7 @@ async function actorForRole(role: MessagingRole): Promise<MessagingActor | null>
     if (!student) return null;
     return {
       role,
-      participantId: student.id,
+      participantId: studentParticipantId(student.teacherId, student.id),
       displayName: student.name,
       halaqahId: student.teacherId,
       studentId: student.id,
@@ -139,8 +145,11 @@ export async function actorFeatureGate(actor: MessagingActor): Promise<number | 
 const teacherLabel = (teacherName: string | null, username: string | null): string =>
   (teacherName && teacherName.trim()) || (username ?? "معلّم");
 
-const iso = (value: string | Date | null): string | null =>
-  value === null ? null : value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+const iso = (value: string | Date | null | undefined): string | null => {
+  if (value === null || value === undefined) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
 
 export type ConversationRow = {
   id: number;
@@ -237,7 +246,7 @@ export async function listConversationsFor(actor: MessagingActor): Promise<Conve
            ) AS unread
     FROM conversations c
     JOIN conversation_participants me
-      ON me.conversation_id = c.id AND me.kind = ${actor.role} AND me.id = ${actor.participantId}
+      ON me.conversation_id = c.id AND me.kind = ${actor.role} AND me.participant_id = ${actor.participantId}
     LEFT JOIN teachers t ON t.id = c.teacher_id
     LEFT JOIN halaqahs th ON th.id = t.halaqah_id
     LEFT JOIN students s ON s.teacher_id = c.halaqah_id AND s.id = c.student_id
@@ -267,7 +276,7 @@ export async function totalUnreadFor(actor: MessagingActor): Promise<number> {
            COUNT(msg.id) AS unread
     FROM conversations c
     JOIN conversation_participants me
-      ON me.conversation_id = c.id AND me.kind = ${actor.role} AND me.id = ${actor.participantId}
+      ON me.conversation_id = c.id AND me.kind = ${actor.role} AND me.participant_id = ${actor.participantId}
     JOIN messages msg
       ON msg.conversation_id = c.id AND msg.deleted_at IS NULL
      AND msg.created_at > COALESCE(me.last_read_at, to_timestamp(0))
@@ -311,7 +320,7 @@ export async function openConversationFor(
            s.name AS student_name, p.name AS parent_name, m.name AS mosque_name
     FROM conversations c
     JOIN conversation_participants me
-      ON me.conversation_id = c.id AND me.kind = ${actor.role} AND me.id = ${actor.participantId}
+      ON me.conversation_id = c.id AND me.kind = ${actor.role} AND me.participant_id = ${actor.participantId}
     LEFT JOIN teachers t ON t.id = c.teacher_id
     LEFT JOIN halaqahs th ON th.id = t.halaqah_id
     LEFT JOIN students s ON s.teacher_id = c.halaqah_id AND s.id = c.student_id
@@ -533,7 +542,7 @@ export async function startConversation(actor: MessagingActor, input: StartInput
         { halaqahId: actor.halaqahId, studentId, teacherId: actor.teacherId! },
         [
           { kind: "teacher", id: actor.participantId },
-          { kind: "student", id: studentId },
+          { kind: "student", id: studentParticipantId(actor.halaqahId!, studentId) },
         ],
       );
     }

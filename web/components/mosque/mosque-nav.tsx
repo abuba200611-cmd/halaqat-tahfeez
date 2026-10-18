@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
+import { MessagesBadge } from "@/components/messages-badge";
 import { AwardIcon, BookIcon, BrainIcon, CalendarIcon, ChartIcon, ClipboardIcon, HomeIcon, ImageIcon, MessageIcon, SettingsIcon, ShieldIcon, StarIcon, TrophyIcon, UsersIcon } from "./icons";
 
-export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean };
+export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode };
 
 /**
  * عناصر سايدبار الجامع المشتركة بين صفحات /mosque/[id] — عنصر كل ميزة
@@ -56,6 +57,18 @@ export function mosqueNavItems(opts: {
   feature("discipline", "discipline", "الانضباط والمتابعة", <ShieldIcon />);
   feature("permits", "permits", "تصاريح الحلقات", <ClipboardIcon />);
   feature("teacher_eval", "teacher-eval", "تقييم المعلّمين والحوافز", <AwardIcon />);
+
+  if (features.messaging) {
+    const href = `/mosque/${mosqueId}/messages`;
+    items.push({
+      href,
+      label: "الرسائل",
+      icon: <MessageIcon />,
+      active: activeHref === href,
+      // مدير الجامع وحده له صندوق وارد؛ المشرف العام لا هوية رسائل له
+      badge: isSuper ? undefined : <MessagesBadge role="mosque_admin" />,
+    });
+  }
 
   if (extra) items.push(extra);
 

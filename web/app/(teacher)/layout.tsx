@@ -1,4 +1,5 @@
 import { AuthGate } from "@/components/auth-gate";
+import { MessagesBadge } from "@/components/messages-badge";
 import { NewWardBadge } from "@/components/new-ward-badge";
 import { PendingRecitationsBadge } from "@/components/pending-recitations-badge";
 import { ImpersonationBannerBar } from "@/components/dev/banner-server";
@@ -15,6 +16,7 @@ const NAV = [
   { href: "/schedule", label: "جدول الشهر", desc: "اعتماد جدول التسميع الشهري", icon: <CalendarIcon size={19} /> },
   { href: "/reports", label: "تقرير الحلقة", desc: "أداء الحلقة الشهري", icon: <ChartIcon size={19} /> },
   { href: "/inbox", label: "الوارد", desc: "أوراد الطلاب الجديدة", icon: <MailIcon size={19} />, badge: <NewWardBadge /> },
+  { href: "/messages", label: "الرسائل", desc: "محادثات أولياء الأمور والطلاب والإدارة", icon: <MessageIcon size={19} />, badge: <MessagesBadge role="teacher" /> },
   { href: "/recitations", label: "التلاوات", desc: "الاستماع لتلاوات الطلاب وتقييمها", icon: <MicIcon size={19} />, badge: <PendingRecitationsBadge /> },
   { href: "/attendance", label: "الحضور", desc: "تسجيل حضور الطلاب اليومي", icon: <ClipboardIcon size={19} /> },
   { href: "/plans", label: "الخطة الشهرية", desc: "مستهدف الحفظ والمراجعة لكل طالب", icon: <ChartIcon size={19} /> },

@@ -46,6 +46,8 @@ export function Messenger({ role }: { role: MessengerRole }) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   /** أعلى رسالة من غيري اطلعت عليها بالمحادثة المفتوحة — لتعليم المقروء عند الجديد فقط */
   const seenRef = useRef<number>(0);
+  /** مؤشر الصفحة الأقدم للمحادثة المفتوحة — بمرجع كي لا يُعاد تركيب محمّل الطرف عند تغيّره */
+  const nextBeforeRef = useRef<number | null>(null);
 
   const loadInbox = useCallback(async () => {
     try {
@@ -69,7 +71,7 @@ export function Messenger({ role }: { role: MessengerRole }) {
     async (conversationId: number, older = false) => {
       setThreadLoading(!older);
       try {
-        const before = older && thread?.nextBefore ? `&before=${thread.nextBefore}` : "";
+        const before = older && nextBeforeRef.current ? `&before=${nextBeforeRef.current}` : "";
         const res = await fetch(apiUrl(`/api/messages/${conversationId}${before}`, role));
         if (!res.ok) {
           if (!older) {
@@ -84,11 +86,20 @@ export function Messenger({ role }: { role: MessengerRole }) {
           messages: MessageRow[];
           nextBefore: number | null;
         };
-        setThread((prev) => ({
+        setThread((prev) => {
+          const nextBefore = older || !prev || prev.messages.length <= data.messages.length ? data.nextBefore : prev.nextBefore;
+          nextBeforeRef.current = nextBefore;
+          return {
           title: data.conversation.title,
-          messages: older ? [...data.messages, ...(prev?.messages ?? [])] : data.messages,
-          nextBefore: data.nextBefore,
-        }));
+          // الاستقصاء يجلب أحدث صفحة فقط: نبقي ما حُمّل من الأقدم ونستبدل الأحدث
+          messages: older
+            ? [...data.messages, ...(prev?.messages ?? [])]
+            : data.messages.length > 0 && prev && prev.messages.length > data.messages.length
+              ? [...prev.messages.filter((m) => m.id < data.messages[0].id), ...data.messages]
+              : data.messages,
+          nextBefore,
+          };
+        });
         // رسائل جديدة من الطرف الآخر وأنا فاتح المحادثة = مقروءة الآن
         const incoming = data.messages.filter((m) => !m.fromMe && m.id > seenRef.current);
         if (incoming.length > 0) {
@@ -113,18 +124,21 @@ export function Messenger({ role }: { role: MessengerRole }) {
         setThreadLoading(false);
       }
     },
-    [markRead, thread?.nextBefore, role],
+    [markRead, role],
   );
 
   // الجلب الأولي + الاستقصاء كل ١٥ ثانية والصفحة ظاهرة (الطرف المفتوح أولى)
   useEffect(() => {
-    void loadInbox();
+    const first = setTimeout(() => void loadInbox(), 0);
     const timer = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       if (selectedRef.current !== null) void loadThread(selectedRef.current);
       else void loadInbox();
     }, POLL_MS);
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
   }, [loadInbox, loadThread]);
 
   // أحدث نسخة من محمّل الطرف — كي لا يعيد فتح المحادثة نفسها كلما تغيّر المؤشر
@@ -136,11 +150,7 @@ export function Messenger({ role }: { role: MessengerRole }) {
   // فتح محادثة: يبدأ من الصفحة الأولى — لا يعاد التحميل إلا بتغيير المحادثة نفسها
   useEffect(() => {
     selectedRef.current = selectedId;
-    if (selectedId !== null) {
-      seenRef.current = 0;
-      setThread(null);
-      void loadThreadRef.current(selectedId);
-    }
+    if (selectedId !== null) void loadThreadRef.current(selectedId);
   }, [selectedId]);
 
   useEffect(() => {
@@ -157,8 +167,16 @@ export function Messenger({ role }: { role: MessengerRole }) {
     setNotice(null);
     setSendError(null);
     setText("");
+    resetThread();
     setSelectedId(conversation.id);
   };
+
+  /** تصفير حالة المحادثة المفتوحة عند الانتقال لغيرها (من معالج حدث لا من effect) */
+  function resetThread() {
+    seenRef.current = 0;
+    nextBeforeRef.current = null;
+    setThread(null);
+  }
 
   async function startContact(contact: ContactOption) {
     setNotice(null);
@@ -181,6 +199,7 @@ export function Messenger({ role }: { role: MessengerRole }) {
       }
       setShowContacts(false);
       setText("");
+      resetThread();
       setSelectedId(data.conversationId);
       void loadInbox();
     } catch {
@@ -220,6 +239,14 @@ export function Messenger({ role }: { role: MessengerRole }) {
     return (
       <div className="rounded-2xl border border-border bg-surface p-8 text-center">
         <p className="text-sm text-muted-foreground">المراسلة غير مفعّلة لهذا الجامع.</p>
+      </div>
+    );
+  }
+
+  if (inboxStatus === 401) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface p-8 text-center">
+        <p className="text-sm text-muted-foreground">سجّل دخولك بهذا الدور لعرض رسائلك.</p>
       </div>
     );
   }
@@ -329,7 +356,7 @@ export function Messenger({ role }: { role: MessengerRole }) {
                 type="button"
                 onClick={() => {
                   setSelectedId(null);
-                  setThread(null);
+                  resetThread();
                 }}
                 className="cursor-pointer rounded-lg px-2 py-1 text-sm text-accent-ink transition-colors duration-200 hover:bg-accent-soft md:hidden"
                 aria-label="عودة للمحادثات"

@@ -44,8 +44,9 @@ export async function notifyMessageRecipients(input: {
         if (recipient.kind === "teacher") {
           await sendPushToTeacher(Number(recipient.id), withUrl);
         } else if (recipient.kind === "student") {
-          // محادثات الطالب كلها بحلقته (kind = teacher_student)
-          await sendPushToStudent(input.halaqahId ?? 0, recipient.id, withUrl);
+          // هوية الطالب «حلقة:معرّف» (studentParticipantId)
+          const sep = recipient.id.indexOf(":");
+          if (sep > 0) await sendPushToStudent(Number(recipient.id.slice(0, sep)), recipient.id.slice(sep + 1), withUrl);
         } else {
           await sendPushToParent(Number(recipient.id), withUrl);
         }
