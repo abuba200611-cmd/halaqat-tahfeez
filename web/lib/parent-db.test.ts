@@ -8,6 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 type Call = { text: string; values: unknown[] };
 const calls: Call[] = [];
 let nextRows: Record<string, unknown>[] = [];
+/** صفوف تُستهلك بالترتيب لكل استعلام قبل الرجوع إلى nextRows */
+const rowsQueue: Record<string, unknown>[][] = [];
 let nextError: unknown = null;
 
 vi.mock("@netlify/database", () => ({
@@ -15,7 +17,7 @@ vi.mock("@netlify/database", () => ({
     sql: async (strings: TemplateStringsArray, ...values: unknown[]) => {
       calls.push({ text: strings.join("?"), values });
       if (nextError) throw nextError;
-      return nextRows;
+      return rowsQueue.length > 0 ? (rowsQueue.shift() as Record<string, unknown>[]) : nextRows;
     },
   }),
 }));
@@ -27,12 +29,16 @@ const {
   hashParentToken,
   unlinkParentFromStudent,
   getParentChild,
+  setParentWhatsappPhone,
+  confirmParentWhatsappCode,
+  disableParentWhatsappOptIn,
   PARENT_LINK_TOKEN_TTL_DAYS,
 } = await import("./parent-db");
 
 beforeEach(() => {
   calls.length = 0;
   nextRows = [];
+  rowsQueue.length = 0;
   nextError = null;
 });
 
@@ -111,5 +117,58 @@ describe("الأبناء وفكّ الربط", () => {
     expect(await unlinkParentFromStudent(4, "s1", 3)).toBe(true);
     expect(calls[0].text).toContain("halaqah_id =");
     expect(calls[0].values).toEqual([4, "s1", 3]);
+  });
+});
+
+describe("واتساب: تأكيد الرقم", () => {
+  it("حفظ الرقم يُسقط الموافقة ويخزّن الرمز مجزّأً وسقف التغيير بيوم الرياض", async () => {
+    nextRows = [{ id: 1 }];
+    expect(await setParentWhatsappPhone(5, "966501234567", "abc", 3, 10)).toBe(true);
+    const text = calls[0]?.text ?? "";
+    expect(text).toContain("whatsapp_opt_in = FALSE");
+    expect(text).toContain("whatsapp_code_attempts = 0");
+    expect(text).toContain("AT TIME ZONE 'Asia/Riyadh'");
+    expect(text).toContain("whatsapp_phone_changes <");
+    expect(calls[0]?.values).toContain("abc");
+  });
+
+  it("تجاوز سقف التغيير (لا صف): false", async () => {
+    nextRows = [];
+    expect(await setParentWhatsappPhone(5, "966501234567", "abc", 3, 10)).toBe(false);
+  });
+
+  it("رمز صحيح: يُعدّ المحاولة ثم يفعّل الموافقة ويمسح الرمز", async () => {
+    nextRows = [{ phone: "966501234567", whatsapp_code_hash: "H" }];
+    const outcome = await confirmParentWhatsappCode(5, "123456", () => "H", 5);
+    expect(outcome).toBe("ok");
+    expect(calls[0]?.text).toContain("whatsapp_code_attempts = whatsapp_code_attempts + 1");
+    expect(calls[0]?.text).toContain("whatsapp_code_expires_at > now()");
+    expect(calls[1]?.text).toContain("whatsapp_opt_in = TRUE");
+    expect(calls[1]?.text).toContain("whatsapp_code_hash = NULL");
+  });
+
+  it("رمز خاطئ: invalid ولا تفعيل", async () => {
+    nextRows = [{ phone: "966501234567", whatsapp_code_hash: "H" }];
+    expect(await confirmParentWhatsappCode(5, "000000", () => "X", 5)).toBe("invalid");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("استنفاد المحاولات: locked، وانتهاء الصلاحية: expired، وبلا رمز: none", async () => {
+    const cases: [Record<string, unknown>, string][] = [
+      [{ whatsapp_code_hash: "H", whatsapp_code_attempts: 5 }, "locked"],
+      [{ whatsapp_code_hash: "H", whatsapp_code_attempts: 1 }, "expired"],
+      [{ whatsapp_code_hash: null, whatsapp_code_attempts: 0 }, "none"],
+    ];
+    for (const [state, expected] of cases) {
+      rowsQueue.push([], [state]); // الحجز يفشل ثم قراءة الحالة
+      expect(await confirmParentWhatsappCode(5, "123456", () => "H", 5)).toBe(expected);
+    }
+  });
+
+  it("إيقاف الموافقة لا يمرّ منه تفعيل", async () => {
+    nextRows = [{ id: 5 }];
+    await disableParentWhatsappOptIn(5);
+    expect(calls[0]?.text).toContain("whatsapp_opt_in = FALSE");
+    expect(calls[0]?.text).not.toContain("whatsapp_opt_in = TRUE");
   });
 });

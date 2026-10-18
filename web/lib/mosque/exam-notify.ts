@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { sendPushToStudent, sendPushToTeacher, sendPushToParentsOfExam } from "@/lib/push";
+import { sendWhatsappToParentsOfStudent } from "@/lib/notify/outbox";
 import type { ResultView } from "@/lib/mosque/exams-db";
 import { juzRangeLabel } from "@/lib/mosque/exams";
 
@@ -34,6 +35,27 @@ function notify(result: ResultView): void {
       ]);
     } catch {
       // نفس المبدأ لأولياء الأمر
+    }
+    // B1: واتساب لأولياء الأمر — الدرجة والتفاصيل تبقى بالتطبيق، الرسالة تحمل
+    // الاسم والاختبار والنتيجة فقط؛ البوابة والموافقة والسقف داخل المُرسِل
+    try {
+      await Promise.race([
+        sendWhatsappToParentsOfStudent({
+          halaqahId: result.halaqahId,
+          studentId: result.studentId,
+          mosqueId: result.mosqueId,
+          template: "exam_result",
+          paramsFor: (studentName) => ({
+            student_name: studentName,
+            exam_name: examName,
+            result: result.passed ? "ناجح" : "لم يُجتز",
+          }),
+          refPrefix: `exam:${result.id}`,
+        }),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+    } catch {
+      // ونفسه لواتساب
     }
     try {
       await Promise.race([

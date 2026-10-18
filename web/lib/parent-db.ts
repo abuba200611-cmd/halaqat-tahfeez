@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { db } from "./db";
 import { ensureParentIdentity } from "./identity";
 import type { PushSubscriptionData } from "./types";
@@ -298,4 +298,161 @@ export async function listParentPushTargetsForStudent(
 
 export async function markParentPushSubscriptionSuccess(endpoint: string): Promise<void> {
   await db().sql`UPDATE parent_push_subscriptions SET last_success_at = now() WHERE endpoint = ${endpoint}`;
+}
+
+// ————— واتساب ولي الأمر (B1) —————
+
+export type ParentWhatsappInfo = {
+  phone: string | null;
+  optedIn: boolean;
+  optedInAt: string | null;
+  /** رمز تأكيد صالح بانتظار الإدخال (لم ينتهِ ولم تُستنفد محاولاته) */
+  pendingConfirmation: boolean;
+};
+
+export async function getParentWhatsappInfo(parentId: number): Promise<ParentWhatsappInfo> {
+  const rows = await db().sql`
+    SELECT phone, whatsapp_opt_in, whatsapp_opt_in_at,
+           (whatsapp_code_hash IS NOT NULL AND whatsapp_code_expires_at > now()
+            AND whatsapp_code_attempts < 5) AS pending
+    FROM parents WHERE id = ${parentId}
+  `;
+  const row = rows[0];
+  return {
+    phone: (row?.phone as string | null) ?? null,
+    optedIn: row?.whatsapp_opt_in === true,
+    optedInAt: row?.whatsapp_opt_in_at ? new Date(row.whatsapp_opt_in_at as string).toISOString() : null,
+    pendingConfirmation: row?.pending === true,
+  };
+}
+
+/**
+ * حفظ رقم الجوال (E.164 — طُبِّع عند المستدعي) مع رمز تأكيد مجزّأ. تغيير
+ * الرقم يُسقط الموافقة ويصفّر محاولات الرمز: الموافقة مقترنة برقم بعينه
+ * وتُفعَّل بإدخال الرمز فقط. سقف التغيير 3 باليوم (يوم الرياض) يُنفَّذ
+ * بالشرط نفسه؛ false = تجاوز السقف ولم يُحفظ شيء.
+ */
+export async function setParentWhatsappPhone(
+  parentId: number,
+  phone: string,
+  codeHash: string,
+  maxChangesPerDay: number,
+  codeTtlMinutes: number,
+): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE parents
+    SET phone = ${phone}, whatsapp_opt_in = FALSE, whatsapp_opt_in_at = NULL,
+        whatsapp_code_hash = ${codeHash},
+        whatsapp_code_expires_at = now() + make_interval(mins => ${codeTtlMinutes}::int),
+        whatsapp_code_attempts = 0,
+        whatsapp_phone_changes = CASE
+          WHEN whatsapp_phone_changes_day = (now() AT TIME ZONE 'Asia/Riyadh')::date THEN whatsapp_phone_changes + 1
+          ELSE 1
+        END,
+        whatsapp_phone_changes_day = (now() AT TIME ZONE 'Asia/Riyadh')::date
+    WHERE id = ${parentId}
+      AND (whatsapp_phone_changes_day IS DISTINCT FROM (now() AT TIME ZONE 'Asia/Riyadh')::date
+           OR whatsapp_phone_changes < ${maxChangesPerDay}::int)
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+export type ParentCodeOutcome = "ok" | "invalid" | "expired" | "locked" | "none";
+
+/**
+ * التحقق من رمز التأكيد وتفعيل الموافقة عند صحته. كل محاولة تُعدّ ذرّياً
+ * قبل المقارنة (حد أقصى لعدد المحاولات)، والرمز المنتهي أو المستنفد لا
+ * يُقبل ولو صحّ. نجاحه يمسح الرمز فلا يُعاد استعماله.
+ */
+export async function confirmParentWhatsappCode(
+  parentId: number,
+  code: string,
+  hashFor: (phone: string, code: string) => string,
+  maxAttempts: number,
+): Promise<ParentCodeOutcome> {
+  const claimed = await db().sql`
+    UPDATE parents SET whatsapp_code_attempts = whatsapp_code_attempts + 1
+    WHERE id = ${parentId} AND whatsapp_code_hash IS NOT NULL AND phone IS NOT NULL
+      AND whatsapp_code_expires_at > now() AND whatsapp_code_attempts < ${maxAttempts}::int
+    RETURNING phone, whatsapp_code_hash
+  `;
+  const row = claimed[0];
+  if (!row) {
+    const state = await db().sql`
+      SELECT whatsapp_code_hash, whatsapp_code_expires_at, whatsapp_code_attempts FROM parents WHERE id = ${parentId}
+    `;
+    const current = state[0];
+    if (!current || !current.whatsapp_code_hash) return "none";
+    if (Number(current.whatsapp_code_attempts) >= maxAttempts) return "locked";
+    return "expired";
+  }
+  const expected = row.whatsapp_code_hash as string;
+  const given = hashFor(row.phone as string, code);
+  if (given.length !== expected.length || !timingSafeEqual(Buffer.from(given), Buffer.from(expected))) {
+    return "invalid";
+  }
+  await db().sql`
+    UPDATE parents
+    SET whatsapp_opt_in = TRUE, whatsapp_opt_in_at = now(),
+        whatsapp_code_hash = NULL, whatsapp_code_expires_at = NULL, whatsapp_code_attempts = 0
+    WHERE id = ${parentId}
+  `;
+  return "ok";
+}
+
+/** هل رقم بعينه ما زال لولي موافق؟ (إعادة التحقق قبل إعادة الإرسال اليدوي) */
+export async function isPhoneWhatsappOptedIn(phone: string): Promise<boolean> {
+  const rows = await db().sql`
+    SELECT 1 FROM parents WHERE phone = ${phone} AND whatsapp_opt_in = TRUE LIMIT 1
+  `;
+  return rows.length > 0;
+}
+
+/**
+ * إيقاف الموافقة من اللوحة. التفعيل لا يمرّ من هنا أبداً — يلزمه رمز تأكيد
+ * الرقم (confirmParentWhatsappCode)؛ true إن تغيّر شيء.
+ */
+export async function disableParentWhatsappOptIn(parentId: number): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE parents SET whatsapp_opt_in = FALSE, whatsapp_opt_in_at = NULL
+    WHERE id = ${parentId}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/** إيقاف الموافقة من الويبهوك (كلمة «إيقاف») — يرجع عدد الصفوف المُحدَّثة */
+export async function optOutParentByPhone(phone: string): Promise<number> {
+  const rows = await db().sql`
+    UPDATE parents SET whatsapp_opt_in = FALSE, whatsapp_opt_in_at = NULL
+    WHERE phone = ${phone} AND whatsapp_opt_in
+    RETURNING id
+  `;
+  return rows.length;
+}
+
+export type WhatsappParentTarget = { parentId: number; phone: string; studentName: string };
+
+/**
+ * أولياء طالب بعينه المؤهلون لواتساب: المتفقون فقط (whatsapp_opt_in) ممن
+ * لهم رقم محفوظ — لا موافقة لا رسالة، هذا الاستعلام هو مكان الإنفاذ كله.
+ */
+export async function listWhatsappParentsForStudent(
+  halaqahId: number,
+  studentId: string,
+): Promise<WhatsappParentTarget[]> {
+  const rows = await db().sql`
+    SELECT pc.parent_id, p.phone, s.name AS student_name
+    FROM parent_children pc
+    JOIN parents p ON p.id = pc.parent_id
+    JOIN students s ON s.teacher_id = pc.halaqah_id AND s.id = pc.student_id
+    WHERE pc.halaqah_id = ${halaqahId} AND pc.student_id = ${studentId} AND s.deleted_at IS NULL
+      AND p.whatsapp_opt_in = TRUE AND p.phone IS NOT NULL AND p.phone != ''
+  `;
+  return rows.map((r) => ({
+    parentId: Number(r.parent_id),
+    phone: r.phone as string,
+    studentName: r.student_name as string,
+  }));
 }

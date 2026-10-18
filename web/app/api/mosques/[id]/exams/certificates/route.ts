@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { featureGate, parsePositiveIntParam, paramNotFound, text } from "@/lib/mosque/api-gate";
 import { getExamConfig, getResult, issueCertificate } from "@/lib/mosque/exams-db";
 import { achievementText, isCertificateKind } from "@/lib/mosque/exams";
+import { sendWhatsappToParentsOfStudent } from "@/lib/notify/outbox";
 
 /**
  * إصدار شهادة — ثلاثة أنواع:
@@ -45,6 +47,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         sessionDate: result.sessionDate,
         halaqahName: result.halaqahName,
       },
+    });
+    // B1: واتساب لأولياء الطالب عند إصدار شهادة اختباره — برمز التحقق ليثبتوا
+    // منها بصفحة التحقق. شهادات المعلّمين والتعريف الحر لا وليّ لها فلا واتساب.
+    after(async () => {
+      try {
+        await Promise.race([
+          sendWhatsappToParentsOfStudent({
+            halaqahId: result.halaqahId,
+            studentId: result.studentId,
+            mosqueId,
+            template: "certificate_issued",
+            paramsFor: (studentName) => ({ student_name: studentName, certificate_code: certificate.code }),
+            refPrefix: `cert:${certificate.id}`,
+          }),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      } catch {
+        // فشل الإشعار لا يغيّر الإصدار — الرد أُرسل مسبقاً
+      }
     });
     return Response.json({ certificate }, { status: 201 });
   }

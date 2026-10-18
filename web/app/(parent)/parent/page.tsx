@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useParentSession } from "@/components/parent-shell";
 import { ParentPushToggle } from "@/components/parent-push-toggle";
+import { ParentWhatsappCard } from "@/components/parent-whatsapp-card";
 import { AttendanceSummaryCard } from "@/components/attendance-summary";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { MonthlyPlanCard } from "@/components/monthly-plan-card";
@@ -126,6 +127,9 @@ function Dashboard() {
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-semibold text-stone-700">الإشعارات</h2>
         <ParentPushToggle />
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <ParentWhatsappCard />
+        </div>
       </div>
     </div>
   );
