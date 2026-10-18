@@ -300,6 +300,14 @@ export async function markParentPushSubscriptionSuccess(endpoint: string): Promi
   await db().sql`UPDATE parent_push_subscriptions SET last_success_at = now() WHERE endpoint = ${endpoint}`;
 }
 
+/** كل أجهزة ولي أمر بعينه — للإشعار برسالة داخلية جديدة (المراسلة B2) */
+export async function listParentPushTargets(parentId: number): Promise<PushSubscriptionData[]> {
+  const rows = await db().sql`
+    SELECT endpoint, p256dh, auth FROM parent_push_subscriptions WHERE parent_id = ${parentId}
+  `;
+  return rows.map((r) => ({ endpoint: r.endpoint as string, p256dh: r.p256dh as string, auth: r.auth as string }));
+}
+
 // ————— واتساب ولي الأمر (B1) —————
 
 export type ParentWhatsappInfo = {

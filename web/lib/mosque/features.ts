@@ -146,6 +146,14 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "messaging",
+    nameAr: "المراسلة الداخلية",
+    descriptionAr:
+      "محادثات داخل التطبيق بين المعلّم وأولياء الأمور والطلاب، وبين إدارة الجامع والمعلّمين — نص فقط بلا HTML، مع عدّاد غير مقروء وإشعارات فورية.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

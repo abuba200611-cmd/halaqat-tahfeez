@@ -14,6 +14,7 @@ import {
 } from "./db";
 import {
   deleteParentPushSubscription,
+  listParentPushTargets,
   listParentPushTargetsForStudent,
   markParentPushSubscriptionSuccess,
 } from "./parent-db";
@@ -77,6 +78,39 @@ export async function sendPushToTeacher(teacherId: number, payload: PushPayload)
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) await deletePushSubscription(teacherId, sub.endpoint);
+      }
+    }),
+  );
+}
+
+/**
+ * يرسل إشعاراً لكل أجهزة ولي أمر بعينه (المراسلة الداخلية B2) — رسالة
+ * خاصة إليه، لا مرتبطة بطالب بعينه. لا يرمي أبداً — نفس مبدأ بقية الإرسالات.
+ */
+export async function sendPushToParent(parentId: number, payload: PushPayload): Promise<void> {
+  const publicKey = await ensureConfigured();
+  if (!publicKey) return;
+
+  let subs;
+  try {
+    subs = await listParentPushTargets(parentId);
+  } catch {
+    return;
+  }
+
+  await Promise.all(
+    subs.map(async (sub) => {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          JSON.stringify(payload),
+        );
+        await markParentPushSubscriptionSuccess(sub.endpoint);
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) {
+          await deleteParentPushSubscription(parentId, sub.endpoint).catch(() => {});
+        }
       }
     }),
   );
