@@ -138,6 +138,14 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "whatsapp",
+    nameAr: "إشعارات واتساب",
+    descriptionAr:
+      "رسائل واتساب بأرقام معتمدة (قوالب) لأولياء الأمور عند اعتماد الأوراد وإنذارات الغياب ونتائج الاختبارات وإصدار الشهادات — بموافقة صريحة من ولي الأمر وسقف يومي لكل جامع وكل رقم.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

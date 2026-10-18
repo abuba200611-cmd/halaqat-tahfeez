@@ -23,6 +23,7 @@ const ACTION_LABEL: Record<string, string> = {
   revoke_sessions: "إبطال الجلسات",
   unlink_parent: "فكّ ربط ولي أمر",
   admin_account_change: "تغيير حساب مدير جامع",
+  whatsapp_resend: "إعادة إرسال واتساب",
 };
 
 const TARGET_LABEL: Record<string, string> = {
@@ -31,6 +32,7 @@ const TARGET_LABEL: Record<string, string> = {
   parent: "ولي أمر",
   mosque: "جامع",
   mosque_admin: "مدير جامع",
+  outbox: "صادر واتساب",
 };
 
 export default function DevAuditPage() {

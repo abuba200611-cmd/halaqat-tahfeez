@@ -299,3 +299,81 @@ export async function listParentPushTargetsForStudent(
 export async function markParentPushSubscriptionSuccess(endpoint: string): Promise<void> {
   await db().sql`UPDATE parent_push_subscriptions SET last_success_at = now() WHERE endpoint = ${endpoint}`;
 }
+
+// ————— واتساب ولي الأمر (B1) —————
+
+export type ParentWhatsappInfo = {
+  phone: string | null;
+  optedIn: boolean;
+  optedInAt: string | null;
+};
+
+export async function getParentWhatsappInfo(parentId: number): Promise<ParentWhatsappInfo> {
+  const rows = await db().sql`
+    SELECT phone, whatsapp_opt_in, whatsapp_opt_in_at FROM parents WHERE id = ${parentId}
+  `;
+  const row = rows[0];
+  return {
+    phone: (row?.phone as string | null) ?? null,
+    optedIn: row?.whatsapp_opt_in === true,
+    optedInAt: row?.whatsapp_opt_in_at ? new Date(row.whatsapp_opt_in_at as string).toISOString() : null,
+  };
+}
+
+/**
+ * حفظ رقم الجوال (E.164 — طُبِّع عند المستدعي). تغيير الرقم يُسقط الموافقة:
+ * الموافقة مقترنة برقم بعينه، فالرقم الجديد يحتاج موافقة صريحة جديدة.
+ */
+export async function setParentWhatsappPhone(parentId: number, phone: string): Promise<void> {
+  await db().sql`
+    UPDATE parents SET phone = ${phone}, whatsapp_opt_in = FALSE, whatsapp_opt_in_at = NULL
+    WHERE id = ${parentId}
+  `;
+}
+
+/** تفعيل/إيقاف الموافقة — لا تفعيل بلا رقم محفوظ (شرط الاستعلام نفسه)؛ true إن تغيّر شيء */
+export async function setParentWhatsappOptIn(parentId: number, optedIn: boolean): Promise<boolean> {
+  const rows = await db().sql`
+    UPDATE parents
+    SET whatsapp_opt_in = ${optedIn}::boolean,
+        whatsapp_opt_in_at = CASE WHEN ${optedIn}::boolean THEN now() ELSE NULL END
+    WHERE id = ${parentId} AND (${optedIn}::boolean IS FALSE OR (phone IS NOT NULL AND phone != ''))
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/** إيقاف الموافقة من الويبهوك (كلمة «إيقاف») — يرجع عدد الصفوف المُحدَّثة */
+export async function optOutParentByPhone(phone: string): Promise<number> {
+  const rows = await db().sql`
+    UPDATE parents SET whatsapp_opt_in = FALSE, whatsapp_opt_in_at = NULL
+    WHERE phone = ${phone} AND whatsapp_opt_in
+    RETURNING id
+  `;
+  return rows.length;
+}
+
+export type WhatsappParentTarget = { parentId: number; phone: string; studentName: string };
+
+/**
+ * أولياء طالب بعينه المؤهلون لواتساب: المتفقون فقط (whatsapp_opt_in) ممن
+ * لهم رقم محفوظ — لا موافقة لا رسالة، هذا الاستعلام هو مكان الإنفاذ كله.
+ */
+export async function listWhatsappParentsForStudent(
+  halaqahId: number,
+  studentId: string,
+): Promise<WhatsappParentTarget[]> {
+  const rows = await db().sql`
+    SELECT pc.parent_id, p.phone, s.name AS student_name
+    FROM parent_children pc
+    JOIN parents p ON p.id = pc.parent_id
+    JOIN students s ON s.teacher_id = pc.halaqah_id AND s.id = pc.student_id
+    WHERE pc.halaqah_id = ${halaqahId} AND pc.student_id = ${studentId} AND s.deleted_at IS NULL
+      AND p.whatsapp_opt_in = TRUE AND p.phone IS NOT NULL AND p.phone != ''
+  `;
+  return rows.map((r) => ({
+    parentId: Number(r.parent_id),
+    phone: r.phone as string,
+    studentName: r.student_name as string,
+  }));
+}

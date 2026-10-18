@@ -19,6 +19,7 @@ const NAV = [
   { href: "/dev/health", label: "الصحة", icon: "🩺" },
   { href: "/admin", label: "الاقتراحات", icon: "💡" },
   { href: "/dev/agent-lessons", label: "دروس الإيجنت", icon: "🤖" },
+  { href: "/dev/whatsapp", label: "صادر واتساب", icon: "💬" },
   { href: "/dev/audit", label: "سجل التدقيق", icon: "🧾" },
 ];
 

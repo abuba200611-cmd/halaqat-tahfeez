@@ -12,6 +12,7 @@ import {
   type NewWardLog,
 } from "@/lib/db";
 import { sendPushToHalaqah, sendPushToParentsOfStudent, sendPushToStudent } from "@/lib/push";
+import { sendWhatsappToParentsOfStudent } from "@/lib/notify/outbox";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import { logServerError } from "@/lib/dev-error-log";
 import type { WardStatus } from "@/lib/types";
@@ -323,6 +324,22 @@ export async function PATCH(request: Request) {
         ]);
       } catch {
         // نفس مبدأ الطالب: فشل إشعار الولي لا يؤثر على شيء
+      }
+      // B1: واتساب لأولياء الأمور — بوابة الميزة والموافقة والسقف داخل المُرسِل،
+      // فلا شيء يحدث البتة لجامع لم يفعّل «إشعارات واتساب»
+      try {
+        await Promise.race([
+          sendWhatsappToParentsOfStudent({
+            halaqahId: teacher.halaqahId,
+            studentId: result.studentId,
+            template: status === "approved" ? "ward_approved" : "ward_needs_revision",
+            paramsFor: (studentName) => ({ student_name: studentName }),
+            refPrefix: `ward:${id}:${status}`,
+          }),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      } catch {
+        // نفس مبدأ الويب بوش — فشل واتساب لا يؤثر على شيء
       }
     });
   }
