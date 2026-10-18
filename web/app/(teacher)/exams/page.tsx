@@ -61,7 +61,7 @@ export default function TeacherExamsPage() {
       <Empty
         title="الاختبارات غير مفعّلة لجامع حلقتك."
         action={
-          <Link href="/join-mosque" className="text-sm text-blue-700 hover:underline">
+          <Link href="/join-mosque" className="text-sm text-accent-ink hover:underline">
             ربط حلقتك بجامع من هنا
           </Link>
         }
@@ -73,8 +73,8 @@ export default function TeacherExamsPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="font-naskh text-2xl font-bold text-slate-800">الاختبارات</h1>
-        <p className="text-sm text-slate-500">رشّح طلابك لاختبارات جامعك، وقيّم جلساتك كممتحن.</p>
+        <h1 className="font-display text-2xl font-bold text-stone-800">الاختبارات</h1>
+        <p className="text-sm text-stone-500">رشّح طلابك لاختبارات جامعك، وقيّم جلساتك كممتحن.</p>
       </header>
 
       <NominateCard types={data.data.types} students={students.filter((s) => s.active)} />
@@ -82,18 +82,18 @@ export default function TeacherExamsPage() {
       <SessionsCard sessions={data.data.sessions} />
 
       <Card className="p-4">
-        <h2 className="mb-3 font-semibold text-slate-800">ترشيحاتي</h2>
+        <h2 className="mb-3 font-semibold text-stone-800">ترشيحاتي</h2>
         {data.data.nominations.length === 0 ? (
-          <p className="text-sm text-slate-500">لا ترشيحات بعد — ابدأ بترشيح طالب من الأعلى.</p>
+          <p className="text-sm text-stone-500">لا ترشيحات بعد — ابدأ بترشيح طالب من الأعلى.</p>
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-stone-100">
             {data.data.nominations.map((nomination) => (
               <li key={nomination.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-                <span className="text-sm text-slate-700">
+                <span className="text-sm text-stone-700">
                   <span className="font-semibold">{nomination.studentName}</span>
-                  <span className="mx-1 text-slate-400">•</span>
+                  <span className="mx-1 text-stone-400">•</span>
                   {nomination.typeName} ({juzRangeLabel(nomination.juzFrom, nomination.juzTo)})
-                  {nomination.note && <span className="ms-1 text-xs text-slate-400">{nomination.note}</span>}
+                  {nomination.note && <span className="ms-1 text-xs text-stone-400">{nomination.note}</span>}
                 </span>
                 <Badge tone={nomination.status === "done" ? "good" : nomination.status === "withdrawn" ? "warn" : "neutral"}>
                   {NOMINATION_STATUS_LABELS[nomination.status]}
@@ -144,16 +144,16 @@ function NominateCard({ types, students }: { types: ExamType[]; students: { id: 
 
   return (
     <Card className="space-y-3 p-4">
-      <h2 className="font-semibold text-slate-800">ترشيح طالب</h2>
+      <h2 className="font-semibold text-stone-800">ترشيح طالب</h2>
       {types.length === 0 || students.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-stone-500">
           {types.length === 0 ? "لا توجد أنواع اختبارات بجامعك بعد." : "لا طلاب فعّالين بحلقتك بعد."}
         </p>
       ) : (
         <form onSubmit={nominate} className="grid gap-3 sm:grid-cols-2">
-          <label className="block text-xs text-slate-500">
+          <label className="block text-xs text-stone-500">
             نوع الاختبار
-            <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+            <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800">
               {types.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name} — {t.juzCount === 1 ? "جزء واحد" : `${t.juzCount} أجزاء`}
@@ -161,9 +161,9 @@ function NominateCard({ types, students }: { types: ExamType[]; students: { id: 
               ))}
             </select>
           </label>
-          <label className="block text-xs text-slate-500">
+          <label className="block text-xs text-stone-500">
             الطالب
-            <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800">
+            <select value={studentId} onChange={(e) => setStudentId(e.target.value)} required className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800">
               <option value="">اختر طالباً…</option>
               {students.map((student) => (
                 <option key={student.id} value={student.id}>
@@ -172,7 +172,7 @@ function NominateCard({ types, students }: { types: ExamType[]; students: { id: 
               ))}
             </select>
           </label>
-          <label className="block text-xs text-slate-500">
+          <label className="block text-xs text-stone-500">
             من الجزء
             <input
               type="number"
@@ -180,19 +180,19 @@ function NominateCard({ types, students }: { types: ExamType[]; students: { id: 
               max={30}
               value={juzFrom}
               onChange={(e) => setJuzFrom(e.target.value)}
-              className="tabular mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+              className="tabular mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800"
             />
           </label>
-          <p className="flex items-end text-xs text-slate-500">
+          <p className="flex items-end text-xs text-stone-500">
             النطاق: {juzRangeLabel(Number(juzFrom) || 1, juzTo)} — الدرجة {type?.maxScore ?? 100} والنجاح عند {type?.passMark ?? 60}
           </p>
-          <label className="block text-xs text-slate-500 sm:col-span-2">
+          <label className="block text-xs text-stone-500 sm:col-span-2">
             ملاحظة (اختياري)
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={300}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+              className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800"
             />
           </label>
           <div className="sm:col-span-2">
@@ -202,8 +202,8 @@ function NominateCard({ types, students }: { types: ExamType[]; students: { id: 
           </div>
         </form>
       )}
-      {okMessage && <p className="text-sm text-emerald-700">{okMessage}</p>}
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {okMessage && <p className="text-sm text-success">{okMessage}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </Card>
   );
 }
@@ -211,27 +211,27 @@ function NominateCard({ types, students }: { types: ExamType[]; students: { id: 
 function SessionsCard({ sessions }: { sessions: ScoringSession[] }) {
   return (
     <Card className="p-4">
-      <h2 className="mb-3 font-semibold text-slate-800">جلساتي كممتحن</h2>
+      <h2 className="mb-3 font-semibold text-stone-800">جلساتي كممتحن</h2>
       {sessions.length === 0 ? (
-        <p className="text-sm text-slate-500">لم تُضَف بعد للجنة أي جلسة اختبار.</p>
+        <p className="text-sm text-stone-500">لم تُضَف بعد للجنة أي جلسة اختبار.</p>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-stone-100">
           {sessions.map((session) => (
             <li key={session.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-              <span className="text-sm text-slate-700">
-                <Link href={`/exams/${session.id}`} className="font-semibold text-blue-700 hover:underline">
+              <span className="text-sm text-stone-700">
+                <Link href={`/exams/${session.id}`} className="font-semibold text-accent-ink hover:underline">
                   {session.typeName}
                 </Link>
-                <span className="mx-1 text-slate-400">•</span>
+                <span className="mx-1 text-stone-400">•</span>
                 <span className="tabular">{session.sessionDate}</span>
-                {session.location && <span className="text-slate-400"> • {session.location}</span>}
-                <span className="ms-2 text-xs text-slate-400">
+                {session.location && <span className="text-stone-400"> • {session.location}</span>}
+                <span className="ms-2 text-xs text-stone-400">
                   {session.recordedCount}/{session.scheduledCount + session.recordedCount} مسجَّلة
                 </span>
               </span>
               <Link
                 href={`/exams/${session.id}`}
-                className="rounded-xl bg-blue-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-800"
+                className="rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-white hover:bg-primary"
               >
                 شاشة التقييم
               </Link>

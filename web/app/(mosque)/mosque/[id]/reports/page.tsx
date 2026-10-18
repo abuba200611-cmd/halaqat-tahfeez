@@ -133,7 +133,7 @@ function ReportBody({ data }: { data: ReportData }) {
     <div className="space-y-5">
       {/* رأس التقرير — يظهر عند الطباعة */}
       <div className="print:mb-4 print:border-b print:border-border print:pb-3">
-        <h2 className="font-naskh text-xl font-bold">{data.mosque.name}</h2>
+        <h2 className="font-display text-xl font-bold">{data.mosque.name}</h2>
         <p className="text-sm text-muted-foreground">
           تقرير الفترة: {periodLabel(data.period)}
           <span className="tabular"> ({data.period.from} — {data.period.to})</span>
@@ -160,7 +160,7 @@ function ReportBody({ data }: { data: ReportData }) {
       </div>
 
       {kpis.unreachableHalaqat > 0 && (
-        <p className="text-xs text-accent">
+        <p className="text-xs text-accent-ink">
           تعذّر جلب إحصائيات {kpis.unreachableHalaqat} حلقة — استُثنيت من الإجمالي.
         </p>
       )}

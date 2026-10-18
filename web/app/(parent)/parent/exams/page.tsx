@@ -82,7 +82,7 @@ function Exams() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-naskh text-xl font-bold text-slate-800">نتائج الاختبارات</h1>
+      <h1 className="font-display text-xl font-bold text-stone-800">نتائج الاختبارات</h1>
 
       {children !== null && children.length > 1 && (
         <div className="flex flex-wrap gap-2">
@@ -95,7 +95,7 @@ function Exams() {
                 setResults(null);
               }}
               className={`cursor-pointer rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors duration-200 ${
-                keyOf(child) === selected ? "bg-blue-900 text-white" : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                keyOf(child) === selected ? "bg-primary text-white" : "border border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
               }`}
             >
               {child.studentName}
@@ -105,45 +105,45 @@ function Exams() {
       )}
 
       {active && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-stone-500">
           نتائج {active.studentName} — حلقة {active.halaqahName}
         </p>
       )}
 
       {results === null ? (
-        <p className="text-sm text-slate-500">{selected === null ? "اختر الابن أولاً." : "جارٍ التحميل…"}</p>
+        <p className="text-sm text-stone-500">{selected === null ? "اختر الابن أولاً." : "جارٍ التحميل…"}</p>
       ) : results.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-          <p className="font-naskh text-lg font-bold text-slate-700">لا نتائج بعد</p>
-          <p className="text-sm text-slate-500">حين تُعلن لجنة الاختبار نتيجةً ستجدها هنا.</p>
+        <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
+          <p className="font-naskh text-lg font-bold text-stone-700">لا نتائج بعد</p>
+          <p className="text-sm text-stone-500">حين تُعلن لجنة الاختبار نتيجةً ستجدها هنا.</p>
         </div>
       ) : (
         results.map((result) => (
-          <section key={result.id} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <section key={result.id} className="space-y-3 rounded-2xl border border-stone-200 bg-white p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="font-naskh text-lg font-bold text-slate-800">
+                <h2 className="font-display text-lg font-bold text-stone-800">
                   {result.typeName} — {juzRangeLabel(result.juzFrom, result.juzTo)}
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-stone-500">
                   بتاريخ {result.sessionDate}
                   {result.examinerName ? ` • الممتحن: ${result.examinerName}` : ""}
                 </p>
               </div>
               <span
                 className={`rounded-full px-3 py-1 text-sm font-bold ${
-                  result.passed ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-700"
+                  result.passed ? "bg-success-soft text-success" : "bg-destructive-soft text-destructive"
                 }`}
               >
                 {result.passed ? "ناجح 🎉" : "لم يُجتز"}
               </span>
             </div>
-            <p className="tabular text-sm font-bold text-slate-700">
+            <p className="tabular text-sm font-bold text-stone-700">
               الدرجة: {result.score} من {result.maxScore}
             </p>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+            <div className="flex flex-wrap gap-2 text-xs text-stone-600">
               {ERROR_KINDS.map((kind) => (
-                <span key={kind} className="rounded-lg bg-slate-50 px-2 py-1">
+                <span key={kind} className="rounded-lg bg-stone-50 px-2 py-1">
                   {ERROR_LABELS[kind]}: <span className="tabular font-bold">{result.errors[kind] ?? 0}</span>
                 </span>
               ))}

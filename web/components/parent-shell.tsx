@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { RoleSwitcher } from "./role-switcher";
+import { BrandLockup } from "./brand";
 
 /*
   STEP 61 — هيكل ولي الأمر: شريط علوي بسيط (عنوان + خروج) وبطاقات ضيقة،
@@ -56,28 +57,24 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ParentContext.Provider value={{ parent, checking, setParent, logout }}>
-      <div className="flex min-h-full flex-1 flex-col bg-slate-50">
-        <header className="border-b border-slate-200 bg-white">
+      <div className="flex min-h-full flex-1 flex-col bg-stone-50">
+        <header className="border-b border-stone-200 bg-white">
           <div className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-3">
-            <Link href="/parent" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-900 font-naskh text-lg font-bold text-white">
-                👪
-              </span>
-              <span className="font-naskh text-lg font-bold text-slate-800">متابعة الأبناء</span>
-              <span className="hidden text-[10px] text-slate-400 sm:inline">MOS — نظام تشغيل الجامع</span>
+            <Link href="/parent">
+              <BrandLockup tone="onLight" size={36} context="متابعة الأبناء" />
             </Link>
             {parent && (
               <div className="mr-auto flex items-center gap-3">
-                <span className="hidden max-w-40 truncate text-sm text-slate-500 sm:block">{parent.name}</span>
+                <span className="hidden max-w-40 truncate text-sm text-stone-500 sm:block">{parent.name}</span>
                 <Link
                   href="/parent/exams"
-                  className="hidden rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors duration-200 hover:bg-slate-50 sm:block"
+                  className="hidden rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50 sm:block"
                 >
                   نتائج الاختبارات
                 </Link>
                 <Link
                   href="/parent/suggest"
-                  className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors duration-200 hover:bg-slate-50"
+                  className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50"
                 >
                   اقتراح / بلاغ
                 </Link>
@@ -85,7 +82,7 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={logout}
-                  className="cursor-pointer rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="cursor-pointer rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50"
                 >
                   خروج
                 </button>

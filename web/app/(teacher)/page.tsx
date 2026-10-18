@@ -23,16 +23,16 @@ import type { WardLog } from "@/lib/types";
 
 /* ————— لوحة ألوان الصفحة (STEP 41/42 — يطابق مرجع لوحة تحكّم زرقاء بقائمة جانبية) — محصورة هنا ————— */
 const C = {
-  heroFrom: "#1E3A8A",
-  heroTo: "#2563EB",
-  blue: "#2563EB",
-  emerald: "#059669",
-  orange: "#EA580C",
-  purple: "#7C3AED",
-  gold: "#D4A24C",
-  cardBorder: "#E7EAF3",
-  text: "#0F172A",
-  textMuted: "#64748B",
+  heroFrom: "#000000",
+  heroTo: "#241B12",
+  blue: "#AD7D56",
+  emerald: "#3E6B4A",
+  orange: "#8A6242",
+  purple: "#8A6242",
+  gold: "#CDB49E",
+  cardBorder: "#E2D6C3",
+  text: "#000000",
+  textMuted: "#5F5344",
 };
 
 
@@ -304,7 +304,7 @@ export function OnboardingBanner() {
         <SproutIcon size={44} />
       </span>
       <div className="min-w-0 flex-1">
-        <h2 className="font-naskh text-lg font-bold" style={{ color: C.text }}>
+        <h2 className="font-display text-lg font-bold" style={{ color: C.text }}>
           ابدأ رحلة حلقتك 🌱
         </h2>
         <p className="mt-1 text-sm" style={{ color: C.textMuted }}>
@@ -363,7 +363,7 @@ export function Hero({
       <IslamicPattern />
       <div className="relative">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-naskh text-2xl font-bold sm:text-3xl">
+          <h1 className="font-display text-2xl font-bold sm:text-3xl">
             السلام عليكم{teacherName ? `، أ. ${teacherName}` : ""}
           </h1>
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white/90">{gregorian}</span>
@@ -439,7 +439,7 @@ export function StatCard({
         {showDelta && (
           <span
             className={`tabular flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              delta! > 0 ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-500"
+              delta! > 0 ? "bg-success-soft text-success" : "bg-stone-100 text-stone-500"
             }`}
           >
             {delta! > 0 ? <ArrowUpIcon size={10} /> : <ArrowDownIcon size={10} />}
@@ -484,16 +484,16 @@ export function StatCard({
 
 export function QuickActions({ clearAction, hasStudents }: { clearAction: () => void; hasStudents: boolean }) {
   const items = [
-    { href: "/students", from: "#3B82F6", to: "#1D4ED8", icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
-    { href: "/pairing", from: "#10B981", to: "#047857", icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
-    { href: "/reports", from: "#F97316", to: "#C2410C", icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
-    { href: "/schedule", from: "#8B5CF6", to: "#6D28D9", icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
+    { href: "/students", from: "#8A6242", to: "#6E4E33", icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
+    { href: "/pairing", from: "#3E6B4A", to: "#33573D", icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
+    { href: "/reports", from: "#6E5233", to: "#4A3620", icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
+    { href: "/schedule", from: "#241B12", to: "#000000", icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
   ];
 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-naskh text-lg font-bold" style={{ color: C.text }}>
+        <h2 className="font-display text-lg font-bold" style={{ color: C.text }}>
           إجراءات سريعة
         </h2>
         {hasStudents && (
@@ -512,7 +512,7 @@ export function QuickActions({ clearAction, hasStudents }: { clearAction: () => 
           >
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">{item.icon}</div>
             <div className="font-semibold">{item.title}</div>
-            <div className="mt-0.5 text-xs text-white/80">{item.desc}</div>
+            <div className="mt-0.5 text-xs text-white/90">{item.desc}</div>
           </Link>
         ))}
       </div>
@@ -523,11 +523,13 @@ export function QuickActions({ clearAction, hasStudents }: { clearAction: () => 
 /* ————— نجوم الأسبوع — كقائمة متصدّرين (مربع ملوّن بالحروف + رقم الترتيب) ————— */
 
 export function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: number }[] }) {
-  const rankColors = [C.gold, C.blue, C.emerald];
+  // مراتب التصدّر: بيج فرنسي، راودو دست، ثم بني غامق — نصّ المربع يتباين مع كل خلفية
+  const rankColors = ["#AD7D56", "#CDB49E", "#6E5233"];
+  const rankText = ["#000000", "#000000", "#FFFFFF"];
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
-      <h2 className="mb-4 flex items-center gap-2 font-naskh text-lg font-bold" style={{ color: C.text }}>
+      <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold" style={{ color: C.text }}>
         <span style={{ color: C.gold }}>
           <StarIcon size={18} />
         </span>
@@ -543,8 +545,8 @@ export function StarsOfWeek({ stars }: { stars: { id: string; name: string; page
             <li key={s.id} className="flex items-center gap-3">
               <div className="relative shrink-0">
                 <div
-                  className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white"
-                  style={{ backgroundColor: rankColors[i] ?? C.blue }}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold"
+                  style={{ backgroundColor: rankColors[i] ?? C.blue, color: rankText[i] ?? "#000000" }}
                 >
                   {s.name.trim().charAt(0) || "؟"}
                 </div>
@@ -580,7 +582,7 @@ export function TodaySession({ today, next }: { today: SessionDay | null; next: 
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
-      <h2 className="mb-4 font-naskh text-lg font-bold" style={{ color: C.text }}>
+      <h2 className="mb-4 font-display text-lg font-bold" style={{ color: C.text }}>
         {today ? "حلقة اليوم" : "الجلسة القادمة"}
       </h2>
 

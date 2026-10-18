@@ -133,7 +133,7 @@ export default function TeacherSheetPage() {
       <Empty
         title="تعذّر تحميل الكشف — الانضباط غير مفعّل لهذا الجامع؟"
         action={
-          <Link href="/discipline" className="text-sm text-primary hover:underline">
+          <Link href="/discipline" className="text-sm text-accent-ink hover:underline">
             العودة للانضباط
           </Link>
         }
@@ -151,7 +151,7 @@ export default function TeacherSheetPage() {
       <div className="print:hidden">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-naskh text-2xl font-bold">كشف المتابعة الشهري</h1>
+            <h1 className="font-display text-2xl font-bold">كشف المتابعة الشهري</h1>
             <p className="text-xs text-muted-foreground">
               {data.mosqueName} — {data.halaqahName} · {label}
             </p>
@@ -189,7 +189,7 @@ export default function TeacherSheetPage() {
           )}
         </div>
 
-        {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">{error}</p>}
 
         <Card className="space-y-2 p-3">
           <label className="block text-sm">
@@ -268,7 +268,7 @@ function SheetTable({
                 <td className="tabular px-2 py-1.5">{s.attendance.present}</td>
                 <td className="tabular px-2 py-1.5">{s.attendance.late}</td>
                 <td className="tabular px-2 py-1.5">{s.attendance.excused}</td>
-                <td className="tabular px-2 py-1.5 text-red-700">{s.attendance.absent}</td>
+                <td className="tabular px-2 py-1.5 text-destructive">{s.attendance.absent}</td>
                 <td className="tabular px-2 py-1.5">{s.hifzPages}</td>
                 <td className="tabular px-2 py-1.5">{s.reviewPages}</td>
                 <td className="px-2 py-1.5">

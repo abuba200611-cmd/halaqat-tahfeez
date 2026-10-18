@@ -132,7 +132,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
     <div className="space-y-5">
       {/* رأس اللوحة — يظهر عند الطباعة */}
       <div className="print:mb-4 print:border-b print:border-border print:pb-3">
-        <h2 className="font-naskh text-xl font-bold">{data.mosque.name}</h2>
+        <h2 className="font-display text-xl font-bold">{data.mosque.name}</h2>
         <p className="text-sm text-muted-foreground">
           لوحة الشرف — فترة: {periodLabel(data.period)}
           <span className="tabular"> ({data.period.from} — {data.period.to})</span>
@@ -149,7 +149,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
               <div className="text-3xl">{MEDALS[(halaqah.rank as number) - 1]}</div>
               <Link
                 href={`/mosque/${mosqueId}/halaqah/${halaqah.halaqahId}`}
-                className="mt-1 block font-naskh text-lg font-bold text-primary hover:underline"
+                className="mt-1 block font-naskh text-lg font-bold text-accent-ink hover:underline"
               >
                 {halaqah.name}
               </Link>
@@ -167,7 +167,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
       )}
 
       {unavailable > 0 && (
-        <p className="text-xs text-accent">
+        <p className="text-xs text-accent-ink">
           تعذّر جلب مقاييس {unavailable} حلقة — استُثنيت من الترتيب.
         </p>
       )}
@@ -205,7 +205,7 @@ function HonorBoardBody({ mosqueId, data }: { mosqueId: number; data: HonorBoard
                   {halaqah.rank === null ? <span className="text-muted-foreground">—</span> : <Badge tone={halaqah.rank <= 3 ? "warn" : "neutral"}>{halaqah.rank}</Badge>}
                 </td>
                 <td className="px-2 py-2 font-medium">
-                  <Link href={`/mosque/${mosqueId}/halaqah/${halaqah.halaqahId}`} className="text-primary hover:underline">
+                  <Link href={`/mosque/${mosqueId}/halaqah/${halaqah.halaqahId}`} className="text-accent-ink hover:underline">
                     {halaqah.name}
                   </Link>
                 </td>

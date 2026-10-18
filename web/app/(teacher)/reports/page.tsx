@@ -34,7 +34,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">أداء الحلقة الشهري</h1>
+        <h1 className="font-display text-2xl font-bold">أداء الحلقة الشهري</h1>
         <p className="text-sm text-muted-foreground">
           مجموع صفحات الحفظ والمراجعة كل شهر، من كل الطلاب المرتبطين + وارد النظام الداخلي.
         </p>
@@ -49,7 +49,7 @@ export default function ReportsPage() {
           {months.map((m) => (
             <li key={m.key}>
               <Card className="p-4">
-                <h2 className="mb-3 font-naskh text-lg font-bold">{monthLabel(m.key)}</h2>
+                <h2 className="mb-3 font-display text-lg font-bold">{monthLabel(m.key)}</h2>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <Stat label="صفحات الحفظ" value={m.hifzPages} />
                   <Stat label="صفحات المراجعة" value={m.reviewPages} />

@@ -50,7 +50,7 @@ function AdminLogin({ onIn }: { onIn: () => void }) {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">إدارة الجامع</h1>
+      <h1 className="mb-1 text-center font-display text-2xl font-bold text-primary">إدارة الجامع</h1>
       <p className="mb-5 text-center text-sm text-muted-foreground">
         تنظيم الحلقات وتوزيع الطلاب الجدد
       </p>
@@ -171,7 +171,7 @@ function Dashboard({ onLoggedOut }: { onLoggedOut: () => void }) {
         </Card>
 
         <div>
-          <h2 className="mb-3 font-naskh text-lg font-bold">الجوامع</h2>
+          <h2 className="mb-3 font-display text-lg font-bold">الجوامع</h2>
           {mosques === null ? (
             <Empty title="جارٍ التحميل…" />
           ) : mosques.length === 0 ? (

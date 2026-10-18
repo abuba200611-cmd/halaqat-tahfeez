@@ -42,7 +42,7 @@ function ActivityDetail({ mosqueId, activityId }: { mosqueId: number; activityId
       <Empty
         title="النشاط غير موجود أو الميزة غير مفعّلة."
         action={
-          <Link href={`/mosque/${mosqueId}/archive`} className="text-sm text-primary hover:underline">
+          <Link href={`/mosque/${mosqueId}/archive`} className="text-sm text-accent-ink hover:underline">
             العودة للأرشيف
           </Link>
         }
@@ -126,13 +126,13 @@ function ActivityDetail({ mosqueId, activityId }: { mosqueId: number; activityId
 
   return (
     <div className="space-y-5">
-      <Link href={`/mosque/${mosqueId}/archive`} className="text-sm text-primary hover:underline">
+      <Link href={`/mosque/${mosqueId}/archive`} className="text-sm text-accent-ink hover:underline">
         ← كل الأنشطة
       </Link>
 
       <Card className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div className="min-w-0">
-          <h2 className="font-naskh text-xl font-bold">{activity.title}</h2>
+          <h2 className="font-display text-xl font-bold">{activity.title}</h2>
           <p className="tabular mt-1 text-sm text-muted-foreground">{activity.activityDate}</p>
           {activity.tagKind && activity.tagName && (
             <div className="mt-2">
@@ -271,7 +271,7 @@ function ActivityDetail({ mosqueId, activityId }: { mosqueId: number; activityId
                       href={parsed.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg bg-muted text-sm text-primary hover:underline"
+                      className="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-lg bg-muted text-sm text-accent-ink hover:underline"
                     >
                       <span className="font-medium">{VIDEO_HOST_LABEL[parsed.host]}</span>
                       <span className="text-xs text-muted-foreground">فتح الفيديو في نافذة جديدة</span>

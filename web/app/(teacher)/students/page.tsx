@@ -146,7 +146,7 @@ export default function StudentsPage() {
       <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
       <InviteLinksSection />
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-naskh text-2xl font-bold">
+        <h1 className="font-display text-2xl font-bold">
           الطلاب <span className="tabular text-base font-normal text-muted-foreground">({students.length})</span>
         </h1>
         <div className="no-print flex gap-2">
@@ -620,7 +620,7 @@ function StarRating({ value, onChange }: { value: number; onChange: (rating: num
           aria-label={`تقييم ${n} من ٥`}
           className="cursor-pointer text-base leading-none transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <span className={n <= value ? "text-accent" : "text-border"}>★</span>
+          <span className={n <= value ? "text-accent-ink" : "text-border"}>★</span>
         </button>
       ))}
     </div>

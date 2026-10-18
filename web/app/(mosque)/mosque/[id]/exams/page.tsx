@@ -810,14 +810,14 @@ function CertificatesTab({
                 <span className="flex items-center gap-2">
                   <Link
                     href={`/verify/${certificate.code}`}
-                    className="rounded-lg border border-border px-2 py-1 text-xs text-primary hover:underline"
+                    className="rounded-lg border border-border px-2 py-1 text-xs text-accent-ink hover:underline"
                     target="_blank"
                   >
                     رابط التحقق: {certificate.code}
                   </Link>
                   <Link
                     href={`/mosque/${mosqueId}/exams/certificates/${certificate.id}/print`}
-                    className="rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                    className="rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-on-primary hover:opacity-90"
                     target="_blank"
                   >
                     طباعة

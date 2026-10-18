@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AuthCard, AuthShell } from "./auth-shell";
+import { BrandLockup } from "./brand";
 import { RoleSwitcher, RoleSwitcherList } from "./role-switcher";
 import { BellIcon, EyeIcon, EyeOffIcon, LogoutIcon, UserIcon } from "./icons";
 
@@ -26,9 +27,9 @@ export function useStudentLogout(): () => Promise<void> {
 
 /* نفس لوحة ألوان هيكل المعلّم بالضبط (components/auth-gate.tsx، STEP 41/42) — لا نظام تصميم ثانٍ */
 const B = {
-  sidebar: "#0F1E42",
-  sidebarActive: "#1B3568",
-  sidebarText: "#9FB0D6",
+  sidebar: "#000000",
+  sidebarActive: "#AD7D56",
+  sidebarText: "#CDB49E",
 };
 
 /**
@@ -102,15 +103,9 @@ function Sidebar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: S
 
   return (
     <aside className="no-print fixed inset-y-0 right-0 z-20 hidden w-64 flex-col md:flex" style={{ backgroundColor: B.sidebar }}>
-      <Link href="/student" className="flex items-center gap-2 px-5 py-5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 font-naskh text-lg font-bold text-white">
-          ط
-        </span>
-        <span className="font-naskh text-lg font-bold text-white">وردي</span>
-      </Link>
-      <p className="-mt-3 px-5 pb-2 text-[10px]" style={{ color: B.sidebarText }}>
-        MOS — نظام تشغيل الجامع
-      </p>
+      <div className="px-5 py-5">
+        <BrandLockup tone="onDark" context="وردي" href="/student" />
+      </div>
 
       <nav className="mt-2 flex-1 space-y-1 overflow-y-auto px-3">
         {nav.map((item) => {
@@ -122,7 +117,7 @@ function Sidebar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: S
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               style={{
                 backgroundColor: active ? B.sidebarActive : "transparent",
-                color: active ? "#ffffff" : B.sidebarText,
+                color: active ? "#000000" : B.sidebarText,
                 fontWeight: active ? 600 : 400,
               }}
             >
@@ -136,8 +131,8 @@ function Sidebar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: S
       <div className="border-t border-white/10 p-3">
         <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
           <span
-            className="tabular flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-            style={{ backgroundColor: "#2563EB" }}
+            className="tabular flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-on-secondary"
+            style={{ backgroundColor: "var(--color-secondary)" }}
           >
             {initial}
           </span>
@@ -191,7 +186,7 @@ function TopBar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: St
     <header className="no-print border-b border-border bg-surface">
       <div className="flex items-center gap-3 px-4 py-3 md:px-8">
         <div className="min-w-0">
-          <h1 className="truncate font-naskh text-base font-bold text-foreground sm:text-lg">{active.label}</h1>
+          <h1 className="font-display truncate text-base font-bold text-foreground sm:text-lg">{active.label}</h1>
           {active.desc && <p className="hidden truncate text-xs text-muted-foreground sm:block">{active.desc}</p>}
         </div>
 
@@ -211,8 +206,8 @@ function TopBar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: St
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="tabular flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm font-bold text-white"
-              style={{ backgroundColor: "#2563EB" }}
+              className="tabular flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm font-bold text-on-secondary"
+              style={{ backgroundColor: "var(--color-secondary)" }}
               aria-label="حساب الطالب"
               aria-expanded={menuOpen}
             >
@@ -234,7 +229,7 @@ function TopBar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: St
                     setMenuOpen(false);
                     onLogout();
                   }}
-                  className="block w-full cursor-pointer px-4 py-2.5 text-right text-sm text-red-600 hover:bg-red-50"
+                  className="block w-full cursor-pointer px-4 py-2.5 text-right text-sm text-destructive hover:bg-destructive-soft"
                 >
                   تسجيل خروج
                 </button>
@@ -270,7 +265,7 @@ function BottomNav({ nav }: { nav: StudentNavItem[] }) {
             className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] transition-colors duration-200 ${
               active ? "font-semibold" : "text-muted-foreground"
             }`}
-            style={active ? { color: "#2563EB" } : undefined}
+            style={active ? { color: "var(--color-accent-ink)" } : undefined}
           >
             {item.icon}
             <span className="truncate">{item.label}</span>
@@ -328,14 +323,17 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
 
   return (
     <AuthShell>
-      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">وردي</h1>
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onDark" href="/student" />
+      </div>
+      <h1 className="font-display mb-1 text-center text-2xl font-black text-white">وردي</h1>
       <p className="mb-6 text-center text-sm text-white/60">
         سجّل حفظك ومراجعتك، ويصل معلّمك أنك أنجزت ورد اليوم.
       </p>
 
       <AuthCard>
         {googleError && (
-          <p className="mb-3 text-center text-sm text-red-400">
+          <p className="mb-3 text-center text-sm text-destructive-light">
             {GOOGLE_ERROR_MESSAGES[googleError] ?? GOOGLE_ERROR_MESSAGES.failed}
           </p>
         )}
@@ -400,13 +398,13 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
             </div>
           </label>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-destructive-light">{error}</p>}
 
           <button
             type="submit"
             disabled={busy}
-            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
           >
             {busy ? "لحظة…" : "دخول"}
           </button>

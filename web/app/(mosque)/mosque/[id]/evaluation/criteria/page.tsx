@@ -55,7 +55,7 @@ function Criteria({ mosqueId }: { mosqueId: number }) {
 
   return (
     <div className="space-y-5">
-      <Link href={`/mosque/${mosqueId}/evaluation`} className="text-sm text-primary hover:underline">
+      <Link href={`/mosque/${mosqueId}/evaluation`} className="text-sm text-accent-ink hover:underline">
         ← العودة للتقييم
       </Link>
 

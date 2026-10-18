@@ -46,15 +46,15 @@ export default function StudentExamsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-naskh text-xl font-bold text-slate-800">اختباراتي</h1>
-      <p className="text-sm text-slate-500">نتائج اختبارات الحفظ التي تُعلنها لجنة الاختبار.</p>
+      <h1 className="font-display text-xl font-bold text-stone-800">اختباراتي</h1>
+      <p className="text-sm text-stone-500">نتائج اختبارات الحفظ التي تُعلنها لجنة الاختبار.</p>
 
       {results === null ? (
-        <p className="text-sm text-slate-500">جارٍ التحميل…</p>
+        <p className="text-sm text-stone-500">جارٍ التحميل…</p>
       ) : results.length === 0 ? (
-        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white p-6 text-center">
-          <p className="font-naskh text-lg font-bold text-slate-700">لا نتائج بعد</p>
-          <p className="text-sm text-slate-500">حين ترشّحك حلقتك لاختبار وتُعلن نتيجته ستجدها هنا.</p>
+        <div className="space-y-2 rounded-2xl border border-stone-200 bg-white p-6 text-center">
+          <p className="font-naskh text-lg font-bold text-stone-700">لا نتائج بعد</p>
+          <p className="text-sm text-stone-500">حين ترشّحك حلقتك لاختبار وتُعلن نتيجته ستجدها هنا.</p>
         </div>
       ) : (
         results.map((result) => <ResultCard key={result.id} result={result} />)
@@ -65,20 +65,20 @@ export default function StudentExamsPage() {
 
 function ResultCard({ result }: { result: ExamResult }) {
   return (
-    <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <section className="space-y-3 rounded-2xl border border-stone-200 bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="font-naskh text-lg font-bold text-slate-800">
+          <h2 className="font-display text-lg font-bold text-stone-800">
             {result.typeName} — {juzRangeLabel(result.juzFrom, result.juzTo)}
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-stone-500">
             بتاريخ {result.sessionDate}
             {result.examinerName ? ` • الممتحن: ${result.examinerName}` : ""}
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-sm font-bold ${
-            result.passed ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-700"
+            result.passed ? "bg-success-soft text-success" : "bg-destructive-soft text-destructive"
           }`}
         >
           {result.passed ? "ناجح 🎉" : "لم يُجتز"}
@@ -86,20 +86,20 @@ function ResultCard({ result }: { result: ExamResult }) {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-stone-100">
           <div
-            className={`h-full ${result.passed ? "bg-emerald-500" : "bg-rose-400"}`}
+            className={`h-full ${result.passed ? "bg-success" : "bg-destructive"}`}
             style={{ width: `${Math.min(100, Math.round((result.score / result.maxScore) * 100))}%` }}
           />
         </div>
-        <span className="tabular text-sm font-bold text-slate-700">
+        <span className="tabular text-sm font-bold text-stone-700">
           {result.score} من {result.maxScore}
         </span>
       </div>
 
-      <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+      <div className="flex flex-wrap gap-2 text-xs text-stone-600">
         {ERROR_KINDS.map((kind) => (
-          <span key={kind} className="rounded-lg bg-slate-50 px-2 py-1">
+          <span key={kind} className="rounded-lg bg-stone-50 px-2 py-1">
             {ERROR_LABELS[kind]}: <span className="tabular font-bold">{result.errors[kind] ?? 0}</span>
           </span>
         ))}

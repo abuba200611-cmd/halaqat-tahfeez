@@ -104,7 +104,7 @@ export function ScheduleGrid({
                   <button
                     type="button"
                     onClick={() => onAdd(day, period.value)}
-                    className="cursor-pointer text-xs text-primary hover:underline"
+                    className="cursor-pointer text-xs text-accent-ink hover:underline"
                   >
                     + إضافة
                   </button>

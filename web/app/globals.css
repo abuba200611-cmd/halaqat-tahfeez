@@ -1,30 +1,56 @@
 @import "tailwindcss";
 
 /*
-  الألوان والخطوط مأخوذة من مخرجات ui-ux-pro-max (تعليم/عربي/RTL).
-  عُدّلت درجتان: الخلفية خُفّف تشبّعها والحدود هُدّئت — الدرجات الأصلية
-  (#F0FDFA و #5EEAD4) صاخبة تحت جدول من ١٥٠ صفاً.
+  هوية «السلام» المعتمدة (MOS): أسود #000000 + بيج فرنسي #AD7D56 +
+  راودو دست #CDB49E. الأسود للنص والأزرار الأساسية والأسطح الداكنة،
+  البيج الفرنسي للأزرار الثانوية والروابط والتمييز، والراودو دست
+  للخلفيات الفاتحة والنص فوق الأسود. الاشتقاقات المتبقية درجات/تظليلات
+  محايدة من الألوان الثلاثة فقط. الأحمر/الأخضر الدلاليّان مكتومان
+  لينسجما مع البيج مع الحفاظ على تباين AA (≥ 4.5:1) للنص العادي.
 */
 @theme {
-  --color-primary: #0d9488;
-  --color-primary-hover: #0f766e;
+  --color-primary: #000000;
+  --color-primary-hover: #241b12;
   --color-on-primary: #ffffff;
-  --color-secondary: #2dd4bf;
-  --color-accent: #d97706;
+
+  --color-secondary: #ad7d56;
+  --color-secondary-hover: #976b46;
+  --color-on-secondary: #000000;
+
+  --color-accent: #ad7d56;
+  --color-accent-hover: #976b46;
+  /* درجة غامقة من البيج الفرنسي — نص روابط/تمييز بتباين AA على الفاتح والبيج الفاتح */
+  --color-accent-ink: #7f5636;
+  --color-accent-soft: #f0e4d2;
+
+  --color-sand: #cdb49e;
 
   --color-surface: #ffffff;
-  --color-background: #f4faf9;
-  --color-foreground: #134e4a;
-  --color-muted: #eef4f4;
-  --color-muted-foreground: #5f807d;
-  --color-border: #d7e6e4;
-  --color-border-strong: #5eead4;
-  --color-destructive: #dc2626;
-  --color-success: #15803d;
-  --color-ring: #0d9488;
+  --color-background: #f3ede6;
+  --color-foreground: #000000;
+  --color-muted: #ece2d2;
+  --color-muted-foreground: #5f5344;
+  --color-border: #e2d6c3;
+  --color-border-strong: #cdb49e;
 
-  --font-sans: var(--font-arabic-sans), system-ui, sans-serif;
+  --color-destructive: #a13e2e;
+  --color-destructive-hover: #87301f;
+  --color-destructive-soft: #f6e7e0;
+  /* درجة فاتحة من الأحمر الدلالي — نص الأخطاء فوق الأسطح الداكنة */
+  --color-destructive-light: #e39b8d;
+  --color-success: #3e6b4a;
+  --color-success-hover: #33573d;
+  --color-success-soft: #e9eee4;
+  --color-ring: #ad7d56;
+
+  --font-sans: var(--font-body), system-ui, sans-serif;
   --font-naskh: var(--font-arabic-naskh), Georgia, serif;
+}
+
+/* خط العلامة KOMission (وزن 900) — لاسم «السلام» وعناوين الصفحات
+   والأقسام فقط. المتغير --font-display يضخّه next/font/local على <html>. */
+@utility font-display {
+  font-family: var(--font-display), var(--font-body), system-ui, sans-serif;
 }
 
 html,

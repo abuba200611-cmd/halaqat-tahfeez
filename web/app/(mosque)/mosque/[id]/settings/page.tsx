@@ -90,10 +90,10 @@ export default function MosqueSettingsPage() {
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <div className="flex justify-center gap-4">
-          <Link href="/mosque" className="text-sm text-primary hover:underline">
+          <Link href="/mosque" className="text-sm text-accent-ink hover:underline">
             دخول المشرف العام
           </Link>
-          <Link href="/mosque-login" className="text-sm text-primary hover:underline">
+          <Link href="/mosque-login" className="text-sm text-accent-ink hover:underline">
             دخول مدير الجامع
           </Link>
         </div>
@@ -151,7 +151,7 @@ export default function MosqueSettingsPage() {
 
         {soon !== null && soon.length > 0 && (
           <div>
-            <h2 className="mb-3 font-naskh text-lg font-bold">قريباً</h2>
+            <h2 className="mb-3 font-display text-lg font-bold">قريباً</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {soon.map((feature) => (
                 <FeatureCard key={feature.key} feature={feature} busy={false} onToggle={() => undefined} />

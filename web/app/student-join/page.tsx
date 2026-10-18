@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AuthCard, AuthShell } from "@/components/auth-shell";
 import { UserIcon } from "@/components/icons";
+import { BrandLockup } from "@/components/brand";
 
 /*
   صفحة منعزلة عمداً — STEP 6A. لا تظهر داخل student-gate العام ولا في أي
@@ -36,7 +37,10 @@ function StudentJoinFlow() {
 function PageShell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <AuthShell>
-      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">{title}</h1>
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onDark" />
+      </div>
+      <h1 className="font-display mb-1 text-center text-2xl font-black text-white">{title}</h1>
       {subtitle && <p className="mb-6 text-center text-sm text-white/60">{subtitle}</p>}
       <AuthCard>{children}</AuthCard>
     </AuthShell>
@@ -58,15 +62,15 @@ function StartGoogle({ initialError, invite }: { initialError: string | null; in
       }
     >
       {invite && (
-        <p className="mb-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-center text-sm text-emerald-300">
+        <p className="mb-3 rounded-xl border border-success/30 bg-success/10 px-3 py-2 text-center text-sm text-success">
           رمز دعوة حلقتك جاهز ✓
         </p>
       )}
-      {initialError && <p className="mb-3 text-center text-sm text-red-400">{initialError}</p>}
+      {initialError && <p className="mb-3 text-center text-sm text-destructive-light">{initialError}</p>}
       <a
         href={startHref}
-        className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl"
-        style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+        className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl"
+        style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
       >
         الدخول بحساب جوجل
       </a>
@@ -168,8 +172,8 @@ function CompleteInviteForm({ initialInvite }: { initialInvite: string }) {
           />
         </label>
         {error && (
-          <div className="space-y-2 rounded-xl border border-red-400/20 bg-red-400/5 p-3">
-            <p className="text-sm text-red-400">{error}</p>
+          <div className="space-y-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3">
+            <p className="text-sm text-destructive-light">{error}</p>
             <a
               href={
                 extractInviteCode(inviteCode)
@@ -185,8 +189,8 @@ function CompleteInviteForm({ initialInvite }: { initialInvite: string }) {
         <button
           type="submit"
           disabled={busy}
-          className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+          className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+          style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
         >
           {busy ? "لحظة…" : "إنشاء حسابي"}
         </button>

@@ -13,25 +13,25 @@ export function formatRecitationDate(iso: string): string {
 export function RecitationCard({ item }: { item: RecitationView }) {
   const reviewed = item.status === "reviewed";
   return (
-    <li className="rounded-2xl border border-slate-200 bg-white p-3.5">
+    <li className="rounded-2xl border border-stone-200 bg-white p-3.5">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-slate-700">{formatRecitationRange(item)}</span>
+        <span className="text-sm font-semibold text-stone-700">{formatRecitationRange(item)}</span>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-            reviewed ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+            reviewed ? "bg-success-soft text-success" : "bg-accent-soft text-accent-ink"
           }`}
         >
           {reviewed ? "تم التقييم" : "بانتظار المعلّم"}
         </span>
       </div>
-      <p className="tabular mb-2 text-xs text-slate-500">
+      <p className="tabular mb-2 text-xs text-stone-500">
         {formatRecitationDate(item.createdAt)} · {formatDuration(item.durationSec)}
       </p>
       <RecitationPlayer id={item.id} />
       {reviewed && item.score !== null && (
-        <p className="tabular mt-2 text-sm font-bold text-emerald-700">الدرجة: {item.score} / 10</p>
+        <p className="tabular mt-2 text-sm font-bold text-success">الدرجة: {item.score} / 10</p>
       )}
-      {reviewed && item.teacherNote && <p className="mt-1 text-sm text-slate-600">{item.teacherNote}</p>}
+      {reviewed && item.teacherNote && <p className="mt-1 text-sm text-stone-600">{item.teacherNote}</p>}
     </li>
   );
 }

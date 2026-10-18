@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AuthCard, AuthShell } from "./auth-shell";
+import { BrandLockup } from "./brand";
 import { RoleSwitcher } from "./role-switcher";
 import { BellIcon, CloseIcon, EyeIcon, EyeOffIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
 import { resetStore } from "@/lib/store";
@@ -19,11 +20,11 @@ type Teacher = {
 };
 type NavItem = { href: string; label: string; desc?: string; icon: React.ReactNode; badge?: React.ReactNode };
 
-/* ————— لوحة ألوان الهيكل (STEP 41/42 — يطابق مرجع "لوحة تحكّم بقائمة جانبية زرقاء") ————— */
+/* ————— لوحة ألوان الهيكل — هوية «السلام»: سايدبار أسود، تفعيل بيج فرنسي، نص ثانوي راودو دست ————— */
 const B = {
-  sidebar: "#0F1E42",
-  sidebarActive: "#1B3568",
-  sidebarText: "#9FB0D6",
+  sidebar: "#000000",
+  sidebarActive: "#AD7D56",
+  sidebarText: "#CDB49E",
 };
 
 /*
@@ -129,19 +130,11 @@ function Sidebar({
   const body = (
     <>
       <div className="flex items-center justify-between px-5 py-5">
-        <Link href="/" className="flex items-center gap-2" onClick={onCloseDrawer}>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 font-naskh text-lg font-bold text-white">
-            م
-          </span>
-          <span className="font-naskh text-lg font-bold text-white">المعلم</span>
-        </Link>
+        <BrandLockup tone="onDark" context="المعلم" />
         <button onClick={onCloseDrawer} className="cursor-pointer rounded-md p-1 text-white/70 hover:text-white lg:hidden" aria-label="إغلاق القائمة">
           <CloseIcon size={20} />
         </button>
       </div>
-      <p className="-mt-3 px-5 pb-2 text-[10px]" style={{ color: B.sidebarText }}>
-        MOS — نظام تشغيل الجامع
-      </p>
 
       <nav className="mt-2 flex-1 space-y-1 overflow-y-auto px-3">
         {nav.map((item) => {
@@ -154,7 +147,7 @@ function Sidebar({
               className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               style={{
                 backgroundColor: active ? B.sidebarActive : "transparent",
-                color: active ? "#ffffff" : B.sidebarText,
+                color: active ? "#000000" : B.sidebarText,
                 fontWeight: active ? 600 : 400,
               }}
             >
@@ -170,8 +163,8 @@ function Sidebar({
       <div className="border-t border-white/10 p-3">
         <div className="flex items-center gap-2.5 rounded-xl px-2 py-2">
           <span
-            className="tabular flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-            style={{ backgroundColor: "#2563EB" }}
+            className="tabular flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-on-secondary"
+            style={{ backgroundColor: "var(--color-secondary)" }}
           >
             {initial}
           </span>
@@ -238,7 +231,7 @@ function TopBar({ nav, teacher, onOpenDrawer }: { nav: NavItem[]; teacher: Teach
         </button>
 
         <div className="min-w-0">
-          <h1 className="truncate font-naskh text-base font-bold text-foreground sm:text-lg">{active.label}</h1>
+          <h1 className="font-display truncate text-base font-bold text-foreground sm:text-lg">{active.label}</h1>
           {active.desc && <p className="hidden truncate text-xs text-muted-foreground sm:block">{active.desc}</p>}
         </div>
 
@@ -260,8 +253,8 @@ function TopBar({ nav, teacher, onOpenDrawer }: { nav: NavItem[]; teacher: Teach
             {newWardsHref && <span className="absolute -left-0.5 -top-0.5">{newWardsHref}</span>}
           </Link>
           <span
-            className="tabular flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white"
-            style={{ backgroundColor: "#2563EB" }}
+            className="tabular flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-on-secondary"
+            style={{ backgroundColor: "var(--color-secondary)" }}
           >
             {initial}
           </span>
@@ -288,7 +281,7 @@ function VerifyEmailBanner() {
 
   return (
     <div className="no-print mx-auto w-full max-w-7xl px-4 pt-3 lg:px-8">
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/40 bg-accent-soft px-4 py-2.5 text-sm text-accent-ink">
         <MailIcon size={18} className="shrink-0" />
         <span>لم تؤكّد بريدك الإلكتروني بعد.</span>
         {sent ? (
@@ -297,7 +290,7 @@ function VerifyEmailBanner() {
           <button
             onClick={resend}
             disabled={busy}
-            className="mr-auto cursor-pointer rounded-md bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900 transition-colors duration-200 hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mr-auto cursor-pointer rounded-md bg-accent/20 px-3 py-1 text-xs font-semibold text-accent-ink transition-colors duration-200 hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {busy ? "لحظة…" : "أعد الإرسال"}
           </button>
@@ -383,7 +376,10 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
 
   return (
     <AuthShell>
-      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onDark" href="/" />
+      </div>
+      <h1 className="font-display mb-1 text-center text-2xl font-black text-white">
         {mode === "login" ? "تسجيل الدخول" : "إنشاء حساب جديد"}
       </h1>
       <p className="mb-6 text-center text-sm text-white/60">
@@ -475,13 +471,13 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (teacher: Teacher) =
             </Link>
           )}
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-destructive-light">{error}</p>}
 
           <button
             type="submit"
             disabled={busy}
-            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
           >
             {busy ? "لحظة…" : mode === "login" ? "دخول" : "إنشاء الحساب"}
           </button>

@@ -69,7 +69,7 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
   const styles = {
     neutral: "bg-muted text-muted-foreground",
     good: "bg-primary/10 text-primary",
-    warn: "bg-accent/10 text-accent",
+    warn: "bg-accent/10 text-accent-ink",
   }[tone];
   return (
     <span className={`tabular inline-block rounded-full px-2 py-0.5 text-xs font-medium ${styles}`}>

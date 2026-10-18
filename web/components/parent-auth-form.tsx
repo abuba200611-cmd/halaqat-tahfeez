@@ -50,11 +50,11 @@ export function ParentAuthForm({
   }
 
   const input =
-    "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
+    "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold">
+    <form onSubmit={submit} className="space-y-3 rounded-2xl border border-stone-200 bg-white p-5">
+      <div className="flex gap-1 rounded-xl bg-stone-100 p-1 text-sm font-semibold">
         {(["login", "register"] as const).map((m) => (
           <button
             key={m}
@@ -64,7 +64,7 @@ export function ParentAuthForm({
               setError(null);
             }}
             className={`flex-1 cursor-pointer rounded-lg py-1.5 ${
-              mode === m ? "bg-white text-blue-700 shadow-sm" : "text-slate-500"
+              mode === m ? "bg-white text-accent-ink shadow-sm" : "text-stone-500"
             }`}
           >
             {m === "login" ? "تسجيل الدخول" : "حساب جديد"}
@@ -73,12 +73,12 @@ export function ParentAuthForm({
       </div>
 
       {mode === "register" && (
-        <label className="block text-sm text-slate-600">
+        <label className="block text-sm text-stone-600">
           الاسم
           <input value={name} onChange={(e) => setName(e.target.value)} required maxLength={80} className={`${input} mt-1`} />
         </label>
       )}
-      <label className="block text-sm text-slate-600">
+      <label className="block text-sm text-stone-600">
         البريد الإلكتروني
         <input
           type="email"
@@ -90,8 +90,8 @@ export function ParentAuthForm({
           className={`${input} mt-1 text-left`}
         />
       </label>
-      <label className="block text-sm text-slate-600">
-        كلمة المرور {mode === "register" && <span className="text-xs text-slate-400">(٨ أحرف على الأقل)</span>}
+      <label className="block text-sm text-stone-600">
+        كلمة المرور {mode === "register" && <span className="text-xs text-stone-400">(٨ أحرف على الأقل)</span>}
         <input
           type="password"
           dir="ltr"
@@ -104,12 +104,12 @@ export function ParentAuthForm({
         />
       </label>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <button
         type="submit"
         disabled={busy}
-        className="w-full cursor-pointer rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full cursor-pointer rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? "لحظة…" : mode === "login" ? "دخول" : "إنشاء الحساب"}
       </button>

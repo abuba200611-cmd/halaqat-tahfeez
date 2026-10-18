@@ -62,7 +62,7 @@ export function ParentInviteLink({
           type="button"
           onClick={generate}
           disabled={busy}
-          className="cursor-pointer rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="cursor-pointer rounded-lg bg-accent-soft px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {busy ? "لحظة…" : "إنشاء رابط ولي الأمر"}
         </button>
@@ -73,13 +73,13 @@ export function ParentInviteLink({
             dir="ltr"
             value={link}
             onFocus={(e) => e.currentTarget.select()}
-            className="w-full rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-left text-xs"
+            className="w-full rounded-lg border border-stone-300 bg-stone-50 px-2 py-1.5 text-left text-xs"
           />
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={copy}
-              className="cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+              className="cursor-pointer rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-on-secondary hover:bg-secondary-hover"
             >
               {copied ? "تم النسخ ✓" : "نسخ الرابط"}
             </button>
@@ -87,7 +87,7 @@ export function ParentInviteLink({
               href={`https://wa.me/?text=${encodeURIComponent(`${shareText}\n${link}`)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary hover:bg-primary-hover"
             >
               مشاركة عبر واتساب
             </a>
@@ -95,15 +95,15 @@ export function ParentInviteLink({
               type="button"
               onClick={generate}
               disabled={busy}
-              className="cursor-pointer text-xs font-semibold text-slate-500 underline hover:no-underline disabled:opacity-60"
+              className="cursor-pointer text-xs font-semibold text-stone-500 underline hover:no-underline disabled:opacity-60"
             >
               رابط جديد
             </button>
           </div>
-          <p className="text-xs text-slate-500">الرابط صالح ٧ أيام ويعمل لمرة واحدة فقط.</p>
+          <p className="text-xs text-stone-500">الرابط صالح ٧ أيام ويعمل لمرة واحدة فقط.</p>
         </>
       )}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

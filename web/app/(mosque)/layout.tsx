@@ -10,7 +10,7 @@ import { ImpersonationBannerBar } from "@/components/dev/banner-server";
 */
 
 export const metadata: Metadata = {
-  title: "إدارة الجامع — MOS",
+  title: "إدارة الجامع — السلام",
   description: "تنظيم الحلقات والمعلّمين تحت كل جامع، وتوزيع الطلاب الجدد عليها.",
 };
 

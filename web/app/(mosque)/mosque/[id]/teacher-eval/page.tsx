@@ -90,7 +90,7 @@ export default function MosqueTeacherEvalPage() {
         {data && (
           <>
             <section className="space-y-2">
-              <h2 className="font-naskh text-lg font-bold">المعلّمون</h2>
+              <h2 className="font-display text-lg font-bold">المعلّمون</h2>
               {data.teachers.length === 0 ? (
                 <Empty title="لا معلّمين فعّالين في حلقات هذا الجامع." />
               ) : (
@@ -147,7 +147,7 @@ function IncentivesSection({ data }: { data: ListData }) {
   const currency = data.config.incentives.currency;
   return (
     <section className="space-y-2">
-      <h2 className="font-naskh text-lg font-bold">تقرير الحوافز</h2>
+      <h2 className="font-display text-lg font-bold">تقرير الحوافز</h2>
       <p className="text-xs text-muted-foreground">
         محسوب من الاختبارات المجتازة بالفترة (الجزء بسعره، والختم بسعره وحده) — للعرض فقط، لا تُنفَّذ مدفوعات من هنا.
       </p>
@@ -251,7 +251,7 @@ function SettingsCard({ mosqueId, initial, onSaved }: { mosqueId: number; initia
   return (
     <Card className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-naskh text-lg font-bold">إعدادات التقييم والحوافز</h2>
+        <h2 className="font-display text-lg font-bold">إعدادات التقييم والحوافز</h2>
         <Button variant="ghost" type="button" onClick={() => setConfig(DEFAULT_TEACHER_EVAL_CONFIG)}>
           الافتراضيات
         </Button>
@@ -359,7 +359,7 @@ function SettingsCard({ mosqueId, initial, onSaved }: { mosqueId: number; initia
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {saved && <p className="text-sm text-emerald-700">حُفظت الإعدادات.</p>}
+      {saved && <p className="text-sm text-success">حُفظت الإعدادات.</p>}
       <Button type="button" disabled={busy} onClick={save}>
         {busy ? "لحظة…" : "حفظ الإعدادات"}
       </Button>

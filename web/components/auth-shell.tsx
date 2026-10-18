@@ -1,11 +1,11 @@
 /**
  * الغلاف البصري المشترك لصفحات الدخول/إنشاء الحساب/استرجاع كلمة المرور
- * (STEP 43 — يطابق مرجع "بطاقة زجاجية فوق خلفية داكنة بكرات متدرّجة").
+ * — هوية «السلام»: بطاقة زجاجية فوق خلفية سوداء بكرات بيج/رمل متدرّجة.
  * شكل فقط: لا منطق مصادقة هنا، فقط الخلفية + إطار البطاقة الزجاجية.
  */
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-10" style={{ backgroundColor: "#0B0B0F" }}>
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-10" style={{ backgroundColor: "#000000" }}>
       <AuthBackground />
       <div className="relative z-10 w-full max-w-sm">{children}</div>
     </div>
@@ -18,7 +18,7 @@ export function AuthCard({ children }: { children: React.ReactNode }) {
       className="relative overflow-hidden rounded-[32px] border border-white/15 p-6 shadow-2xl backdrop-blur-2xl sm:p-8"
       style={{
         background:
-          "linear-gradient(165deg, rgba(124,58,237,0.22) 0%, rgba(20,14,32,0.55) 45%, rgba(11,11,15,0.75) 100%)",
+          "linear-gradient(165deg, rgba(173,125,86,0.26) 0%, rgba(36,27,18,0.55) 45%, rgba(0,0,0,0.75) 100%)",
         boxShadow: "0 30px 80px -20px rgba(0,0,0,0.6)",
       }}
     >
@@ -85,10 +85,10 @@ function AuthBackground() {
           to { transform: translateY(-22px); }
         }
       `}</style>
-      <Blob size={420} top="-140px" left="-160px" gradient="linear-gradient(135deg, #7C3AED, #A855F7)" blur={70} opacity={0.55} duration="9s" />
-      <Blob size={340} bottom="-140px" right="-120px" gradient="linear-gradient(135deg, #F97316, #EF4444)" blur={80} opacity={0.5} duration="11s" delay="1.5s" />
-      <Blob size={70} top="14%" right="8%" gradient="linear-gradient(135deg, #A855F7, #7C3AED)" blur={4} opacity={0.85} duration="7s" delay="0.5s" />
-      <Blob size={40} bottom="12%" left="7%" gradient="linear-gradient(135deg, #D97706, #92400E)" blur={2} opacity={0.85} duration="8s" delay="2s" />
+      <Blob size={420} top="-140px" left="-160px" gradient="linear-gradient(135deg, #AD7D56, #CDB49E)" blur={70} opacity={0.5} duration="9s" />
+      <Blob size={340} bottom="-140px" right="-120px" gradient="linear-gradient(135deg, #8A6242, #AD7D56)" blur={80} opacity={0.45} duration="11s" delay="1.5s" />
+      <Blob size={70} top="14%" right="8%" gradient="linear-gradient(135deg, #CDB49E, #AD7D56)" blur={4} opacity={0.85} duration="7s" delay="0.5s" />
+      <Blob size={40} bottom="12%" left="7%" gradient="linear-gradient(135deg, #AD7D56, #6E5233)" blur={2} opacity={0.85} duration="8s" delay="2s" />
     </div>
   );
 }

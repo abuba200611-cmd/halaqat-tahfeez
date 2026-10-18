@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AuthCard, AuthShell } from "@/components/auth-shell";
+import { BrandLockup } from "@/components/brand";
 import { EyeIcon, EyeOffIcon, UserIcon } from "@/components/icons";
 
 /*
@@ -66,8 +67,10 @@ function UnifiedLoginForm() {
 
   return (
     <AuthShell>
-      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">MOS</h1>
-      <p className="mb-6 text-center text-sm text-white/60">نظام تشغيل الجامع — دخول واحد لكل أدوارك</p>
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onDark" />
+      </div>
+      <p className="mb-6 text-center text-sm text-white/60">دخول واحد لكل أدوارك</p>
 
       <AuthCard>
         <form onSubmit={submit} className="space-y-3">
@@ -107,13 +110,13 @@ function UnifiedLoginForm() {
             </div>
           </label>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-destructive-light">{error}</p>}
 
           <button
             type="submit"
             disabled={busy}
-            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+            className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
           >
             {busy ? "لحظة…" : "دخول"}
           </button>

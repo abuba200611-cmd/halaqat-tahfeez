@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { Card, Empty } from "@/components/mosque/ui";
 import { ScheduleGrid } from "@/components/mosque/schedule-grid";
 import type { ScheduleSlot } from "@/lib/mosque/db";
+import { BrandLockup } from "@/components/brand";
 
 type PublicSchedule = { name: string; city: string; slots: ScheduleSlot[] };
 
@@ -33,7 +34,10 @@ export default function PublicSchedulePage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">{data.name}</h1>
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onLight" size={44} context="الجدول الأسبوعي" />
+      </div>
+      <h1 className="font-display mb-1 text-center text-2xl font-bold text-primary">{data.name}</h1>
       <p className="mb-6 text-center text-sm text-muted-foreground">
         الجدول الأسبوعي{data.city && <span> — {data.city}</span>}
       </p>

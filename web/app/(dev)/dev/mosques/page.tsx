@@ -21,7 +21,7 @@ export default function DevMosquesPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">الجوامع</h1>
+        <h1 className="font-display text-2xl font-bold">الجوامع</h1>
         <p className="text-sm text-muted-foreground">إنشاء الجوامع، حلقاتها، حساب مديرها، ومصفوفة مزاياها.</p>
       </div>
       <CreateMosqueCard onCreated={reload} />

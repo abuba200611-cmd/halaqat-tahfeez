@@ -7,6 +7,7 @@
 */
 
 import type { DisciplineDocKind } from "@/lib/discipline";
+import { BrandLogo } from "./brand";
 
 export type DisciplineDocData = {
   mosqueName: string;
@@ -69,7 +70,7 @@ export function DisciplineDoc({ doc }: { doc: DisciplineDocData }) {
   const body = buildDocBody(doc);
   const signatures = SIGNATURES[doc.docKind];
   return (
-    <div className="discipline-doc mx-auto max-w-[210mm] bg-white p-10 text-slate-900 shadow-sm print:max-w-none print:p-0 print:shadow-none">
+    <div className="discipline-doc mx-auto max-w-[210mm] bg-white p-10 text-stone-900 shadow-sm print:max-w-none print:p-0 print:shadow-none">
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 15mm; }
@@ -79,10 +80,13 @@ export function DisciplineDoc({ doc }: { doc: DisciplineDocData }) {
       `}</style>
 
       {/* ترويسة الجامع */}
-      <header className="border-b-2 border-slate-800 pb-3 text-center">
-        <p className="font-naskh text-xl font-bold">بسم الله الرحمن الرحيم</p>
+      <header className="border-b-2 border-secondary pb-3 text-center">
+        <div className="flex justify-center">
+          <BrandLogo size={40} />
+        </div>
+        <p className="font-naskh mt-2 text-xl font-bold">بسم الله الرحمن الرحيم</p>
         <p className="mt-2 text-lg font-bold">جامع {doc.mosqueName}</p>
-        <p className="text-sm text-slate-600">نظام تشغيل الجامع — الانضباط والمتابعة</p>
+        <p className="text-sm text-stone-600">السلام — MOS نظام تشغيل الجامع | الانضباط والمتابعة</p>
       </header>
 
       <div className="mt-4 flex items-start justify-between text-sm">
@@ -90,7 +94,7 @@ export function DisciplineDoc({ doc }: { doc: DisciplineDocData }) {
         <p className="font-semibold">الرقم: د-{doc.docKind === "warning" ? "ن" : doc.docKind === "pledge" ? "ت" : "س"}</p>
       </div>
 
-      <h1 className="mt-6 text-center font-naskh text-2xl font-bold underline">{DOC_TITLE[doc.docKind]}</h1>
+      <h1 className="font-display mt-6 text-center text-2xl font-bold underline">{DOC_TITLE[doc.docKind]}</h1>
 
       <div className="mt-6 space-y-4 text-justify font-naskh text-lg leading-9">
         {body.map((line, i) => (
@@ -103,12 +107,12 @@ export function DisciplineDoc({ doc }: { doc: DisciplineDocData }) {
         {signatures.map((role) => (
           <div key={role}>
             <p className="font-semibold">{role}</p>
-            <div className="mt-10 border-t border-dashed border-slate-500 pt-1 text-xs text-slate-500">الاسم والتوقيع</div>
+            <div className="mt-10 border-t border-dashed border-stone-500 pt-1 text-xs text-stone-500">الاسم والتوقيع</div>
           </div>
         ))}
       </div>
 
-      <footer className="mt-10 border-t border-slate-300 pt-2 text-center text-xs text-slate-500">
+      <footer className="mt-10 border-t border-stone-300 pt-2 text-center text-xs text-stone-500">
         حلقة {doc.halaqahName} — صدر هذا المستند من نظام تشغيل الجامع (MOS)
       </footer>
     </div>

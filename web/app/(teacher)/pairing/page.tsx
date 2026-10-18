@@ -31,7 +31,7 @@ export default function PairingPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-naskh text-2xl font-bold">مطابقة التسميع</h1>
+        <h1 className="font-display text-2xl font-bold">مطابقة التسميع</h1>
         <div className="no-print flex gap-2">
           <Button onClick={run}>توليد الثنائيات</Button>
           {result && (
@@ -127,7 +127,7 @@ export default function PairingPage() {
 
           {result.unmatched.length > 0 && (
             <Card className="p-4">
-              <h2 className="mb-1 font-naskh text-lg font-bold">بلا شريك</h2>
+              <h2 className="mb-1 font-display text-lg font-bold">بلا شريك</h2>
               <p className="mb-3 text-xs text-muted-foreground">
                 لا يوجد من يشاركهم مقرراً كافياً بإتقان متقارب. يسمّعون للمعلّم، أو يُضمّون لثنائية قائمة.
               </p>

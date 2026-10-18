@@ -6,7 +6,7 @@ import type { AyahPosInput, AyahRangeInput } from "@/lib/ward-ayah";
 
 const SURAHS = allSurahs();
 const FIELD =
-  "tabular mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-colors duration-200 focus-visible:border-blue-400 focus-visible:bg-white";
+  "tabular mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm outline-none transition-colors duration-200 focus-visible:border-accent focus-visible:bg-white";
 
 function surahOptionText(number: number): string {
   return `${number}. ${SURAHS[number - 1].name}`;
@@ -77,7 +77,7 @@ function AyahPosFields({
   return (
     <div className="grid grid-cols-2 gap-3">
       <label className="block">
-        <span className="text-xs text-slate-500">{legend} سورة</span>
+        <span className="text-xs text-stone-500">{legend} سورة</span>
         <SurahCombobox
           id={`${idPrefix}-surah`}
           value={pos.surah}
@@ -85,7 +85,7 @@ function AyahPosFields({
         />
       </label>
       <label className="block">
-        <span className="text-xs text-slate-500">آية</span>
+        <span className="text-xs text-stone-500">آية</span>
         <input
           type="number"
           min={1}
@@ -136,8 +136,8 @@ export function AyahRangeInputs({
     <div className="space-y-2.5">
       <AyahPosFields idPrefix={`${idPrefix}-from`} legend="من" pos={value.from} onChange={setFrom} />
       <AyahPosFields idPrefix={`${idPrefix}-to`} legend="إلى" pos={value.to} onChange={setTo} />
-      {pageLabel && !error && <p className="tabular text-xs text-slate-400">{pageLabel}</p>}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {pageLabel && !error && <p className="tabular text-xs text-stone-400">{pageLabel}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

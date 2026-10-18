@@ -58,7 +58,7 @@ function DisciplinePanel({ mosqueId }: { mosqueId: number }) {
         <>
           {data.criticalAlerts > 0 && (
             <Card className="border-accent/40 bg-accent/5 p-4">
-              <p className="font-semibold text-accent">🚨 {data.criticalAlerts} تنبيهاً حرجاً بانتظار الاطلاع</p>
+              <p className="font-semibold text-accent-ink">🚨 {data.criticalAlerts} تنبيهاً حرجاً بانتظار الاطلاع</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 طلاب تجاوزوا عتبة الغياب الحرجة ({data.config.absence.adminAlertConsecutiveDays} أيام متتالية) —
                 اطّلع على التنبيهات بالسجل وأقرّ باستلامها.
@@ -85,7 +85,7 @@ function DisciplinePanel({ mosqueId }: { mosqueId: number }) {
           )}
 
           <section className="space-y-3">
-            <h2 className="font-naskh text-lg font-bold">سجلّ الأحداث ({data.events.length})</h2>
+            <h2 className="font-display text-lg font-bold">سجلّ الأحداث ({data.events.length})</h2>
             {data.events.length === 0 ? (
               <Empty title="لا أحداث انضباط في الجامع بعد." />
             ) : (
@@ -118,9 +118,9 @@ function EventRow({ mosqueId, event, onAck }: { mosqueId: number; event: Discipl
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {event.kind === "dismissal" && <span className="text-xs text-red-700">مفصول</span>}
+          {event.kind === "dismissal" && <span className="text-xs text-destructive">مفصول</span>}
           {event.acknowledgedAt ? (
-            <span className="text-xs text-emerald-700">مُستلم</span>
+            <span className="text-xs text-success">مُستلم</span>
           ) : (
             <Button
               variant="ghost"
@@ -190,13 +190,13 @@ function DismissalForm({ mosqueId, onDone }: { mosqueId: number; onDone: () => v
   return (
     <Card className="space-y-3 p-4">
       <div>
-        <h2 className="font-naskh text-lg font-bold">فصل نهائي</h2>
+        <h2 className="font-display text-lg font-bold">فصل نهائي</h2>
         <p className="text-xs text-muted-foreground">
           من إدارة الجامع فقط، بملاحظة لجنة إلزامية — الطالب يصير غير فعّال بلا استرجاع.
         </p>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {done && <p className="text-sm text-emerald-700">{done}</p>}
+      {done && <p className="text-sm text-success">{done}</p>}
       <div className="grid gap-2 sm:grid-cols-3">
         <select value={halaqahId} onChange={(e) => {
           setHalaqahId(e.target.value);

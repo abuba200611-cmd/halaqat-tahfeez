@@ -15,7 +15,7 @@ type Prepared = { nodes: GraphNode[]; degrees: number[]; neighbors: number[][]; 
 type View = { selected: number; hidden: ReadonlySet<NodeType>; query: string };
 type Engine = { redraw: () => void; focus: (index: number) => void; destroy: () => void };
 
-const BG = "#1e1e1e";
+const BG = "#14100C";
 const BASE_RADIUS: Record<NodeType, number> = { mosque: 10, halaqah: 6, teacher: 5, student: 2.5, pending: 3, feature: 5, note: 4, family: 6, committee: 6, member: 3, badge: 4, activity: 4 };
 const FONT = "system-ui, 'Segoe UI', Tahoma, sans-serif";
 
@@ -165,7 +165,7 @@ function createEngine(
       if (!emphasized && !isHub(i) && k < 1.6) return;
       const size = (i === focus ? 14 : 12) / k;
       ctx.font = `${i === focus ? "600 " : ""}${size}px ${FONT}`;
-      ctx.fillStyle = i === focus ? "#ffffff" : "#d4d4d4";
+      ctx.fillStyle = i === focus ? "#ffffff" : "#CDB49E";
       ctx.fillText(node.label, n.x, n.y + n.r + 2 / k);
     });
   }
@@ -431,12 +431,12 @@ export function BrainGraph({ graph }: { graph: MosqueGraph }) {
   const node = selected >= 0 ? data.nodes[selected] : null;
 
   return (
-    <div className="relative h-[calc(100vh-10rem)] min-h-[28rem] overflow-hidden rounded-2xl border border-border bg-[#1e1e1e] text-neutral-200">
+    <div className="relative h-[calc(100vh-10rem)] min-h-[28rem] overflow-hidden rounded-2xl border border-border bg-[#14100C] text-sand">
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full cursor-grab touch-none" />
 
       <div className="pointer-events-none absolute inset-x-0 top-0 flex flex-wrap items-center gap-2 p-3">
         <div className="pointer-events-auto relative min-w-44 flex-1 sm:max-w-xs">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
           <input
             value={query}
             onChange={(e) => search(e.target.value)}
@@ -456,30 +456,30 @@ export function BrainGraph({ graph }: { graph: MosqueGraph }) {
             >
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: NODE_TYPE_INFO[type].color }} />
               {NODE_TYPE_INFO[type].label}
-              <span className="tabular text-neutral-400">{counts[type]}</span>
+              <span className="tabular text-stone-400">{counts[type]}</span>
             </button>
           ))}
         </div>
-        <span className="tabular pointer-events-auto rounded-full bg-black/40 px-2.5 py-1 text-xs text-neutral-400">
+        <span className="tabular pointer-events-auto rounded-full bg-black/40 px-2.5 py-1 text-xs text-stone-400">
           {data.nodes.length} عقدة · {data.links.length} رابط
         </span>
       </div>
 
       {node && (
-        <aside className="absolute inset-y-0 right-0 flex w-72 max-w-[85%] flex-col gap-3 overflow-y-auto border-l border-white/10 bg-[#252525]/95 p-4 pt-16 text-sm">
+        <aside className="absolute inset-y-0 right-0 flex w-72 max-w-[85%] flex-col gap-3 overflow-y-auto border-l border-white/10 bg-[#1E1812]/95 p-4 pt-16 text-sm">
           <button
             onClick={() => setSelected(-1)}
             aria-label="إغلاق"
-            className="absolute top-3 left-3 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-neutral-400 hover:bg-white/10 hover:text-white"
+            className="absolute top-3 left-3 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-stone-400 hover:bg-white/10 hover:text-white"
           >
             <XIcon className="h-4 w-4" />
           </button>
           <div>
-            <span className="flex items-center gap-1.5 text-xs text-neutral-400">
+            <span className="flex items-center gap-1.5 text-xs text-stone-400">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: NODE_TYPE_INFO[node.type].color }} />
               {NODE_TYPE_INFO[node.type].label}
             </span>
-            <h2 className="mt-1 font-naskh text-lg font-bold text-white">{node.label}</h2>
+            <h2 className="mt-1 font-display text-lg font-bold text-white">{node.label}</h2>
           </div>
 
           <dl className="space-y-1">
@@ -487,14 +487,14 @@ export function BrainGraph({ graph }: { graph: MosqueGraph }) {
               .filter(([key, value]) => key !== "hub" && key !== "key" && value !== "")
               .map(([key, value]) => (
                 <div key={key} className="flex justify-between gap-3">
-                  <dt className="text-neutral-400">{META_LABELS[key] ?? key}</dt>
+                  <dt className="text-stone-400">{META_LABELS[key] ?? key}</dt>
                   <dd className="text-left text-neutral-100">{metaValue(key, value)}</dd>
                 </div>
               ))}
           </dl>
 
           <div>
-            <p className="mb-1.5 text-xs text-neutral-400">الارتباطات ({data.neighbors[selected].length})</p>
+            <p className="mb-1.5 text-xs text-stone-400">الارتباطات ({data.neighbors[selected].length})</p>
             <ul className="space-y-0.5">
               {data.neighbors[selected].map((j) => (
                 <li key={j}>

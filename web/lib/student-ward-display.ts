@@ -17,10 +17,10 @@ export const STATUS_LABEL: Record<WardStatus, string> = {
 };
 
 export const STATUS_STYLE: Record<WardStatus, string> = {
-  new: "bg-amber-50 text-amber-700",
-  seen: "bg-slate-100 text-slate-600",
-  approved: "bg-emerald-50 text-emerald-600",
-  needs_revision: "bg-red-50 text-red-600",
+  new: "bg-accent-soft text-accent-ink",
+  seen: "bg-stone-100 text-stone-600",
+  approved: "bg-success-soft text-success",
+  needs_revision: "bg-destructive-soft text-destructive",
 };
 
 export function statusTone(status: WardStatus): string {

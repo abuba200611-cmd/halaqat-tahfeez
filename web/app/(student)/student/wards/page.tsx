@@ -36,9 +36,9 @@ export default function StudentWardsPage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="font-naskh text-xl font-bold text-slate-800">أورادي</h1>
+      <h1 className="font-display text-xl font-bold text-stone-800">أورادي</h1>
       {loadingLogs ? (
-        <p className="text-sm text-slate-400">جارٍ التحميل…</p>
+        <p className="text-sm text-stone-400">جارٍ التحميل…</p>
       ) : logs.length === 0 ? (
         <Empty title="لم ترسل أي ورد بعد." />
       ) : (

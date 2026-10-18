@@ -68,7 +68,7 @@ function PrintDoc() {
   return (
     <div className="space-y-4">
       <div className="discipline-doc-print-hidden flex flex-wrap items-center justify-between gap-2">
-        <Link href="/discipline" className="text-sm text-primary hover:underline">
+        <Link href="/discipline" className="text-sm text-accent-ink hover:underline">
           ← العودة للانضباط
         </Link>
         <div className="flex items-center gap-2">

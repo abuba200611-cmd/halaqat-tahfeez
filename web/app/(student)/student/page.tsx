@@ -95,8 +95,8 @@ function BuddyRequestsCard() {
   return (
     <div className="space-y-2">
       {requests.map((r) => (
-        <div key={r.wardLogId} className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
-          <p className="text-sm text-blue-900">
+        <div key={r.wardLogId} className="rounded-2xl border border-accent/60 bg-accent-soft px-4 py-3">
+          <p className="text-sm text-foreground">
             🤝 <span className="font-semibold">{r.requesterName}</span> قال إنه راجع معك يوم {r.date}
           </p>
           <div className="mt-2 flex gap-2">
@@ -104,7 +104,7 @@ function BuddyRequestsCard() {
               type="button"
               disabled={busyId === r.wardLogId}
               onClick={() => respond(r.wardLogId, "confirm")}
-              className="cursor-pointer rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="cursor-pointer rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-on-secondary hover:bg-secondary-hover disabled:cursor-not-allowed disabled:opacity-60"
             >
               تأكيد
             </button>
@@ -112,7 +112,7 @@ function BuddyRequestsCard() {
               type="button"
               disabled={busyId === r.wardLogId}
               onClick={() => respond(r.wardLogId, "decline")}
-              className="cursor-pointer rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="cursor-pointer rounded-lg border border-accent/60 bg-white px-3 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-60"
             >
               تجاهل
             </button>
@@ -185,11 +185,11 @@ export default function StudentDashboardPage() {
     <div className="space-y-5">
       <div
         className="relative overflow-hidden rounded-2xl p-5 text-white"
-        style={{ background: "linear-gradient(135deg, #1E3A8A, #2563EB)" }}
+        style={{ background: "linear-gradient(135deg, #000000, #241B12)" }}
       >
         <IslamicPattern />
         <div className="relative">
-          <h1 className="font-naskh text-xl font-bold">
+          <h1 className="font-display text-xl font-bold">
             {student ? `السلام عليكم يا ${student.name}` : "أهلاً بك"}
           </h1>
           <p className="mt-1 text-xs text-white/80">{motivationForToday()}</p>
@@ -199,14 +199,14 @@ export default function StudentDashboardPage() {
       <BuddyRequestsCard />
 
       {isNewStudent ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+        <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
           <p className="mb-1 text-2xl">📖</p>
-          <p className="mb-1 font-naskh text-lg font-bold text-slate-800">لم ترسل أي ورد بعد</p>
-          <p className="mb-4 text-sm text-slate-500">سجّل حفظك ومراجعتك الأولى، ويصل معلّمك مباشرة أنك بدأت.</p>
+          <p className="mb-1 font-naskh text-lg font-bold text-stone-800">لم ترسل أي ورد بعد</p>
+          <p className="mb-4 text-sm text-stone-500">سجّل حفظك ومراجعتك الأولى، ويصل معلّمك مباشرة أنك بدأت.</p>
           <Link
             href="/student/log"
             className="inline-block cursor-pointer rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm"
-            style={{ background: "linear-gradient(90deg, #3B82F6, #1D4ED8)" }}
+            style={{ background: "linear-gradient(90deg, #241B12, #000000)" }}
           >
             سجّل أول وردي
           </Link>
@@ -214,7 +214,7 @@ export default function StudentDashboardPage() {
       ) : (
         <>
           {!loading && !loggedToday && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="rounded-2xl border border-accent/60 bg-accent-soft px-4 py-3 text-sm text-accent-ink">
               📖 ما سجّلت وردك اليوم بعد —{" "}
               <Link href="/student/log" className="font-semibold underline hover:no-underline">
                 سجّله الآن
@@ -225,50 +225,50 @@ export default function StudentDashboardPage() {
           {reminderEnabled === false && (
             <Link
               href="/student/settings"
-              className="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+              className="block rounded-2xl border border-accent/60 bg-accent-soft px-4 py-3 text-sm font-semibold text-accent-ink hover:bg-accent/25"
             >
               🔔 فعّل التذكير اليومي حتى لا يفوتك ورد
             </Link>
           )}
 
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
-              <div className="tabular text-xl font-bold text-emerald-700">{thisMonth?.hifzPages ?? 0}</div>
-              <div className="mt-0.5 text-[11px] text-slate-500">صفحات حفظ هذا الشهر</div>
+            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+              <div className="tabular text-xl font-bold text-success">{thisMonth?.hifzPages ?? 0}</div>
+              <div className="mt-0.5 text-[11px] text-stone-500">صفحات حفظ هذا الشهر</div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
-              <div className="tabular text-xl font-bold text-blue-700">{thisMonth?.reviewPages ?? 0}</div>
-              <div className="mt-0.5 text-[11px] text-slate-500">صفحات مراجعة هذا الشهر</div>
+            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+              <div className="tabular text-xl font-bold text-accent-ink">{thisMonth?.reviewPages ?? 0}</div>
+              <div className="mt-0.5 text-[11px] text-stone-500">صفحات مراجعة هذا الشهر</div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
-              <div className="tabular text-xl font-bold text-orange-600">{streak}</div>
-              <div className="mt-0.5 text-[11px] text-slate-500">أيام متتالية</div>
+            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+              <div className="tabular text-xl font-bold text-accent-ink">{streak}</div>
+              <div className="mt-0.5 text-[11px] text-stone-500">أيام متتالية</div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
-              <div className="text-sm font-bold text-slate-800">{lastLog ? STATUS_LABEL[lastLog.status] : "—"}</div>
-              <div className="mt-0.5 text-[11px] text-slate-500">حالة آخر ورد</div>
+            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+              <div className="text-sm font-bold text-stone-800">{lastLog ? STATUS_LABEL[lastLog.status] : "—"}</div>
+              <div className="mt-0.5 text-[11px] text-stone-500">حالة آخر ورد</div>
             </div>
           </div>
 
           {pagesCovered > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <div className="rounded-2xl border border-stone-200 bg-white p-4">
               <div className="mb-1.5 flex items-baseline justify-between">
-                <h2 className="text-sm font-semibold text-slate-700">تقدّم الحفظ</h2>
-                <span className="tabular text-xs text-slate-500">
+                <h2 className="text-sm font-semibold text-stone-700">تقدّم الحفظ</h2>
+                <span className="tabular text-xs text-stone-500">
                   {pagesCovered} من {TOTAL_MUSHAF_PAGES} صفحة
                 </span>
               </div>
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
                 <div
                   className="h-full rounded-full"
                   style={{
                     width: `${Math.min(100, (pagesCovered / TOTAL_MUSHAF_PAGES) * 100)}%`,
-                    background: "linear-gradient(90deg, #10B981, #059669)",
+                    background: "linear-gradient(90deg, #AD7D56, #8A6242)",
                   }}
                 />
               </div>
               {lastHifz && (
-                <p className="mt-1.5 text-xs text-slate-500">
+                <p className="mt-1.5 text-xs text-stone-500">
                   آخر ما وصلت: سورة {surahName(lastHifz.surah)} (صفحة {lastHifz.page})
                 </p>
               )}
@@ -279,19 +279,19 @@ export default function StudentDashboardPage() {
             <Link
               href="/student/log"
               className="cursor-pointer rounded-xl px-3 py-3 text-center text-sm font-bold text-white shadow-sm transition-shadow duration-200 hover:shadow-lg sm:col-span-1"
-              style={{ background: "linear-gradient(90deg, #3B82F6, #1D4ED8)" }}
+              style={{ background: "linear-gradient(90deg, #241B12, #000000)" }}
             >
               سجّل وردي اليوم
             </Link>
             <Link
               href="/student/monthly"
-              className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="cursor-pointer rounded-xl border border-stone-200 bg-white px-3 py-3 text-center text-sm font-semibold text-stone-700 hover:bg-stone-50"
             >
               التقرير الشهري
             </Link>
             <Link
               href="/student/suggest"
-              className="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="cursor-pointer rounded-xl border border-stone-200 bg-white px-3 py-3 text-center text-sm font-semibold text-stone-700 hover:bg-stone-50"
             >
               اقتراح أو بلاغ
             </Link>
@@ -299,8 +299,8 @@ export default function StudentDashboardPage() {
 
           <section className="space-y-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-700">آخر أوراد</h2>
-              <Link href="/student/wards" className="text-xs font-semibold text-blue-600 hover:underline">
+              <h2 className="text-sm font-semibold text-stone-700">آخر أوراد</h2>
+              <Link href="/student/wards" className="text-xs font-semibold text-accent-ink hover:underline">
                 كل أورادي
               </Link>
             </div>
@@ -321,9 +321,9 @@ export default function StudentDashboardPage() {
 
       <AttendanceSummaryCard summary={attendance} />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-1 text-sm font-semibold text-slate-700">👪 شارك مع ولي أمرك</h2>
-        <p className="mb-2 text-xs text-slate-500">أنشئ رابطاً يفتحه ولي أمرك ليتابع تقدّمك (قراءة فقط).</p>
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <h2 className="mb-1 text-sm font-semibold text-stone-700">👪 شارك مع ولي أمرك</h2>
+        <p className="mb-2 text-xs text-stone-500">أنشئ رابطاً يفتحه ولي أمرك ليتابع تقدّمك (قراءة فقط).</p>
         <ParentInviteLink
           endpoint="/api/student/parent-link"
           shareText="رابط متابعة حفظي في الحلقة:"

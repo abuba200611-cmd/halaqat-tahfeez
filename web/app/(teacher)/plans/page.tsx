@@ -58,7 +58,7 @@ function rangeError(range: AyahRangeInput): string | null {
 function ProgressBar({ pct }: { pct: number | null }) {
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={pct ?? 0} aria-valuemin={0} aria-valuemax={100}>
-      <div className="h-full rounded-full bg-emerald-600" style={{ width: `${Math.min(100, pct ?? 0)}%` }} />
+      <div className="h-full rounded-full bg-success" style={{ width: `${Math.min(100, pct ?? 0)}%` }} />
     </div>
   );
 }
@@ -133,7 +133,7 @@ function PlanEditor({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={`خطة ${row.name}`}>
       <div className="max-h-[92vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-t-2xl bg-surface p-4 sm:rounded-2xl">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="font-naskh text-lg font-bold">خطة {row.name}</h2>
+          <h2 className="font-display text-lg font-bold">خطة {row.name}</h2>
           <span className="text-xs text-muted-foreground">{monthLabel}</span>
         </div>
 
@@ -169,7 +169,7 @@ function PlanEditor({
           <textarea value={notes} maxLength={PLAN_NOTES_MAX} rows={2} onChange={(e) => setNotes(e.target.value)} className={FIELD} />
         </label>
 
-        {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose} disabled={saving}>
@@ -239,7 +239,7 @@ export default function PlansPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-naskh text-2xl font-bold">الخطة الشهرية</h1>
+        <h1 className="font-display text-2xl font-bold">الخطة الشهرية</h1>
         <div className="flex items-center gap-2">
           <Button variant="ghost" aria-label="الشهر السابق" disabled={!data?.prevMonth} onClick={() => data?.prevMonth && setRequested(data.prevMonth)}>
             ‹

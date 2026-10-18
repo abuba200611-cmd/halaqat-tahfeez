@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { RoleSwitcher } from "../role-switcher";
+import { BrandLockup } from "../brand";
 import { LogoutIcon, MenuIcon, XIcon } from "./icons";
 
 type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean };
@@ -36,10 +37,7 @@ export function DashboardShell({
   const sidebarContent = (
     <>
       <div className="mb-6 flex items-center justify-between px-2">
-        <div>
-          <p className="font-naskh text-lg font-bold">{brandTitle}</p>
-          <p className="text-xs text-white/60">MOS — نظام تشغيل الجامع</p>
-        </div>
+        <BrandLockup tone="onDark" context={brandTitle} />
         <button
           onClick={() => setOpen(false)}
           className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
@@ -55,7 +53,7 @@ export function DashboardShell({
             href={item.href}
             onClick={() => setOpen(false)}
             className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors duration-200 ${
-              item.active ? "bg-white/15 font-semibold text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+              item.active ? "bg-secondary font-semibold text-on-secondary" : "text-white/70 hover:bg-white/10 hover:text-white"
             }`}
           >
             <span className="shrink-0">{item.icon}</span>
@@ -66,7 +64,7 @@ export function DashboardShell({
 
       {userLabel && (
         <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary font-naskh text-xs font-bold text-on-primary">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary font-naskh text-xs font-bold text-on-secondary">
             {userLabel.trim().charAt(0) || "؟"}
           </span>
           <div className="min-w-0 flex-1">
@@ -119,7 +117,7 @@ export function DashboardShell({
               <MenuIcon className="h-5 w-5" />
             </button>
             <div className="min-w-0">
-              <h1 className="truncate font-naskh text-xl font-bold text-foreground">{title}</h1>
+              <h1 className="font-display truncate text-xl font-bold text-foreground">{title}</h1>
               {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
             </div>
           </div>

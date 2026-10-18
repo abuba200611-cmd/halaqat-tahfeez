@@ -216,15 +216,15 @@ export default function StudentLogPage() {
   }
 
   const field =
-    "tabular mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none transition-colors duration-200 focus-visible:border-blue-400 focus-visible:bg-white";
+    "tabular mt-1 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm outline-none transition-colors duration-200 focus-visible:border-accent focus-visible:bg-white";
 
   const recent = logs.slice(0, 5);
 
   return (
     <div className="space-y-5">
-      <div ref={formRef} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div ref={formRef} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
         {editingId !== null && (
-          <div className="mb-3 flex items-center justify-between rounded-xl bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+          <div className="mb-3 flex items-center justify-between rounded-xl bg-accent-soft px-3 py-1.5 text-xs text-accent-ink">
             <span>تعديل ورد يوم {editingDate}</span>
             <button type="button" onClick={resetForm} className="cursor-pointer font-semibold underline hover:no-underline">
               إلغاء التعديل
@@ -236,7 +236,7 @@ export default function StudentLogPage() {
             idPrefix="hifz"
             label="الحفظ الجديد"
             icon={<BookIcon size={16} />}
-            colorClass="text-emerald-700"
+            colorClass="text-success"
             value={hifz}
             onChange={setHifz}
             error={hifzInfo.error}
@@ -246,7 +246,7 @@ export default function StudentLogPage() {
           <ReviewSegmentsField
             label="المراجعة"
             icon={<CalendarIcon size={16} />}
-            colorClass="text-blue-700"
+            colorClass="text-accent-ink"
             segments={reviewSegments}
             onChange={setReviewSegments}
             segmentErrors={reviewInfo.errors}
@@ -254,7 +254,7 @@ export default function StudentLogPage() {
           />
 
           <label className="block">
-            <span className="text-xs text-slate-500">راجعت مع زميل؟ (اختياري)</span>
+            <span className="text-xs text-stone-500">راجعت مع زميل؟ (اختياري)</span>
             <select
               value={buddyId}
               onChange={(e) => setBuddyId(e.target.value)}
@@ -268,7 +268,7 @@ export default function StudentLogPage() {
               ))}
             </select>
             {editingId !== null && editingBuddy && (
-              <span className="mt-1 block text-xs text-slate-400">
+              <span className="mt-1 block text-xs text-stone-400">
                 {editingBuddy.status === "confirmed" && "✓ أكّد الزميل المراجعة معك"}
                 {editingBuddy.status === "pending" && "بانتظار تأكيد الزميل"}
                 {editingBuddy.status === "declined" && "رفض الزميل — اختر غيره أو احذفه"}
@@ -277,7 +277,7 @@ export default function StudentLogPage() {
           </label>
 
           <label className="block">
-            <span className="text-xs text-slate-500">ملاحظة (اختياري)</span>
+            <span className="text-xs text-stone-500">ملاحظة (اختياري)</span>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -288,25 +288,25 @@ export default function StudentLogPage() {
             />
           </label>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {sent && <p className="text-sm text-emerald-600">{editingId !== null ? "تم حفظ التعديل ✓" : "تم إرسال وردك إلى معلّمك ✓"}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {sent && <p className="text-sm text-success">{editingId !== null ? "تم حفظ التعديل ✓" : "تم إرسال وردك إلى معلّمك ✓"}</p>}
 
           <button
             type="submit"
             disabled={submitDisabled}
             className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-sm transition-shadow duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: "linear-gradient(90deg, #3B82F6, #1D4ED8)" }}
+            style={{ background: "linear-gradient(90deg, #241B12, #000000)" }}
           >
             {busy ? "يُحفظ…" : editingId !== null ? "حفظ التعديل" : "أرسل وردي"}
           </button>
-          {editingId === null && <p className="text-center text-xs text-slate-400">سجّل حفظاً أو مراجعة أو كليهما، ثم أرسل.</p>}
+          {editingId === null && <p className="text-center text-xs text-stone-400">سجّل حفظاً أو مراجعة أو كليهما، ثم أرسل.</p>}
         </form>
       </div>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">أورادي الأخيرة</h2>
+        <h2 className="text-sm font-semibold text-stone-700">أورادي الأخيرة</h2>
         {loadingLogs ? (
-          <p className="text-sm text-slate-400">جارٍ التحميل…</p>
+          <p className="text-sm text-stone-400">جارٍ التحميل…</p>
         ) : recent.length === 0 ? (
           <Empty title="لم ترسل أي ورد بعد." />
         ) : (

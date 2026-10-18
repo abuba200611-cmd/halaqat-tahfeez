@@ -148,7 +148,7 @@ export function MemberPicker({
         <button
           type="button"
           onClick={() => setShowFree(true)}
-          className="cursor-pointer text-xs text-primary hover:underline"
+          className="cursor-pointer text-xs text-accent-ink hover:underline"
         >
           + عضو جديد ليس طالباً (ولي أمر، متطوع…)
         </button>

@@ -5,6 +5,7 @@ import {
   type EvalScores,
   type TeacherEvalConfig,
 } from "@/lib/teacher-eval";
+import { BrandLogo } from "./brand";
 
 /*
   A3 — تقرير تقييم معلّم قابل للطباعة (أبيض/أسود صديق للورق): الترويسة،
@@ -44,9 +45,12 @@ export function TeacherEvalDoc({ data }: { data: TeacherEvalDocData }) {
 
   return (
     <article dir="rtl" className="mx-auto max-w-3xl bg-white p-6 text-black print:p-0">
-      <header className="mb-4 border-b-2 border-black pb-3 text-center">
-        <p className="text-sm">{data.mosqueName}</p>
-        <h1 className="font-naskh text-2xl font-bold">تقرير تقييم المعلّم</h1>
+      <header className="mb-4 border-b-2 border-secondary pb-3 text-center">
+        <div className="flex justify-center">
+          <BrandLogo size={40} />
+        </div>
+        <p className="mt-1 text-sm font-semibold">{data.mosqueName}</p>
+        <h1 className="font-display text-2xl font-bold">تقرير تقييم المعلّم</h1>
         <p className="text-sm">{data.periodLabel}</p>
       </header>
 
@@ -66,7 +70,7 @@ export function TeacherEvalDoc({ data }: { data: TeacherEvalDocData }) {
       </section>
 
       <section className="mb-4">
-        <h2 className="mb-1 font-naskh text-lg font-bold">المؤشرات التلقائية</h2>
+        <h2 className="font-display mb-1 text-lg font-bold">المؤشرات التلقائية</h2>
         <table className="w-full border-collapse text-sm">
           <tbody>
             {[
@@ -88,10 +92,10 @@ export function TeacherEvalDoc({ data }: { data: TeacherEvalDocData }) {
       </section>
 
       <section className="mb-4">
-        <h2 className="mb-1 font-naskh text-lg font-bold">معايير التقييم</h2>
+        <h2 className="font-display mb-1 text-lg font-bold">معايير التقييم</h2>
         <table className="w-full border-collapse text-sm">
           <thead>
-            <tr className="bg-gray-100 text-right">
+            <tr className="bg-stone-100 text-right">
               <th className="border border-black px-2 py-1">المعيار</th>
               <th className="border border-black px-2 py-1">الوزن</th>
               <th className="border border-black px-2 py-1">الدرجة (من ١٠٠)</th>
@@ -105,7 +109,7 @@ export function TeacherEvalDoc({ data }: { data: TeacherEvalDocData }) {
                 <td className="tabular border border-black px-2 py-1">{show(data.scores[c.key] ?? null)}</td>
               </tr>
             ))}
-            <tr className="bg-gray-100 font-semibold">
+            <tr className="bg-stone-100 font-semibold">
               <td className="border border-black px-2 py-1">الدرجة الكلية</td>
               <td className="border border-black px-2 py-1" />
               <td className="tabular border border-black px-2 py-1">{show(total.totalPct, "%")}</td>

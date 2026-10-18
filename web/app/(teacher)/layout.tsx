@@ -6,7 +6,7 @@ import { ChartIcon, CalendarIcon, ClipboardIcon, HomeIcon, MailIcon, MessageIcon
 import type { Metadata } from "next";
 
 /** عنوان تبويب قسم المعلّم — الاسم العربي للقسم يبقى، مع وسم MOS الموحّد (M5) */
-export const metadata: Metadata = { title: "المعلم — MOS" };
+export const metadata: Metadata = { title: "المعلم — السلام" };
 
 const NAV = [
   { href: "/", label: "لوحة الحلقة", desc: "نظرة عامة على حلقتك اليوم", icon: <HomeIcon size={19} /> },

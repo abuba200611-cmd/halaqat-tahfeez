@@ -48,7 +48,7 @@ export default function DevAgentLessonsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">دروس الإيجنت</h1>
+        <h1 className="font-display text-2xl font-bold">دروس الإيجنت</h1>
         <p className="text-sm text-muted-foreground">
           دروس عامة يقترحها مساعدو الجوامع (مجهّلة قبل الحفظ). المعتمد منها يُحقن بسياق كل الجوامع — حدّ ٥٠ درساً.
         </p>
@@ -83,7 +83,7 @@ export default function DevAgentLessonsPage() {
 
       {decided.length > 0 && (
         <div>
-          <h2 className="mb-3 font-naskh text-lg font-bold">محسومة ({decided.length})</h2>
+          <h2 className="mb-3 font-display text-lg font-bold">محسومة ({decided.length})</h2>
           <ul className="space-y-2">
             {decided.map((lesson) => (
               <li key={lesson.id}>

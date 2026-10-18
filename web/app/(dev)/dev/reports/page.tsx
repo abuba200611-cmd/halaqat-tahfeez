@@ -93,7 +93,7 @@ export default function DevReportsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">البلاغات</h1>
+        <h1 className="font-display text-2xl font-bold">البلاغات</h1>
         <p className="text-sm text-muted-foreground">
           اقتراحات وبلاغات كل الأدوار — {reports === null ? "…" : `${reports.length} بلاغ`} · {newCount} جديد
         </p>

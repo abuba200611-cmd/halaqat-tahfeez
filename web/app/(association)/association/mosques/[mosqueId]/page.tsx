@@ -41,7 +41,7 @@ export default function AssociationMosquePage() {
   return (
     <AssociationPage title={data?.mosque.name ?? "جامع"} activeHref="/association">
       <div className="space-y-5">
-        <Link href="/association" className="text-sm text-primary hover:underline">
+        <Link href="/association" className="text-sm text-accent-ink hover:underline">
           ← لوحة الجمعية
         </Link>
         {loading && <Empty title="جارٍ التحميل…" />}
@@ -53,7 +53,7 @@ export default function AssociationMosquePage() {
             </p>
 
             <section className="space-y-2">
-              <h2 className="font-naskh text-lg font-bold">الحلقات</h2>
+              <h2 className="font-display text-lg font-bold">الحلقات</h2>
               {data.halaqat.length === 0 ? (
                 <Empty title="لا حلقات." />
               ) : (
@@ -74,7 +74,7 @@ export default function AssociationMosquePage() {
 
             {data.exams && (
               <section className="space-y-2">
-                <h2 className="font-naskh text-lg font-bold">الاختبارات</h2>
+                <h2 className="font-display text-lg font-bold">الاختبارات</h2>
                 <Card className="p-4 text-sm">
                   <p className="tabular">
                     جلسات: {data.exams.totals.sessions} · نتائج: {data.exams.totals.results} · ناجح: {data.exams.totals.passed}
@@ -94,7 +94,7 @@ export default function AssociationMosquePage() {
 
             {data.permits && (
               <section className="space-y-2">
-                <h2 className="font-naskh text-lg font-bold">
+                <h2 className="font-display text-lg font-bold">
                   التصاريح <span className="tabular text-xs font-normal text-muted-foreground">({data.permits.academicYear} هـ)</span>
                 </h2>
                 {data.permits.halaqat.map((h) => (

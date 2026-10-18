@@ -112,27 +112,27 @@ export function StudentPushToggle() {
 
   if (state === "ios-add-to-home") {
     return (
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-stone-500">
         📱 على آيفون: أضف هذا الموقع للشاشة الرئيسية أولاً (زر المشاركة ← «أضف إلى الشاشة الرئيسية»)، ثم افتحه من هناك لتفعيل التذكير.
       </p>
     );
   }
   if (state === "unsupported") {
-    return <p className="text-xs text-slate-500">هذا المتصفّح لا يدعم الإشعارات.</p>;
+    return <p className="text-xs text-stone-500">هذا المتصفّح لا يدعم الإشعارات.</p>;
   }
   if (state === "denied") {
-    return <p className="text-xs text-red-600">الإشعارات محظورة في إعدادات المتصفّح — فعّلها من إعدادات الموقع.</p>;
+    return <p className="text-xs text-destructive">الإشعارات محظورة في إعدادات المتصفّح — فعّلها من إعدادات الموقع.</p>;
   }
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       {state === "on" ? (
         <>
-          <span className="text-xs text-emerald-600">تذكير الورد اليومي مفعّل على هذا الجهاز ✓</span>
+          <span className="text-xs text-success">تذكير الورد اليومي مفعّل على هذا الجهاز ✓</span>
           <button
             type="button"
             onClick={disable}
-            className="cursor-pointer text-xs font-semibold text-slate-500 underline hover:no-underline"
+            className="cursor-pointer text-xs font-semibold text-stone-500 underline hover:no-underline"
           >
             إيقاف
           </button>
@@ -142,12 +142,12 @@ export function StudentPushToggle() {
           type="button"
           onClick={enable}
           disabled={state === "busy"}
-          className="cursor-pointer rounded-lg bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="cursor-pointer rounded-lg bg-accent-soft px-2.5 py-1.5 text-xs font-semibold text-accent-ink hover:bg-accent/25 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {state === "busy" ? "لحظة…" : "🔔 تفعيل التذكير اليومي"}
         </button>
       )}
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }

@@ -210,10 +210,10 @@ export default function InboxPage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-naskh text-2xl font-bold">
+        <h1 className="font-display text-2xl font-bold">
           الوارد{" "}
           {newCount > 0 && (
-            <span className="tabular text-base font-normal text-accent">({newCount} جديد)</span>
+            <span className="tabular text-base font-normal text-accent-ink">({newCount} جديد)</span>
           )}
         </h1>
         <PushToggle />
@@ -281,7 +281,7 @@ export default function InboxPage() {
                 {reviewRangeText(ward) && <p>مراجعة: {reviewRangeText(ward)}</p>}
                 {ward.note && <p className="text-foreground">«{ward.note}»</p>}
                 {ward.status === "needs_revision" && ward.reviewNote && (
-                  <p className="text-accent">سبب طلب الإعادة: «{ward.reviewNote}»</p>
+                  <p className="text-accent-ink">سبب طلب الإعادة: «{ward.reviewNote}»</p>
                 )}
               </div>
 

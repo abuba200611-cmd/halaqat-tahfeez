@@ -57,7 +57,7 @@ function ReviewCard({ item, onSaved }: { item: RecitationView; onSaved: () => vo
         </div>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-            reviewed ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+            reviewed ? "bg-success-soft text-success" : "bg-accent-soft text-accent-ink"
           }`}
         >
           {reviewed ? "تم التقييم" : "بانتظار التقييم"}
@@ -77,7 +77,7 @@ function ReviewCard({ item, onSaved }: { item: RecitationView; onSaved: () => vo
               onClick={() => setScore(n)}
               className={`tabular h-9 w-9 cursor-pointer rounded-md border text-sm font-semibold transition-colors duration-200 ${
                 score === n
-                  ? "border-emerald-600 bg-emerald-600 text-white"
+                  ? "border-success bg-success text-white"
                   : "border-border bg-surface text-foreground hover:bg-muted"
               }`}
             >
@@ -98,7 +98,7 @@ function ReviewCard({ item, onSaved }: { item: RecitationView; onSaved: () => vo
       />
 
       {error && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">
           {error}
         </p>
       )}
@@ -107,7 +107,7 @@ function ReviewCard({ item, onSaved }: { item: RecitationView; onSaved: () => vo
         type="button"
         onClick={save}
         disabled={score === null || saving}
-        className="cursor-pointer rounded-md bg-emerald-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="cursor-pointer rounded-md bg-success px-4 py-1.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
       >
         {saving ? "جارٍ الحفظ…" : reviewed ? "تحديث التقييم" : "حفظ التقييم"}
       </button>
@@ -144,7 +144,7 @@ export default function TeacherRecitationsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="font-naskh text-2xl font-bold">التلاوات</h1>
+      <h1 className="font-display text-2xl font-bold">التلاوات</h1>
 
       {items === null && !failed ? (
         <Empty title="جارٍ تحميل التلاوات…" />

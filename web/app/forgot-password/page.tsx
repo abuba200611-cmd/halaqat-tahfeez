@@ -36,12 +36,12 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell>
-      <h1 className="mb-1 text-center font-naskh text-3xl font-bold text-white">استرجاع كلمة المرور</h1>
+      <h1 className="mb-1 text-center font-display text-3xl font-bold text-white">استرجاع كلمة المرور</h1>
       <p className="mb-6 text-center text-sm text-white/60">اكتب بريدك، وبنبعث لك رابط تعيين كلمة مرور جديدة.</p>
 
       <AuthCard>
         {sent ? (
-          <p className="text-center text-sm text-emerald-400">لو هذا البريد مسجّل، وصلته رسالة الآن — تفقّد بريدك.</p>
+          <p className="text-center text-sm text-success">لو هذا البريد مسجّل، وصلته رسالة الآن — تفقّد بريدك.</p>
         ) : (
           <form onSubmit={submit} className="space-y-3">
             <label className="block text-sm">
@@ -58,12 +58,12 @@ export default function ForgotPasswordPage() {
                 <UserIcon size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40" />
               </div>
             </label>
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {error && <p className="text-sm text-destructive-light">{error}</p>}
             <button
               type="submit"
               disabled={busy}
-              className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-orange-500/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-              style={{ background: "linear-gradient(90deg, #F97316, #EF4444)" }}
+              className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
+              style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
             >
               {busy ? "لحظة…" : "إرسال رابط الاسترجاع"}
             </button>

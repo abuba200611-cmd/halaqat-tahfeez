@@ -74,7 +74,7 @@ export default function AssociationDashboardPage() {
             </div>
 
             <section className="space-y-2">
-              <h2 className="font-naskh text-lg font-bold">الجوامع</h2>
+              <h2 className="font-display text-lg font-bold">الجوامع</h2>
               {data.mosques.length === 0 ? (
                 <Empty title="لا جوامع مرتبطة بجمعيتك بعد — يربطها مطوّر المنصة." />
               ) : (

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Button, Card } from "@/components/mosque/ui";
+import { BrandLockup } from "@/components/brand";
 
 export default function JoinPage() {
   const params = useParams<{ mosqueId: string }>();
@@ -59,7 +60,10 @@ export default function JoinPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">تسجيل طالب جديد</h1>
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onLight" size={44} />
+      </div>
+      <h1 className="font-display mb-1 text-center text-2xl font-bold text-primary">تسجيل طالب جديد</h1>
       {mosqueName && (
         <p className="mb-5 text-center text-sm text-muted-foreground">
           تسجّل بـ<span className="font-semibold text-foreground"> {mosqueName}</span>

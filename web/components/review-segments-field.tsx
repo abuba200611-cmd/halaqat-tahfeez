@@ -53,18 +53,18 @@ export function ReviewSegmentsField({
       </legend>
 
       {segments.length === 0 && (
-        <p className="text-xs text-slate-400">لا مراجعة اليوم — اضغط «أضف مقطع مراجعة» لو راجعت.</p>
+        <p className="text-xs text-stone-400">لا مراجعة اليوم — اضغط «أضف مقطع مراجعة» لو راجعت.</p>
       )}
 
       <div className="space-y-3">
         {segments.map((segment, i) => (
-          <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+          <div key={i} className="rounded-xl border border-stone-100 bg-stone-50/50 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">مقطع {i + 1}</span>
+              <span className="text-xs font-semibold text-stone-500">مقطع {i + 1}</span>
               <button
                 type="button"
                 onClick={() => removeSegment(i)}
-                className="cursor-pointer rounded-md p-1 text-slate-400 transition-colors duration-200 hover:bg-red-50 hover:text-red-600"
+                className="cursor-pointer rounded-md p-1 text-stone-400 transition-colors duration-200 hover:bg-destructive-soft hover:text-destructive"
                 aria-label={`حذف مقطع ${i + 1}`}
               >
                 <CloseIcon size={16} />
@@ -85,14 +85,14 @@ export function ReviewSegmentsField({
         type="button"
         onClick={addSegment}
         disabled={segments.length >= MAX_REVIEW_SEGMENTS}
-        className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2.5 text-sm font-medium text-slate-500 transition-colors duration-200 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-stone-300 py-2.5 text-sm font-medium text-stone-500 transition-colors duration-200 hover:border-accent/60 hover:bg-accent-soft/50 hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-50"
       >
         <PlusIcon size={16} />
         أضف مقطع مراجعة {segments.length > 0 && `(${segments.length}/${MAX_REVIEW_SEGMENTS})`}
       </button>
 
       {pagesTotal !== null && pagesTotal > 0 && (
-        <p className="tabular text-xs text-slate-400">≈ {pagesTotal} صفحة إجمالاً</p>
+        <p className="tabular text-xs text-stone-400">≈ {pagesTotal} صفحة إجمالاً</p>
       )}
     </fieldset>
   );

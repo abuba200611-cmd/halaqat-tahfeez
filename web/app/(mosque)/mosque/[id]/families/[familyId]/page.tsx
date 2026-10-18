@@ -33,7 +33,7 @@ function FamilyDetail({ mosqueId, familyId }: { mosqueId: number; familyId: numb
       <Empty
         title="الأسرة غير موجودة أو الميزة غير مفعّلة."
         action={
-          <Link href={`/mosque/${mosqueId}/families`} className="text-sm text-primary hover:underline">
+          <Link href={`/mosque/${mosqueId}/families`} className="text-sm text-accent-ink hover:underline">
             العودة للأسر
           </Link>
         }
@@ -71,13 +71,13 @@ function FamilyDetail({ mosqueId, familyId }: { mosqueId: number; familyId: numb
 
   return (
     <div className="space-y-5">
-      <Link href={`/mosque/${mosqueId}/families`} className="text-sm text-primary hover:underline">
+      <Link href={`/mosque/${mosqueId}/families`} className="text-sm text-accent-ink hover:underline">
         ← كل الأسر
       </Link>
 
       <Card className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div>
-          <h2 className="font-naskh text-xl font-bold">{data.family.name}</h2>
+          <h2 className="font-display text-xl font-bold">{data.family.name}</h2>
           {data.family.leaderName && (
             <p className="mt-1 text-sm text-muted-foreground">رئيس الأسرة: {data.family.leaderName}</p>
           )}

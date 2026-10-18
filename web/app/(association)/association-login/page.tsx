@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLockup } from "@/components/brand";
+
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card } from "@/components/mosque/ui";
@@ -49,8 +51,10 @@ function AssociationLoginInner() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">دخول مدير الجمعية</h1>
-      <p className="mb-1 text-center text-xs text-muted-foreground">MOS — نظام تشغيل الجامع</p>
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onLight" size={44} />
+      </div>
+      <h1 className="font-display mb-1 text-center text-2xl font-bold text-primary">دخول مدير الجمعية</h1>
       <p className="mb-5 text-center text-sm text-muted-foreground">متابعة جوامع الجمعية وتقاريرها المجمّعة</p>
       <Card className="p-5">
         <form onSubmit={submit} className="space-y-3">

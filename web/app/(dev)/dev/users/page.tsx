@@ -65,7 +65,7 @@ export default function DevUsersPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">المستخدمون</h1>
+        <h1 className="font-display text-2xl font-bold">المستخدمون</h1>
         <p className="text-sm text-muted-foreground">
           بحث موحّد بالاسم أو البريد أو اسم المستخدم — معلّمون وطلاب وأولياء أمور ومدراء جوامع.
         </p>

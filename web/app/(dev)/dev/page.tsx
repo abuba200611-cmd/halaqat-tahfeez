@@ -44,7 +44,7 @@ export default function DevOverviewPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">نظرة عامة</h1>
+        <h1 className="font-display text-2xl font-bold">نظرة عامة</h1>
         <p className="text-sm text-muted-foreground">أرقام المنصة الآن — قاعدة البيانات {data.dbName}</p>
       </div>
 

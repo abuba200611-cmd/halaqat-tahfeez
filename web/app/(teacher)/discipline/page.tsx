@@ -71,7 +71,7 @@ export default function TeacherDisciplinePage() {
       <Empty
         title="الانضباط غير مفعّل أو تعذّر التحميل."
         action={
-          <Link href="/suggest" className="text-sm text-primary hover:underline">
+          <Link href="/suggest" className="text-sm text-accent-ink hover:underline">
             بلاغ إلى المطوّر
           </Link>
         }
@@ -87,7 +87,7 @@ export default function TeacherDisciplinePage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-naskh text-2xl font-bold">الانضباط والمتابعة</h1>
+          <h1 className="font-display text-2xl font-bold">الانضباط والمتابعة</h1>
           <p className="text-xs text-muted-foreground">
             {data.mosqueName} — {data.halaqahName}
           </p>
@@ -106,11 +106,11 @@ export default function TeacherDisciplinePage() {
           <div className="text-xs text-muted-foreground">حدثاً</div>
         </Card>
         <Card className="p-3 text-center">
-          <div className="tabular text-xl font-bold text-amber-600">{unacked}</div>
+          <div className="tabular text-xl font-bold text-accent-ink">{unacked}</div>
           <div className="text-xs text-muted-foreground">بانتظار الإقرار</div>
         </Card>
         <Card className="p-3 text-center">
-          <div className="tabular text-xl font-bold text-red-600">{data.suspensions.length}</div>
+          <div className="tabular text-xl font-bold text-destructive">{data.suspensions.length}</div>
           <div className="text-xs text-muted-foreground">إيقاف سارٍ</div>
         </Card>
         <Card className="p-3 text-center">
@@ -143,7 +143,7 @@ export default function TeacherDisciplinePage() {
       )}
 
       <section className="space-y-2">
-        <h2 className="font-naskh text-lg font-bold">سجلّ الأحداث</h2>
+        <h2 className="font-display text-lg font-bold">سجلّ الأحداث</h2>
         {data.events.length === 0 ? (
           <Empty title="لا أحداث انضباط بعد — السجل يبدأ فارغاً." />
         ) : (
@@ -216,15 +216,15 @@ function ViolationForm({
   return (
     <Card className="space-y-3 p-4">
       <div>
-        <h2 className="font-naskh text-lg font-bold">تسجيل مخالفة</h2>
+        <h2 className="font-display text-lg font-bold">تسجيل مخالفة</h2>
         <p className="text-xs text-muted-foreground">
           الإجراء التالي يقترحه النظام تلقائياً بحسب سُلّم الجامع:{" "}
           {VIOLATION_STEPS.map((s) => s.labelAr).join(" ← ")}
         </p>
       </div>
-      {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">{error}</p>}
       {result && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <p className="rounded-md bg-success-soft px-3 py-2 text-sm text-success">
           سُجّلت المخالفة — الإجراء المقترح: <strong>{result.stepLabel}</strong>
           {result.suspensionUntil && <> — إيقاف حتى {result.suspensionUntil.slice(0, 10)}</>}
         </p>
@@ -306,7 +306,7 @@ function EventItem({
             </span>
           </div>
           {event.acknowledgedAt ? (
-            <span className="text-xs text-emerald-700">مُستلم {formatDate(event.acknowledgedAt)}</span>
+            <span className="text-xs text-success">مُستلم {formatDate(event.acknowledgedAt)}</span>
           ) : (
             <Button
               variant="ghost"
@@ -321,9 +321,9 @@ function EventItem({
             </Button>
           )}
         </div>
-        {event.reason && <p className="text-sm text-slate-600">{event.reason}</p>}
+        {event.reason && <p className="text-sm text-stone-600">{event.reason}</p>}
         {suspension && (
-          <p className="text-xs text-red-700">
+          <p className="text-xs text-destructive">
             موقوف حتى {suspension.until.slice(0, 10)} — يُستعاد تلقائياً بعدها.
           </p>
         )}

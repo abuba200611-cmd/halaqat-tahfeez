@@ -136,7 +136,7 @@ export function SuggestionForm({ endpoint, maxLength }: { endpoint: string; maxL
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">{copy.title}</h1>
+        <h1 className="font-display text-2xl font-bold">{copy.title}</h1>
         <p className="text-sm text-muted-foreground">{copy.subtitle}</p>
       </div>
 

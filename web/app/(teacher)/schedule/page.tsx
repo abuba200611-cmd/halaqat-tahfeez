@@ -170,7 +170,7 @@ export default function SchedulePage() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-naskh text-2xl font-bold">جدول الشهر</h1>
+        <h1 className="font-display text-2xl font-bold">جدول الشهر</h1>
         <div className="no-print flex flex-wrap gap-2">
           <Button onClick={run}>توليد الجدول</Button>
           {view?.source === "generated" && (
@@ -343,7 +343,7 @@ export default function SchedulePage() {
 
           {schedule.teacherTurns.length > 0 && (
             <Card className="p-4">
-              <h2 className="mb-1 font-naskh text-lg font-bold">التسميع للمعلّم</h2>
+              <h2 className="mb-1 font-display text-lg font-bold">التسميع للمعلّم</h2>
               <p className="mb-3 text-xs text-muted-foreground">
                 من لم يجد شريكاً في بعض الأيام. البرنامج يوزّع الدور بالتناوب، فيُفترض
                 تقارب الأعداد — وتباعُدها يعني أن مقرر أحدهم لا يشاركه فيه أحد.
@@ -364,7 +364,7 @@ export default function SchedulePage() {
             {schedule.days.map((day) => (
               <Card key={day.date} className="print-block overflow-hidden">
                 <div className="flex items-baseline justify-between border-b border-border bg-muted/50 px-4 py-2">
-                  <h3 className="font-naskh font-bold">{day.weekdayName}</h3>
+                  <h3 className="font-display font-bold">{day.weekdayName}</h3>
                   <span className="tabular text-xs text-muted-foreground">{day.date}</span>
                 </div>
 

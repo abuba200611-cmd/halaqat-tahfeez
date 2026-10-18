@@ -78,24 +78,24 @@ function JoinFlow() {
   if (!token) {
     return <Message>رابط الدعوة ناقص — اطلب رابطاً جديداً من المعلّم أو من ابنك.</Message>;
   }
-  if (checking) return <p className="text-sm text-slate-500">جارٍ التحقق…</p>;
+  if (checking) return <p className="text-sm text-stone-500">جارٍ التحقق…</p>;
 
   if (!parent) {
     return (
       <div className="mx-auto max-w-sm space-y-4">
-        <h1 className="font-naskh text-xl font-bold text-slate-800">دعوة لمتابعة ابنك</h1>
-        <p className="text-sm text-slate-500">أنشئ حساب ولي أمر أو سجّل دخولك لإكمال الربط.</p>
+        <h1 className="font-display text-xl font-bold text-stone-800">دعوة لمتابعة ابنك</h1>
+        <p className="text-sm text-stone-500">أنشئ حساب ولي أمر أو سجّل دخولك لإكمال الربط.</p>
         <ParentAuthForm initialMode="register" />
       </div>
     );
   }
 
-  if (preview === null) return <p className="text-sm text-slate-500">جارٍ التحقق من الرابط…</p>;
+  if (preview === null) return <p className="text-sm text-stone-500">جارٍ التحقق من الرابط…</p>;
   if (preview === "invalid") {
     return (
       <Message>
         الرابط غير صالح أو منتهي أو سبق استخدامه — اطلب رابطاً جديداً.{" "}
-        <Link href="/parent" className="font-semibold text-blue-700 underline">
+        <Link href="/parent" className="font-semibold text-accent-ink underline">
           إلى لوحتي
         </Link>
       </Message>
@@ -103,19 +103,19 @@ function JoinFlow() {
   }
 
   return (
-    <div className="mx-auto max-w-sm space-y-4 rounded-2xl border border-slate-200 bg-white p-5 text-center">
+    <div className="mx-auto max-w-sm space-y-4 rounded-2xl border border-stone-200 bg-white p-5 text-center">
       <p className="text-2xl">👪</p>
-      <p className="text-sm text-slate-700">
+      <p className="text-sm text-stone-700">
         ربط حسابك بالطالب «<span className="font-bold">{preview.studentName}</span>» في حلقة «
         <span className="font-bold">{preview.halaqahName}</span>»
       </p>
-      <p className="text-xs text-slate-500">ستتمكّن من متابعة تقدّمه (قراءة فقط).</p>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <p className="text-xs text-stone-500">ستتمكّن من متابعة تقدّمه (قراءة فقط).</p>
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <button
         type="button"
         onClick={confirmLink}
         disabled={busy}
-        className="w-full cursor-pointer rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full cursor-pointer rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
       >
         {busy ? "لحظة…" : "تأكيد الربط"}
       </button>
@@ -124,5 +124,5 @@ function JoinFlow() {
 }
 
 function Message({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600">{children}</div>;
+  return <div className="rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-600">{children}</div>;
 }

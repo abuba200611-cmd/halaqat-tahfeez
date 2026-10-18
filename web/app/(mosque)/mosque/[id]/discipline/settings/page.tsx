@@ -99,10 +99,10 @@ function SettingsForm({
       </Card>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {saved && <p className="text-sm text-emerald-700">حُفظت الإعدادات.</p>}
+      {saved && <p className="text-sm text-success">حُفظت الإعدادات.</p>}
 
       <Card className="space-y-3 p-4">
-        <h2 className="font-naskh text-lg font-bold">سُلّم الغياب</h2>
+        <h2 className="font-display text-lg font-bold">سُلّم الغياب</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {ABSENCE_FIELDS.map((field) => (
             <label key={field.key} className="block text-sm">
@@ -133,7 +133,7 @@ function SettingsForm({
       </Card>
 
       <Card className="space-y-3 p-4">
-        <h2 className="font-naskh text-lg font-bold">سُلّم المخالفات</h2>
+        <h2 className="font-display text-lg font-bold">سُلّم المخالفات</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {VIOLATION_FIELDS.map((field) => (
             <label key={field.key} className="block text-sm">

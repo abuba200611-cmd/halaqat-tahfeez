@@ -9,7 +9,7 @@ export default function StudentMonthlyPage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="font-naskh text-xl font-bold text-slate-800">التقرير الشهري</h1>
+      <h1 className="font-display text-xl font-bold text-stone-800">التقرير الشهري</h1>
       <MonthlyHistorySection months={months} loading={loadingMonths} />
     </div>
   );

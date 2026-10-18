@@ -251,23 +251,23 @@ export default function StudentRecitationsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-naskh text-xl font-bold text-slate-800">تلاواتي</h1>
+      <h1 className="font-display text-xl font-bold text-stone-800">تلاواتي</h1>
 
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-slate-700">تلاوة جديدة</h2>
+      <section className="space-y-3 rounded-2xl border border-stone-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-stone-700">تلاوة جديدة</h2>
         <AyahRangeInputs idPrefix="recitation" value={range} onChange={setRange} error={rangeError} pageLabel={null} />
 
         <div className="space-y-2">
           {recording ? (
             <div className="flex items-center gap-3">
-              <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-red-600" aria-hidden="true" />
-              <span className="tabular text-sm font-semibold text-slate-700" aria-live="off">
+              <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" aria-hidden="true" />
+              <span className="tabular text-sm font-semibold text-stone-700" aria-live="off">
                 {formatDuration(elapsed)} / {formatDuration(RECITATION_MAX_SECONDS)}
               </span>
               <button
                 type="button"
                 onClick={stopRecording}
-                className="cursor-pointer rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700"
+                className="cursor-pointer rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-white hover:bg-destructive"
               >
                 إيقاف
               </button>
@@ -278,11 +278,11 @@ export default function StudentRecitationsPage() {
                 type="button"
                 onClick={startRecording}
                 disabled={sending}
-                className="cursor-pointer rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="cursor-pointer rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {clip ? "إعادة التسجيل" : "ابدأ التسجيل"}
               </button>
-              <label className="cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <label className="cursor-pointer rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">
                 رفع ملف صوتي
                 <input type="file" accept="audio/*" onChange={onPickFile} disabled={sending} className="sr-only" />
               </label>
@@ -292,39 +292,39 @@ export default function StudentRecitationsPage() {
           {clip && !recording && (
             <div className="space-y-1.5">
               <audio controls src={clip.url} className="h-10 w-full" />
-              <p className="tabular text-xs text-slate-500">المدة {formatDuration(clip.durationSec)}</p>
+              <p className="tabular text-xs text-stone-500">المدة {formatDuration(clip.durationSec)}</p>
             </div>
           )}
         </div>
 
         {error && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">
             {error}
           </p>
         )}
-        {notice && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{notice}</p>}
+        {notice && <p className="rounded-md bg-success-soft px-3 py-2 text-sm text-success">{notice}</p>}
 
         <button
           type="button"
           onClick={send}
           disabled={!canSend}
-          className="w-full cursor-pointer rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full cursor-pointer rounded-xl bg-success px-4 py-2.5 text-sm font-bold text-white hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
         >
           {sending ? "جارٍ الإرسال…" : "إرسال للمعلّم"}
         </button>
-        <p className="text-[11px] text-slate-400">
+        <p className="text-[11px] text-stone-400">
           أقصى مدة 3 دقائق، وحتى {RECITATIONS_PER_DAY} تلاوات في اليوم.
         </p>
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">تلاواتي السابقة</h2>
+        <h2 className="text-sm font-semibold text-stone-700">تلاواتي السابقة</h2>
         {items === null && !loadFailed ? (
-          <p className="text-sm text-slate-500">جارٍ التحميل…</p>
+          <p className="text-sm text-stone-500">جارٍ التحميل…</p>
         ) : loadFailed && items === null ? (
-          <p className="text-sm text-red-600">تعذّر تحميل التلاوات.</p>
+          <p className="text-sm text-destructive">تعذّر تحميل التلاوات.</p>
         ) : items && items.length === 0 ? (
-          <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+          <p className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-500">
             لم ترسل أي تلاوة بعد.
           </p>
         ) : (

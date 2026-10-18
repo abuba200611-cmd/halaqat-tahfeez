@@ -1,5 +1,7 @@
 "use client";
 
+import { BrandLockup } from "@/components/brand";
+
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -44,13 +46,16 @@ function VerifyEmailInner() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
-      <h1 className="mb-1 text-center font-naskh text-2xl font-bold text-primary">تأكيد البريد</h1>
+      <div className="mb-4 flex justify-center">
+        <BrandLockup tone="onLight" size={44} />
+      </div>
+      <h1 className="font-display mb-1 text-center text-2xl font-bold text-primary">تأكيد البريد</h1>
       <Card className="mt-5 p-5 text-center">
         {state === "checking" && <p className="text-sm text-muted-foreground">جارٍ التأكيد…</p>}
         {state === "ok" && (
           <>
             <p className="mb-3 text-sm text-success">تم تأكيد بريدك ✓</p>
-            <Link href="/" className="text-sm text-primary hover:underline">
+            <Link href="/" className="text-sm text-accent-ink hover:underline">
               الرجوع للمعلم
             </Link>
           </>

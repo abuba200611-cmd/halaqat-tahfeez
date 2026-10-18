@@ -15,10 +15,10 @@ import { riyadhTodayISO } from "@/lib/riyadh-date";
 type DayState = { date: string; rows: AttendanceRow[] };
 
 const TONE: Record<AttendanceStatus, { on: string; off: string }> = {
-  present: { on: "border-emerald-600 bg-emerald-600 text-white", off: "border-border bg-surface text-foreground hover:bg-emerald-50" },
-  late: { on: "border-amber-500 bg-amber-500 text-white", off: "border-border bg-surface text-foreground hover:bg-amber-50" },
-  excused: { on: "border-sky-600 bg-sky-600 text-white", off: "border-border bg-surface text-foreground hover:bg-sky-50" },
-  absent: { on: "border-red-600 bg-red-600 text-white", off: "border-border bg-surface text-foreground hover:bg-red-50" },
+  present: { on: "border-success bg-success text-white", off: "border-border bg-surface text-foreground hover:bg-success-soft" },
+  late: { on: "border-secondary bg-secondary text-on-secondary", off: "border-border bg-surface text-foreground hover:bg-accent-soft" },
+  excused: { on: "border-sand bg-sand text-on-secondary", off: "border-border bg-surface text-foreground hover:bg-accent-soft" },
+  absent: { on: "border-destructive bg-destructive text-white", off: "border-border bg-surface text-foreground hover:bg-destructive-soft" },
 };
 
 async function putAttendance(date: string, studentId: string, status: AttendanceStatus, note?: string): Promise<boolean> {
@@ -114,7 +114,7 @@ export default function AttendancePage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-naskh text-2xl font-bold">الحضور</h1>
+        <h1 className="font-display text-2xl font-bold">الحضور</h1>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
@@ -128,14 +128,14 @@ export default function AttendancePage() {
             type="button"
             onClick={markAll}
             disabled={loading || rows.length === 0}
-            className="cursor-pointer rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="cursor-pointer rounded-md bg-success px-3 py-1.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-success disabled:cursor-not-allowed disabled:opacity-50"
           >
             تحديد الكل حاضر
           </button>
         </div>
       </div>
 
-      {error && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">{error}</p>}
 
       {loading ? (
         <Empty title="جارٍ تحميل الحضور…" />

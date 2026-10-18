@@ -56,15 +56,15 @@ function Dashboard() {
     };
   }, [parentId]);
 
-  if (checking) return <p className="text-sm text-slate-500">جارٍ التحقق…</p>;
+  if (checking) return <p className="text-sm text-stone-500">جارٍ التحقق…</p>;
 
   if (!parent) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-        <p className="mb-3 text-sm text-slate-600">سجّل دخولك لمتابعة أبنائك.</p>
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
+        <p className="mb-3 text-sm text-stone-600">سجّل دخولك لمتابعة أبنائك.</p>
         <Link
           href="/parent/login"
-          className="inline-block rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800"
+          className="inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-primary"
         >
           تسجيل الدخول
         </Link>
@@ -72,14 +72,14 @@ function Dashboard() {
     );
   }
 
-  if (children === null) return <p className="text-sm text-slate-500">جارٍ التحميل…</p>;
+  if (children === null) return <p className="text-sm text-stone-500">جارٍ التحميل…</p>;
 
   if (children.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
         <p className="mb-1 text-2xl">👪</p>
-        <p className="mb-1 font-naskh text-lg font-bold text-slate-800">لا أبناء مرتبطون بعد</p>
-        <p className="text-sm text-slate-500">
+        <p className="mb-1 font-naskh text-lg font-bold text-stone-800">لا أبناء مرتبطون بعد</p>
+        <p className="text-sm text-stone-500">
           اطلب رابط الدعوة من معلّم الحلقة أو من ابنك (من لوحته ← «شارك مع ولي أمرك»)، ثم افتحه من هذا الجهاز.
         </p>
       </div>
@@ -111,8 +111,8 @@ function Dashboard() {
               }}
               className={`cursor-pointer rounded-full border px-4 py-1.5 text-sm font-semibold ${
                 keyOf(c) === activeKey
-                  ? "border-blue-700 bg-blue-700 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  ? "border-primary bg-primary text-white"
+                  : "border-stone-200 bg-white text-stone-600 hover:bg-stone-50"
               }`}
             >
               {c.studentName}
@@ -123,8 +123,8 @@ function Dashboard() {
 
       <ChildPanel key={activeKey} child={active} />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">الإشعارات</h2>
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
+        <h2 className="mb-2 text-sm font-semibold text-stone-700">الإشعارات</h2>
         <ParentPushToggle />
       </div>
     </div>
@@ -208,8 +208,8 @@ function ChildPanel({ child }: { child: Child }) {
   const monthlyPlan = useChildPlan(child);
   const recitations = useChildRecitations(child);
 
-  if (detail === null) return <p className="text-sm text-slate-500">جارٍ تحميل بيانات {child.studentName}…</p>;
-  if (detail === "error") return <p className="text-sm text-red-600">تعذّر تحميل البيانات.</p>;
+  if (detail === null) return <p className="text-sm text-stone-500">جارٍ تحميل بيانات {child.studentName}…</p>;
+  if (detail === "error") return <p className="text-sm text-destructive">تعذّر تحميل البيانات.</p>;
 
   const { summary } = detail;
   const pct = Math.min(100, (summary.pagesCovered / summary.totalPages) * 100);
@@ -217,33 +217,33 @@ function ChildPanel({ child }: { child: Child }) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-naskh text-xl font-bold text-slate-800">{child.studentName}</h1>
-        <p className="text-xs text-slate-500">حلقة «{child.halaqahName}»</p>
+        <h1 className="font-display text-xl font-bold text-stone-800">{child.studentName}</h1>
+        <p className="text-xs text-stone-500">حلقة «{child.halaqahName}»</p>
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
-          <div className="tabular text-xl font-bold text-orange-600">{summary.streak}</div>
-          <div className="mt-0.5 text-[11px] text-slate-500">أيام متتالية</div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+          <div className="tabular text-xl font-bold text-accent-ink">{summary.streak}</div>
+          <div className="mt-0.5 text-[11px] text-stone-500">أيام متتالية</div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-3.5 text-center">
-          <div className="tabular text-xl font-bold text-emerald-700">{summary.pagesCovered}</div>
-          <div className="mt-0.5 text-[11px] text-slate-500">صفحة محفوظة</div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
+          <div className="tabular text-xl font-bold text-success">{summary.pagesCovered}</div>
+          <div className="mt-0.5 text-[11px] text-stone-500">صفحة محفوظة</div>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <div className="mb-1.5 flex items-baseline justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">تقدّم الحفظ</h2>
-          <span className="tabular text-xs text-slate-500">
+          <h2 className="text-sm font-semibold text-stone-700">تقدّم الحفظ</h2>
+          <span className="tabular text-xs text-stone-500">
             {summary.pagesCovered} من {summary.totalPages} صفحة
           </span>
         </div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full rounded-full bg-emerald-600" style={{ width: `${pct}%` }} />
+        <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
+          <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
         </div>
         {summary.lastHifz && (
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-stone-500">
             آخر ما وصل إليه: سورة {summary.lastHifz.surah} (صفحة {summary.lastHifz.page})
           </p>
         )}
@@ -257,7 +257,7 @@ function ChildPanel({ child }: { child: Child }) {
 
       {recitations.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-slate-700">آخر التلاوات</h2>
+          <h2 className="text-sm font-semibold text-stone-700">آخر التلاوات</h2>
           <ul className="space-y-2">
             {recitations.map((r) => (
               <RecitationCard key={r.id} item={r} />
@@ -267,24 +267,24 @@ function ChildPanel({ child }: { child: Child }) {
       )}
 
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">أوراد آخر ١٤ يوماً</h2>
+        <h2 className="text-sm font-semibold text-stone-700">أوراد آخر ١٤ يوماً</h2>
         {summary.wards.length === 0 ? (
-          <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+          <p className="rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-500">
             لا أوراد مسجّلة في آخر ١٤ يوماً.
           </p>
         ) : (
           <ul className="space-y-2">
             {summary.wards.map((w, i) => (
-              <li key={`${w.date}-${i}`} className="rounded-2xl border border-slate-200 bg-white p-3.5">
+              <li key={`${w.date}-${i}`} className="rounded-2xl border border-stone-200 bg-white p-3.5">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="tabular text-sm font-semibold text-slate-700">{w.date}</span>
+                  <span className="tabular text-sm font-semibold text-stone-700">{w.date}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone(w.status)}`}>
                     {STATUS_LABEL[w.status]}
                   </span>
                 </div>
-                {w.hifz && <p className="text-sm text-slate-600">حفظ: {w.hifz}</p>}
-                {w.review && <p className="text-sm text-slate-600">مراجعة: {w.review}</p>}
-                {!w.hifz && !w.review && <p className="text-sm text-slate-400">—</p>}
+                {w.hifz && <p className="text-sm text-stone-600">حفظ: {w.hifz}</p>}
+                {w.review && <p className="text-sm text-stone-600">مراجعة: {w.review}</p>}
+                {!w.hifz && !w.review && <p className="text-sm text-stone-400">—</p>}
               </li>
             ))}
           </ul>

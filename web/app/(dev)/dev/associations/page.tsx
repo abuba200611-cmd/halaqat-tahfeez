@@ -25,7 +25,7 @@ export default function DevAssociationsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-naskh text-2xl font-bold">الجمعيات</h1>
+        <h1 className="font-display text-2xl font-bold">الجمعيات</h1>
         <p className="text-sm text-muted-foreground">
           جمعيات تجمع عدة جوامع، ولكل جمعية مدير يقرأ مؤشرات جوامعه وتقاريرها (قراءة فقط) من{" "}
           <span dir="ltr">/association</span>.

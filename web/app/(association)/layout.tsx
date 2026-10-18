@@ -7,7 +7,7 @@ import type { Metadata } from "next";
 */
 
 export const metadata: Metadata = {
-  title: "لوحة الجمعية — MOS",
+  title: "لوحة الجمعية — السلام",
   description: "مؤشرات جوامع الجمعية وتقاريرها المجمّعة (قراءة فقط).",
 };
 

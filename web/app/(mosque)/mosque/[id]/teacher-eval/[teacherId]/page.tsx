@@ -73,7 +73,7 @@ function DetailInner() {
         <Empty
           title="المعلّم غير موجود في هذا الجامع."
           action={
-            <Link href={`/mosque/${mosqueId}/teacher-eval`} className="text-sm text-primary hover:underline">
+            <Link href={`/mosque/${mosqueId}/teacher-eval`} className="text-sm text-accent-ink hover:underline">
               العودة للقائمة
             </Link>
           }
@@ -147,7 +147,7 @@ function EvalForm({
       </Card>
 
       <Card className="space-y-2 p-4">
-        <h2 className="font-naskh text-lg font-bold">المؤشرات التلقائية</h2>
+        <h2 className="font-display text-lg font-bold">المؤشرات التلقائية</h2>
         <dl className="grid gap-2 text-sm sm:grid-cols-2">
           <div className="flex justify-between gap-2"><dt>حضور طلاب الحلقة</dt><dd className="tabular">{pct(indicators.attendanceRate)}</dd></div>
           <div className="flex justify-between gap-2">
@@ -169,7 +169,7 @@ function EvalForm({
       </Card>
 
       <Card className="space-y-3 p-4">
-        <h2 className="font-naskh text-lg font-bold">التقييم</h2>
+        <h2 className="font-display text-lg font-bold">التقييم</h2>
         {config.criteria.map((c) => (
           <label key={c.key} className="grid grid-cols-[1fr_6rem] items-center gap-3 text-sm">
             <span>
@@ -215,7 +215,7 @@ function EvalForm({
           )}
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
-        {saved && <p className="text-sm text-emerald-700">حُفظ التقييم.</p>}
+        {saved && <p className="text-sm text-success">حُفظ التقييم.</p>}
         <div className="flex flex-wrap gap-2">
           <Button type="button" disabled={busy} onClick={save}>
             {busy ? "لحظة…" : "حفظ التقييم"}

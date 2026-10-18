@@ -8,14 +8,14 @@ import { useParentSession } from "@/components/parent-shell";
 export default function ParentSuggestPage() {
   const { parent, checking } = useParentSession();
 
-  if (checking) return <p className="text-sm text-slate-500">جارٍ التحقق…</p>;
+  if (checking) return <p className="text-sm text-stone-500">جارٍ التحقق…</p>;
   if (!parent) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-        <p className="mb-3 text-sm text-slate-600">سجّل دخولك لمتابعة أبنائك.</p>
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
+        <p className="mb-3 text-sm text-stone-600">سجّل دخولك لمتابعة أبنائك.</p>
         <Link
           href="/parent/login"
-          className="inline-block rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-800"
+          className="inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-primary"
         >
           تسجيل الدخول
         </Link>

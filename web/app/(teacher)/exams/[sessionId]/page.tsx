@@ -97,19 +97,19 @@ export default function ScoringPage({ params }: { params: Promise<{ sessionId: s
     <div className="space-y-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-naskh text-2xl font-bold text-slate-800">{session.typeName}</h1>
-          <p className="text-sm text-slate-500">
+          <h1 className="font-display text-2xl font-bold text-stone-800">{session.typeName}</h1>
+          <p className="text-sm text-stone-500">
             <span className="tabular">{session.sessionDate}</span>
             {session.location && ` • ${session.location}`}
             {session.committee.length > 0 && ` • اللجنة: ${session.committee.map((m) => m.name).join("، ")}`}
           </p>
         </div>
-        <Link href="/exams" className="text-sm text-blue-700 hover:underline">
+        <Link href="/exams" className="text-sm text-accent-ink hover:underline">
           عودة للاختبارات
         </Link>
       </header>
 
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-stone-500">
         {rows.length === 0
           ? "لا ترشيحات مجدولة بهذه الجلسة بعد."
           : `بقية ${remaining} من ${rows.length} طالباً بلا نتيجة مسجَّلة.`}
@@ -183,15 +183,15 @@ function StudentScoringCard({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white">
+    <section className="rounded-2xl border border-stone-200 bg-white">
       <button
         type="button"
         onClick={onToggle}
         className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 p-4 text-start"
       >
         <span>
-          <span className="font-naskh text-lg font-bold text-slate-800">{nomination.studentName}</span>
-          <span className="ms-2 text-sm text-slate-500">
+          <span className="font-naskh text-lg font-bold text-stone-800">{nomination.studentName}</span>
+          <span className="ms-2 text-sm text-stone-500">
             {juzRangeLabel(nomination.juzFrom, nomination.juzTo)} • حلقة {nomination.halaqahName}
           </span>
         </span>
@@ -200,9 +200,9 @@ function StudentScoringCard({
             className={`rounded-full px-3 py-1 text-xs font-bold ${
               result.publishedAt
                 ? result.passed
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-rose-100 text-rose-700"
-                : "bg-slate-100 text-slate-600"
+                  ? "bg-success-soft text-success"
+                  : "bg-destructive-soft text-destructive"
+                : "bg-stone-100 text-stone-600"
             }`}
           >
             {result.publishedAt ? (result.passed ? "ناجح — منشورة" : "لم يُجتز — منشورة") : "مسوّدة"}{" "}
@@ -211,36 +211,36 @@ function StudentScoringCard({
             </span>
           </span>
         ) : (
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+          <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
             {NOMINATION_STATUS_LABELS[nomination.status as keyof typeof NOMINATION_STATUS_LABELS] ?? nomination.status}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="space-y-4 border-t border-slate-100 p-4">
+        <div className="space-y-4 border-t border-stone-100 p-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {ERROR_KINDS.map((kind) => (
-              <div key={kind} className="space-y-2 rounded-xl bg-slate-50 p-3 text-center">
-                <p className="text-xs font-semibold text-slate-600">
-                  {ERROR_LABELS[kind]} <span className="text-slate-400">(−{rules.deductions[kind]})</span>
+              <div key={kind} className="space-y-2 rounded-xl bg-stone-50 p-3 text-center">
+                <p className="text-xs font-semibold text-stone-600">
+                  {ERROR_LABELS[kind]} <span className="text-stone-400">(−{rules.deductions[kind]})</span>
                 </p>
                 <div className="flex items-center justify-center gap-3">
                   <button
                     type="button"
                     onClick={() => bump(kind, -1)}
                     disabled={counts[kind] === 0}
-                    className="h-12 w-12 cursor-pointer rounded-full border border-slate-300 bg-white text-xl font-bold text-slate-600 disabled:opacity-40"
+                    className="h-12 w-12 cursor-pointer rounded-full border border-stone-300 bg-white text-xl font-bold text-stone-600 disabled:opacity-40"
                     aria-label={`إنقاص ${ERROR_LABELS[kind]}`}
                   >
                     −
                   </button>
-                  <span className="tabular w-10 text-2xl font-bold text-slate-800">{counts[kind]}</span>
+                  <span className="tabular w-10 text-2xl font-bold text-stone-800">{counts[kind]}</span>
                   <button
                     type="button"
                     onClick={() => bump(kind, 1)}
                     disabled={counts[kind] >= maxPerKind}
-                    className="h-12 w-12 cursor-pointer rounded-full bg-blue-700 text-xl font-bold text-white disabled:opacity-40"
+                    className="h-12 w-12 cursor-pointer rounded-full bg-primary text-xl font-bold text-white disabled:opacity-40"
                     aria-label={`زيادة ${ERROR_LABELS[kind]}`}
                   >
                     +
@@ -250,41 +250,41 @@ function StudentScoringCard({
             ))}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
-            <p className="text-sm text-slate-600">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 p-3">
+            <p className="text-sm text-stone-600">
               الدرجة بعد الخصومات:{" "}
-              <span className={`tabular text-xl font-bold ${preview.passed ? "text-emerald-700" : "text-rose-600"}`}>
+              <span className={`tabular text-xl font-bold ${preview.passed ? "text-success" : "text-destructive"}`}>
                 {preview.score}
               </span>{" "}
               من {maxScore}
-              <span className="ms-2 text-xs text-slate-400">(النجاح عند {passMark})</span>
+              <span className="ms-2 text-xs text-stone-400">(النجاح عند {passMark})</span>
             </p>
-            <p className={`text-sm font-bold ${preview.passed ? "text-emerald-700" : "text-rose-600"}`}>
+            <p className={`text-sm font-bold ${preview.passed ? "text-success" : "text-destructive"}`}>
               {preview.passed ? "ناجح" : "لم يُجتز"}
             </p>
           </div>
 
 
-          <label className="block text-xs text-slate-500">
+          <label className="block text-xs text-stone-500">
             ملاحظات الممتحن (اختياري)
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               maxLength={500}
               rows={2}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+              className="mt-1 w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-800"
             />
           </label>
 
           {result?.publishedAt ? (
-            <p className="text-sm text-slate-500">النتيجة منشورة — التعديل يتطلب سحب النشر من إدارة الجامع.</p>
+            <p className="text-sm text-stone-500">النتيجة منشورة — التعديل يتطلب سحب النشر من إدارة الجامع.</p>
           ) : (
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={() => save(false)}
                 disabled={busy}
-                className="cursor-pointer rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="cursor-pointer rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-bold text-stone-700 hover:bg-stone-50 disabled:opacity-50"
               >
                 حفظ كمسوّدة
               </button>
@@ -292,15 +292,15 @@ function StudentScoringCard({
                 type="button"
                 onClick={() => save(true)}
                 disabled={busy}
-                className="cursor-pointer rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50"
+                className="cursor-pointer rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary-hover disabled:opacity-50"
               >
                 حفظ ونشر النتيجة
               </button>
             </div>
           )}
 
-          {savedMessage && <p className="text-sm text-emerald-700">{savedMessage}</p>}
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+          {savedMessage && <p className="text-sm text-success">{savedMessage}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
       )}
     </section>

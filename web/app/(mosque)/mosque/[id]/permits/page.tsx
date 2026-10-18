@@ -109,7 +109,7 @@ function PermitsPanel({ mosqueId, data, onChanged }: { mosqueId: number; data: P
       </Card>
 
       <section className="space-y-2">
-        <h2 className="font-naskh text-lg font-bold">اقتراحات</h2>
+        <h2 className="font-display text-lg font-bold">اقتراحات</h2>
         {data.suggestions.length === 0 ? (
           <Empty title="لا اقتراحات حالياً." />
         ) : (
@@ -143,7 +143,7 @@ function PermitsPanel({ mosqueId, data, onChanged }: { mosqueId: number; data: P
       </section>
 
       <section className="space-y-2">
-        <h2 className="font-naskh text-lg font-bold">حلقات الجامع</h2>
+        <h2 className="font-display text-lg font-bold">حلقات الجامع</h2>
         {data.halaqat.length === 0 ? (
           <Empty title="لا حلقات مرتبطة بهذا الجامع." />
         ) : (
@@ -190,7 +190,7 @@ function PermitsPanel({ mosqueId, data, onChanged }: { mosqueId: number; data: P
       <SettingsCard mosqueId={mosqueId} initial={data.config} onSaved={onChanged} />
 
       <section className="space-y-2">
-        <h2 className="font-naskh text-lg font-bold">سجل التدقيق</h2>
+        <h2 className="font-display text-lg font-bold">سجل التدقيق</h2>
         {data.log.length === 0 ? (
           <Empty title="لا إجراءات مسجَّلة بعد." />
         ) : (
@@ -244,7 +244,7 @@ function SettingsCard({ mosqueId, initial, onSaved }: { mosqueId: number; initia
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-naskh text-lg font-bold">إعدادات التصاريح</h2>
+        <h2 className="font-display text-lg font-bold">إعدادات التصاريح</h2>
         <Button variant="ghost" type="button" onClick={() => setConfig(DEFAULT_PERMITS_CONFIG)}>
           الافتراضيات
         </Button>
@@ -266,7 +266,7 @@ function SettingsCard({ mosqueId, initial, onSaved }: { mosqueId: number; initia
         ))}
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {saved && <p className="text-sm text-emerald-700">حُفظت الإعدادات.</p>}
+      {saved && <p className="text-sm text-success">حُفظت الإعدادات.</p>}
       <Button type="button" disabled={busy} onClick={save}>
         {busy ? "لحظة…" : "حفظ الإعدادات"}
       </Button>

@@ -78,7 +78,7 @@ function Evaluation({ mosqueId }: { mosqueId: number }) {
         </div>
         <Link
           href={`/mosque/${mosqueId}/evaluation/criteria`}
-          className="ms-auto text-sm text-primary hover:underline"
+          className="ms-auto text-sm text-accent-ink hover:underline"
         >
           إدارة المعايير
         </Link>
@@ -90,7 +90,7 @@ function Evaluation({ mosqueId }: { mosqueId: number }) {
         <Empty
           title="لا توجد معايير تقييم فعّالة — حدّد معايير الجامع أولاً."
           action={
-            <Link href={`/mosque/${mosqueId}/evaluation/criteria`} className="text-sm text-primary hover:underline">
+            <Link href={`/mosque/${mosqueId}/evaluation/criteria`} className="text-sm text-accent-ink hover:underline">
               إدارة المعايير
             </Link>
           }

@@ -97,7 +97,7 @@ function JoinMosque() {
 
   return (
     <Card className="mx-auto max-w-lg space-y-4 p-5">
-      <h1 className="font-naskh text-xl font-bold">
+      <h1 className="font-display text-xl font-bold">
         انضمام حلقتك «{preview.halaqahName}» إلى جامع «{preview.mosqueName}»
         {preview.city ? ` — ${preview.city}` : ""}
       </h1>

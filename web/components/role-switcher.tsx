@@ -79,10 +79,10 @@ export function RoleSwitcher({ tone = "dark" }: { tone?: "dark" | "light" }) {
   const isDark = tone === "dark";
   const buttonCls = isDark
     ? "w-full cursor-pointer rounded-lg px-2 py-1.5 text-right text-xs text-white/70 transition-colors duration-200 hover:bg-white/10 hover:text-white"
-    : "w-full cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors duration-200 hover:bg-slate-50";
+    : "w-full cursor-pointer rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50";
   const itemCls = isDark
     ? "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-white/80 transition-colors duration-200 hover:bg-white/10 hover:text-white"
-    : "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors duration-200 hover:bg-slate-100";
+    : "flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-stone-700 transition-colors duration-200 hover:bg-stone-100";
 
   return (
     <div ref={rootRef} className="relative">
@@ -92,7 +92,7 @@ export function RoleSwitcher({ tone = "dark" }: { tone?: "dark" | "light" }) {
       {open && (
         <div
           className={`absolute bottom-full right-0 z-50 mb-2 w-56 rounded-xl p-1.5 shadow-xl ${
-            isDark ? "bg-slate-900 ring-1 ring-white/15" : "border border-slate-200 bg-white"
+            isDark ? "bg-foreground ring-1 ring-white/15" : "border border-stone-200 bg-white"
           }`}
         >
           {items.map((item) => (

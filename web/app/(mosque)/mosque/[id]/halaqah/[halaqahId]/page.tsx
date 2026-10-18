@@ -66,10 +66,10 @@ export default function HalaqahDetailPage() {
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <div className="flex justify-center gap-4">
-          <Link href="/mosque" className="text-sm text-primary hover:underline">
+          <Link href="/mosque" className="text-sm text-accent-ink hover:underline">
             دخول المشرف العام
           </Link>
-          <Link href="/mosque-login" className="text-sm text-primary hover:underline">
+          <Link href="/mosque-login" className="text-sm text-accent-ink hover:underline">
             دخول مدير الجامع
           </Link>
         </div>
@@ -81,7 +81,7 @@ export default function HalaqahDetailPage() {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
         <p className="text-sm text-destructive">تعذّر جلب بيانات الحلقة حالياً — حاول لاحقاً.</p>
-        <Link href={`/mosque/${mosqueId}`} className="mt-3 text-sm text-primary hover:underline">
+        <Link href={`/mosque/${mosqueId}`} className="mt-3 text-sm text-accent-ink hover:underline">
           الرجوع لصفحة الجامع
         </Link>
       </main>

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RoleSwitcher } from "../role-switcher";
+import { BrandLockup } from "../brand";
 
 /*
   قالب لوحة المطوّر — سايدبار داكن خاص بهذه اللوحة وحدها (مستقل عن قالب
@@ -56,16 +57,15 @@ export function DevShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       {/* الجوال: شريط علوي */}
-      <header className="flex items-center gap-3 bg-slate-950 px-3 py-2 md:hidden">
+      <header className="flex items-center gap-3 bg-foreground px-3 py-2 md:hidden">
         <p className="font-naskh text-sm font-bold text-white">لوحة المطوّر</p>
         <nav className="flex flex-1 gap-1 overflow-x-auto">{links(false)}</nav>
       </header>
 
       {/* الشاشات الواسعة: سايدبار داكن */}
-      <aside className="hidden w-56 shrink-0 flex-col bg-slate-950 px-3 py-5 md:flex">
+      <aside className="hidden w-56 shrink-0 flex-col bg-foreground px-3 py-5 md:flex">
         <div className="mb-6 px-2">
-          <p className="font-naskh text-lg font-bold text-white">لوحة المطوّر</p>
-          <p className="text-xs text-white/50">MOS — نظام تشغيل الجامع</p>
+          <BrandLockup tone="onDark" context="لوحة المطوّر" />
         </div>
         <nav className="flex flex-1 flex-col gap-1">{links(true)}</nav>
         {/* جلسة الأدمن بلا مستخدم موحّد (ADMIN_SECRET ليس حساباً) فيختفي

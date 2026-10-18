@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Empty } from "@/components/ui";
+import { BrandLockup } from "@/components/brand";
 
 type Suggestion = {
   id: number;
@@ -54,7 +55,7 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
-      <h1 className="mb-1 font-naskh text-2xl font-bold">اقتراحات ومشاكل المعلّمين والطلاب</h1>
+      <h1 className="mb-1 font-display text-2xl font-bold">اقتراحات ومشاكل المعلّمين والطلاب</h1>
       <p className="mb-4 text-sm text-muted-foreground">
         {suggestions.length} رسالة من النظامين — الأحدث أولاً
         {problemCount > 0 && ` · ${problemCount} مشكلة تحتاج حل`}
@@ -164,7 +165,10 @@ function AdminLogin({ onIn }: { onIn: () => Promise<void> }) {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
       <Card className="p-5">
-        <h1 className="mb-4 text-center font-naskh text-xl font-bold">لوحة المطوّر</h1>
+        <div className="mb-4 flex justify-center">
+          <BrandLockup tone="onLight" size={44} />
+        </div>
+        <h1 className="font-display mb-4 text-center text-xl font-bold">لوحة المطوّر</h1>
         <form onSubmit={submit} className="space-y-3">
           <input
             type="password"

@@ -41,7 +41,7 @@ function CommitteeDetail({ mosqueId, committeeId }: { mosqueId: number; committe
       <Empty
         title="اللجنة غير موجودة أو الميزة غير مفعّلة."
         action={
-          <Link href={`/mosque/${mosqueId}/committees`} className="text-sm text-primary hover:underline">
+          <Link href={`/mosque/${mosqueId}/committees`} className="text-sm text-accent-ink hover:underline">
             العودة للجان
           </Link>
         }
@@ -79,13 +79,13 @@ function CommitteeDetail({ mosqueId, committeeId }: { mosqueId: number; committe
 
   return (
     <div className="space-y-5">
-      <Link href={`/mosque/${mosqueId}/committees`} className="text-sm text-primary hover:underline">
+      <Link href={`/mosque/${mosqueId}/committees`} className="text-sm text-accent-ink hover:underline">
         ← كل اللجان
       </Link>
 
       <Card className="flex flex-wrap items-start justify-between gap-3 p-4">
         <div>
-          <h2 className="font-naskh text-xl font-bold">{data.committee.name}</h2>
+          <h2 className="font-display text-xl font-bold">{data.committee.name}</h2>
           {data.committee.description && <p className="mt-1 text-sm text-muted-foreground">{data.committee.description}</p>}
         </div>
         <Button variant="danger" onClick={removeCommittee}>
