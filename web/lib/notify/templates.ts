@@ -13,7 +13,8 @@ export type WhatsappTemplateKey =
   | "absence_warning"
   | "parent_summons"
   | "exam_result"
-  | "certificate_issued";
+  | "certificate_issued"
+  | "optin_confirm";
 
 export type WhatsappTemplateSpec = {
   /** اسم القالب كما سُجّل لدى Meta (لا يقبل حروفاً عربية) */
@@ -55,6 +56,12 @@ export const WHATSAPP_TEMPLATES: Readonly<Record<WhatsappTemplateKey, WhatsappTe
     lang: "ar",
     params: ["student_name", "certificate_code"],
   },
+  // رمز تأكيد ملكية الرقم قبل الموافقة (يُرسل مباشرة لا عبر الصادر)
+  optin_confirm: {
+    name: "halaqa_optin_confirm",
+    lang: "ar",
+    params: ["code"],
+  },
 };
 
 /** أسماء القوالب بمفاتيحها للعرض بلوحة المطوّر */
@@ -65,4 +72,5 @@ export const WHATSAPP_TEMPLATE_LABELS: Readonly<Record<WhatsappTemplateKey, stri
   parent_summons: "استدعاء ولي أمر",
   exam_result: "نتيجة اختبار",
   certificate_issued: "إصدار شهادة",
+  optin_confirm: "رمز تأكيد الرقم",
 };

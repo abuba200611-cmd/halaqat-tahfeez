@@ -86,6 +86,25 @@ describe("POST — إيقاف الخدمة", () => {
   });
 });
 
+describe("POST — حجم الجسم", () => {
+  it("جسم فوق 256KB (بالنص): 413 قبل أي HMAC أو إيقاف", async () => {
+    process.env.WHATSAPP_APP_SECRET = SECRET;
+    const res = await POST(signedRequest("x".repeat(256 * 1024 + 1)));
+    expect(res.status).toBe(413);
+    expect(parentDbMocks.optOutParentByPhone).not.toHaveBeenCalled();
+  });
+
+  it("Content-Length معلن فوق السقف: 413 دون قراءة الجسم", async () => {
+    process.env.WHATSAPP_APP_SECRET = SECRET;
+    const req = new Request("http://localhost/api/webhooks/whatsapp", {
+      method: "POST",
+      headers: { "content-length": String(300 * 1024) },
+      body: "{}",
+    });
+    expect((await POST(req)).status).toBe(413);
+  });
+});
+
 describe("GET — تحقق تسجيل الويبهوك", () => {
   const verifyUrl = (token: string) =>
     new Request(`http://localhost/api/webhooks/whatsapp?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(token)}&hub.challenge=cha123`);

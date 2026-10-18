@@ -3,12 +3,20 @@
 import { useEffect, useState } from "react";
 
 /*
-  بطاقة واتساب بلوحة ولي الأمر (B1): إدخال رقم الجوال ثم موافقة صريحة
-  (خانة اختيار + زر) — لا رسائل بلا موافقة، وتغيير الرقم يُسقطها فيُعاد
-  طلبها. النصوص هنا هي نص الموافقة الفعلي المطلوب نظامياً.
+  بطاقة واتساب بلوحة ولي الأمر (B1): إدخال رقم الجوال ← يصله رمز تأكيد
+  من 6 أرقام ← موافقة صريحة (خانة اختيار) + إدخال الرمز. لا رسائل بلا
+  موافقة مؤكَّدة، وتغيير الرقم يُسقطها فيُعاد طلبها. النصوص هنا هي نص
+  الموافقة الفعلي المطلوب نظامياً.
 */
 
-type Info = { phone: string | null; optedIn: boolean; optedInAt: string | null };
+type Info = {
+  phone: string | null;
+  optedIn: boolean;
+  optedInAt: string | null;
+  pendingConfirmation?: boolean;
+  /** حالة إرسال رمز التأكيد بعد حفظ الرقم مباشرة */
+  codeDelivery?: "sent" | "skipped" | "failed";
+};
 
 async function put(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; info?: Info }> {
   try {
@@ -28,6 +36,8 @@ export function ParentWhatsappCard() {
   const [info, setInfo] = useState<Info | null>(null);
   const [phone, setPhone] = useState("");
   const [consented, setConsented] = useState(false);
+  const [code, setCode] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingPhone, setEditingPhone] = useState(false);
@@ -60,12 +70,36 @@ export function ParentWhatsappCard() {
     setPhone("");
     setEditingPhone(false);
     setConsented(false);
+    setCode("");
+    const delivery = outcome.info?.codeDelivery;
+    if (delivery === "skipped") {
+      setNotice("خدمة واتساب غير مفعّلة حالياً فتعذّر إرسال رمز التأكيد، ولا يمكن تفعيل الرسائل الآن.");
+    } else if (delivery === "failed") {
+      setNotice("تعذّر إرسال رمز التأكيد إلى رقمك، تأكد من الرقم وأعد الحفظ.");
+    } else {
+      setNotice("أرسلنا رمز تأكيد من 6 أرقام إلى واتساب على هذا الرقم، صالح 10 دقائق.");
+    }
   }
 
-  async function setOptIn(optIn: boolean) {
+  async function confirmCode() {
     setError(null);
     setBusy(true);
-    const outcome = await put({ optIn });
+    const outcome = await put({ code });
+    setBusy(false);
+    if (!outcome.ok) {
+      setError(outcome.error ?? null);
+      return;
+    }
+    setInfo(outcome.info ?? null);
+    setCode("");
+    setConsented(false);
+    setNotice(null);
+  }
+
+  async function disableOptIn() {
+    setError(null);
+    setBusy(true);
+    const outcome = await put({ optIn: false });
     setBusy(false);
     if (!outcome.ok) {
       setError(outcome.error ?? null);
@@ -87,7 +121,7 @@ export function ParentWhatsappCard() {
           </span>
           <button
             type="button"
-            onClick={() => setOptIn(false)}
+            onClick={disableOptIn}
             disabled={busy}
             className="cursor-pointer text-xs font-semibold text-slate-500 underline hover:no-underline disabled:opacity-50"
           >
@@ -124,14 +158,31 @@ export function ParentWhatsappCard() {
             />
             <span>قرأت الموافقة أعلاه وأوافق عليها</span>
           </label>
-          <button
-            type="button"
-            onClick={() => setOptIn(true)}
-            disabled={!consented || busy}
-            className="cursor-pointer rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {busy ? "لحظة…" : "تفعيل رسائل واتساب"}
-          </button>
+          {info.pendingConfirmation ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="رمز التأكيد"
+                dir="ltr"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                className="tabular w-32 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800"
+              />
+              <button
+                type="button"
+                onClick={confirmCode}
+                disabled={!consented || busy || code.length !== 6}
+                className="cursor-pointer rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy ? "لحظة…" : "تأكيد وتفعيل رسائل واتساب"}
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-amber-700">
+              لا رمز تأكيد صالح — اضغط «تغيير الرقم» وأعد حفظ رقمك ليصلك رمز جديد (حدّ 3 مرات يومياً).
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -172,6 +223,7 @@ export function ParentWhatsappCard() {
         </div>
       )}
 
+      {notice && !error && <p className="text-xs text-slate-600">{notice}</p>}
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );

@@ -34,6 +34,15 @@ describe("اختيار المزوّد من البيئة", () => {
     expect(whatsappProvider().name).toBe("meta");
   });
 
+  it("السجل يُخفي الرقم ويُبقي آخر 3 أرقام فقط", async () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    await logWhatsappProvider().send({ to: "966501234567", template: "exam_result" });
+    const printed = spy.mock.calls.flat().join(" ");
+    spy.mockRestore();
+    expect(printed).toContain("***567");
+    expect(printed).not.toContain("966501234567");
+  });
+
   it("المزوّد الصامت نفسه يرجع skipped مباشرة", async () => {
     expect(await logWhatsappProvider().send({ to: "966501234567", template: "exam_result" })).toEqual({
       skipped: true,

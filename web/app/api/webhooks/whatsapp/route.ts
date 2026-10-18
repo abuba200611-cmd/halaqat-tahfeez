@@ -14,6 +14,9 @@ import { safeEqual } from "@/lib/safe-equal";
   عند الإرسال أصلاً.
 */
 
+/** سقف حجم الجسم قبل أي HMAC — أحداث Meta أصغر بكثير من هذا */
+const MAX_BODY_BYTES = 256 * 1024;
+
 const STOP_WORDS = new Set(["stop", "unsubscribe", "إيقاف", "ايقاف", "إلغاء", "الغاء", "توقف"]);
 
 function expectedAppSecret(): string {
@@ -48,7 +51,12 @@ export async function POST(request: Request) {
   const secret = expectedAppSecret();
   if (!secret) return Response.json({ error: "الويبهوك غير مهيأ" }, { status: 503 });
 
+  const declared = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return Response.json({ error: "الجسم كبير جداً" }, { status: 413 });
+  }
   const raw = await request.text();
+  if (raw.length > MAX_BODY_BYTES) return Response.json({ error: "الجسم كبير جداً" }, { status: 413 });
   const signature = (request.headers.get("x-hub-signature-256") ?? "").toLowerCase();
   if (!signature.startsWith("sha256=")) return Response.json({ error: "توقيع مفقود" }, { status: 401 });
   const expected = `sha256=${createHmac("sha256", secret).update(raw).digest("hex")}`;

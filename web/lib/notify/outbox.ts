@@ -3,7 +3,7 @@ import "server-only";
 import { db } from "../db";
 import { getMosqueSetting } from "../mosque-settings-db";
 import { isFeatureEnabled } from "../mosque/db";
-import { listWhatsappParentsForStudent } from "../parent-db";
+import { isPhoneWhatsappOptedIn, listWhatsappParentsForStudent } from "../parent-db";
 import { normalizeSaudiPhone } from "./phone";
 import { WHATSAPP_TEMPLATES, type WhatsappTemplateKey } from "./templates";
 import { whatsappProvider } from "./whatsapp";
@@ -13,7 +13,7 @@ import { whatsappProvider } from "./whatsapp";
   أولاً (queued) ثم محاولة المزوّد ثم تحديث الصف (sent/failed/skipped).
   التكرار الآمن: ref فريد لكل (حدث، مستلم) — الفهرس الفريد الجزئي بالجدول
   يمنع الصف المكرَّر، وإعادة الحدث نفسه لا ترسل ثانية. السقف اليومي
-  (لكل جامع ولكل رقم) يُفحص ويُدرج بجملة واحدة: صفوف اليوم غير المتخطاة
+  (لكل جامع ولكل رقم، واليوم بتوقيت الرياض) يُفحص ويُدرج بجملة واحدة: صفوف اليوم غير المتخطاة
   تُعدّ، وتجاوز السقف يُدرج صف skipped (مسجَّل باللوحة، لا يُحسَب بالسقف).
   لا شيء هنا يرمي أبداً — فشل الإشعار لا يغيّر نتيجة الحدث الأصلي.
 */
@@ -83,7 +83,7 @@ export async function enqueueWhatsapp(input: {
           count(*) FILTER (WHERE mosque_id = ${input.mosqueId}) AS mosque_today,
           count(*) FILTER (WHERE to_phone = ${toPhone}) AS phone_today
         FROM notifications_outbox
-        WHERE status != 'skipped' AND created_at >= date_trunc('day', now())
+        WHERE status != 'skipped' AND created_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh'
           AND (mosque_id = ${input.mosqueId} OR to_phone = ${toPhone})
       ), ins AS (
         INSERT INTO notifications_outbox (channel, to_phone, template, params, status, error, mosque_id, ref)
@@ -298,17 +298,43 @@ export type ResendOutcome = "sent" | "failed" | "skipped" | "not_found" | "not_f
  * إعادة إرسال صف فاشل من لوحة المطوّر — الصف نفسه يُعاد استخدامه (ref كما
  * هو). لا يُعاد فحص السقف: الصف محسوب أصلاً بمحاولته الأولى، وهذه يدوية
  * للإصلاح لا تكراراً آلياً.
+ * ذرّية: الحجز بتحديث شرطي (failed، أو queued عالق أكثر من 10 دقائق)
+ * فنقرتان متزامنتان لا ترسلان مرتين — الخاسر يرجع not_failed. وقبل
+ * الإرسال يُعاد التحقق أن الولي ما زال موافقاً وأن الميزة مفعّلة بالجامع
+ * وإلا يُغلق الصف skipped بسبب.
  */
 export async function resendWhatsappOutbox(id: number): Promise<ResendOutcome> {
-  const rows = await db().sql`
-    SELECT id, status, to_phone, template, params FROM notifications_outbox WHERE id = ${id}
+  const claimed = await db().sql`
+    UPDATE notifications_outbox
+    SET status = 'queued', error = ''
+    WHERE id = ${id}
+      AND (status = 'failed' OR (status = 'queued' AND created_at < now() - interval '10 minutes'))
+    RETURNING id, to_phone, template, params, mosque_id
   `;
-  const row = rows[0];
-  if (!row) return "not_found";
-  if (row.status !== "failed") return "not_failed";
+  const row = claimed[0];
+  if (!row) {
+    const exists = await db().sql`SELECT 1 FROM notifications_outbox WHERE id = ${id}`;
+    return exists.length > 0 ? "not_failed" : "not_found";
+  }
+
+  const toPhone = row.to_phone as string;
+  const mosqueId = row.mosque_id === null || row.mosque_id === undefined ? null : Number(row.mosque_id);
+  let blocked: string | null = null;
+  try {
+    if (!(await isPhoneWhatsappOptedIn(toPhone))) blocked = "recipient_not_opted_in";
+    else if (mosqueId === null || !(await isFeatureEnabled(mosqueId, "whatsapp"))) blocked = "feature_disabled";
+  } catch {
+    // تعذّر التحقق ≠ إذن بالإرسال: يرجع الصف failed ليُعاد لاحقاً
+    await markOutbox(id, "failed", "recheck_failed");
+    return "failed";
+  }
+  if (blocked) {
+    await markOutbox(id, "skipped", blocked);
+    return "skipped";
+  }
 
   const result = await whatsappProvider().send({
-    to: row.to_phone as string,
+    to: toPhone,
     template: row.template as WhatsappTemplateKey,
     params: (row.params ?? {}) as Record<string, string>,
   });

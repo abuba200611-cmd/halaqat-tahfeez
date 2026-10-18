@@ -80,12 +80,17 @@ export function metaWhatsappProvider(token: string, phoneId: string): WhatsappPr
   };
 }
 
+/** يُخفي الرقم بالسجلات: آخر 3 أرقام فقط */
+export function maskPhone(phone: string): string {
+  return `***${phone.slice(-3)}`;
+}
+
 /** مزوّد صامت عندما لا مفاتيح — يسجّل ويرجع skipped:true بلا أي اتصال */
 export function logWhatsappProvider(): WhatsappProvider {
   return {
     name: "log",
     async send(input) {
-      console.log("[whatsapp:skipped] provider not configured", input.template, input.to);
+      console.log("[whatsapp:skipped] provider not configured", input.template, maskPhone(input.to));
       return { skipped: true };
     },
   };

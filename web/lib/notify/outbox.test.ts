@@ -12,15 +12,19 @@ const sqlMock = vi.fn();
 const targetsMock = vi.fn();
 const featureMock = vi.fn();
 const settingMock = vi.fn();
+const optedInMock = vi.fn();
 
 vi.mock("@netlify/database", () => ({
   getDatabase: () => ({ pool: { connect: vi.fn() }, sql: sqlMock }),
 }));
-vi.mock("../parent-db", () => ({ listWhatsappParentsForStudent: targetsMock }));
+vi.mock("../parent-db", () => ({
+  listWhatsappParentsForStudent: targetsMock,
+  isPhoneWhatsappOptedIn: optedInMock,
+}));
 vi.mock("../mosque/db", () => ({ isFeatureEnabled: featureMock }));
 vi.mock("../mosque-settings-db", () => ({ getMosqueSetting: settingMock }));
 
-const { dispatchWhatsapp, sendWhatsappToParentsOfStudent } = await import("./outbox");
+const { dispatchWhatsapp, resendWhatsappOutbox, sendWhatsappToParentsOfStudent } = await import("./outbox");
 
 /** نص الاستعلامات حتى الآن وكل معاملاتها — (sql وسم قالب: [strings, ...values]) */
 function calls() {
@@ -41,6 +45,7 @@ beforeEach(() => {
   featureMock.mockResolvedValue(true);
   targetsMock.mockResolvedValue([target]);
   settingMock.mockResolvedValue(undefined); // الافتراضيات: 300 و5
+  optedInMock.mockResolvedValue(true);
 });
 
 describe("sendWhatsappToParentsOfStudent — البوابة والاستهداف", () => {
@@ -210,7 +215,7 @@ describe("dispatchWhatsapp — الصندوق والحالات", () => {
     });
     const text = calls()[0].text;
     expect(text).toContain("status != 'skipped'");
-    expect(text).toContain("date_trunc('day', now())");
+    expect(text).toContain("date_trunc('day', now() AT TIME ZONE 'Asia/Riyadh')");
   });
 
   it("فشل المزوّد: الحالة failed مع رسالة الخطأ", async () => {
@@ -247,5 +252,72 @@ describe("dispatchWhatsapp — الصندوق والحالات", () => {
     });
     expect(result.failed).toBe(true);
     expect(result.reason).toBe("db_error");
+  });
+});
+
+describe("السقف اليومي — يوم الرياض", () => {
+  it("عدّ اليوم بتوقيت Asia/Riyadh لا UTC", async () => {
+    sqlMock.mockResolvedValueOnce([{ id: 1, status: "queued", error: "" }]);
+    await dispatchWhatsapp({
+      mosqueId: 7,
+      toPhone: "966501234567",
+      template: "ward_approved",
+      params: { student_name: "أحمد" },
+      ref: "r1",
+    });
+    expect(calls()[0]?.text).toContain("AT TIME ZONE 'Asia/Riyadh'");
+  });
+});
+
+describe("resendWhatsappOutbox — ذرّية وإعادة تحقق", () => {
+  const claimedRow = { id: 9, to_phone: "966501234567", template: "ward_approved", params: { student_name: "أ" }, mosque_id: 7 };
+
+  it("الحجز بتحديث شرطي (failed أو queued عالق 10 دقائق) مع RETURNING", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    await resendWhatsappOutbox(9);
+    const text = calls()[0]?.text ?? "";
+    expect(text).toContain("UPDATE notifications_outbox");
+    expect(text).toContain("status = 'failed'");
+    expect(text).toContain("interval '10 minutes'");
+    expect(text).toContain("RETURNING");
+  });
+
+  it("لم يُحجز والصف موجود (نقرة متزامنة خسرت): not_failed ولا إرسال", async () => {
+    sqlMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ "?column?": 1 }]);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await resendWhatsappOutbox(9)).toBe("not_failed");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("لا صف أصلاً: not_found", async () => {
+    sqlMock.mockResolvedValue([]);
+    expect(await resendWhatsappOutbox(9)).toBe("not_found");
+  });
+
+  it("الولي لم يعد موافقاً: skipped بسبب ولا استدعاء مزوّد", async () => {
+    sqlMock.mockResolvedValueOnce([claimedRow]).mockResolvedValue([]);
+    optedInMock.mockResolvedValue(false);
+    process.env.WHATSAPP_TOKEN = "t";
+    process.env.WHATSAPP_PHONE_ID = "p";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await resendWhatsappOutbox(9)).toBe("skipped");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(calls()[1]?.values).toContain("recipient_not_opted_in");
+  });
+
+  it("الميزة معطّلة بالجامع: skipped بسبب feature_disabled", async () => {
+    sqlMock.mockResolvedValueOnce([claimedRow]).mockResolvedValue([]);
+    featureMock.mockResolvedValue(false);
+    expect(await resendWhatsappOutbox(9)).toBe("skipped");
+    expect(featureMock).toHaveBeenCalledWith(7, "whatsapp");
+    expect(calls()[1]?.values).toContain("feature_disabled");
+  });
+
+  it("كل الشروط سليمة والمزوّد غير مهيأ: skipped provider_not_configured", async () => {
+    sqlMock.mockResolvedValueOnce([claimedRow]).mockResolvedValue([]);
+    expect(await resendWhatsappOutbox(9)).toBe("skipped");
+    expect(calls()[1]?.values).toContain("provider_not_configured");
   });
 });

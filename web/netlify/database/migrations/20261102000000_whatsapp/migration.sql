@@ -14,6 +14,16 @@ ALTER TABLE parents ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE parents ADD COLUMN IF NOT EXISTS whatsapp_opt_in BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE parents ADD COLUMN IF NOT EXISTS whatsapp_opt_in_at TIMESTAMPTZ;
 
+-- تأكيد ملكية الرقم: الموافقة لا تُفعَّل إلا برمز من 6 أرقام يصل للرقم نفسه
+-- عبر واتساب. يُخزَّن مجزّأً (sha256) فقط، صالح 10 دقائق وبحد أقصى 5
+-- محاولات، ويُمسح عند النجاح أو عند تغيير الرقم.
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS whatsapp_code_hash TEXT;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS whatsapp_code_expires_at TIMESTAMPTZ;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS whatsapp_code_attempts INTEGER NOT NULL DEFAULT 0;
+-- سقف تغيير الرقم (3 باليوم) — اليوم بتوقيت الرياض
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS whatsapp_phone_changes INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS whatsapp_phone_changes_day DATE;
+
 -- ————— صندوق الصادر —————
 -- كل إرسالة واتساب تمرّ من هنا (queued ← sent/failed/skipped). ref مفتاح
 -- التكرار الآمن لكل (حدث، مستلم) — الفهرس الفريد الجزئي يجعل إعادة تشغيل
