@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: TITLE, description: DESCRIPTION, images: ["/brand/icons/icon-512.png"] },
 };
 
-const HERO_WORDS = ["جامعك", "كلّه…", "في", "منصة", "واحدة"];
+const HERO_WORDS = ["جامعك", "كلّه…", "على", "منصة", "واحدة"];
 const KEYWORDS = ["الحلقات", "الحضور والغياب", "الحفظ", "المراجعة", "أولياء الأمور", "الاختبارات", "الشهادات", "لوحة الشرف", "التقارير"];
 
 const ROLES = [
