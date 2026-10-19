@@ -77,15 +77,19 @@ describe("POST /api/auth/login — حدّ البريد على الفشل فقط 
     expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:u@x.com", 900);
   });
 
-  it("بريد غير موجود: نفس رسالة 401 بالضبط، وتُحتسب المحاولة على مفتاحه", async () => {
+  it("بريد غير موجود: 404 + no_account (قرار المالك)، وتُحتسب المحاولة على مفتاحه", async () => {
     dbMocks.findTeacherByUsername.mockResolvedValue(null);
 
     const res = await POST(loginReq("ghost@x.com", "x"));
-    const data = (await res.json()) as { error: string };
+    const data = (await res.json()) as { error: string; code: string; email: string };
 
-    expect(res.status).toBe(401);
-    expect(data.error).toBe("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+    expect(res.status).toBe(404);
+    expect(data.code).toBe("no_account");
+    expect(data.error).toBe("ما عندك حساب بهذا البريد");
+    expect(data.email).toBe("ghost@x.com");
+    expect(authMocks.setSessionCookie).not.toHaveBeenCalled();
     expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:ghost@x.com", 900);
+    expect(dbMocks.recordFailedLoginAttempt).toHaveBeenCalled();
   });
 
   it("١٠ محاولات فاشلة سابقاً (peek يمنع): 429 قبل أي بحث أو تحقّق، وبلا احتساب جديد", async () => {

@@ -204,6 +204,10 @@ describe("بوابة مسارات التسجيل: mos_intro", () => {
     });
   }
 
+  it("تسليم جوجل (google_handoff) بلا mos_intro يمر لـ/signup — لا يردّه الترحيب", async () => {
+    expect(await decide("/signup?google=1", PUBLIC_HOST, { google_handoff: "tok.sig" })).toBe("allow");
+  });
+
   it("من معه جلسة (مستخدم قائم) لا تُحجب عنه مسارات الانضمام", async () => {
     expect(await decide("/student-join", PUBLIC_HOST, { halaqa_session: "5.0.1.sig" })).toBe("allow");
     expect(await decide("/j/3", PUBLIC_HOST, { halaqa_parent: "3.0.1.sig" })).toBe("allow");

@@ -24,20 +24,23 @@ export function ParentAuthForm({
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [noAccount, setNoAccount] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setNoAccount(false);
     try {
       const res = await fetch(mode === "login" ? "/api/parent-auth/login" : "/api/parent-auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mode === "login" ? { email, password } : { name, email, password }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; parent?: ParentSession };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; parent?: ParentSession; code?: string };
       if (!res.ok || !data.parent) {
         setError(data.error ?? "تعذّر إكمال الطلب");
+        setNoAccount(data.code === "no_account");
         return;
       }
       setParent(data.parent);
@@ -105,6 +108,19 @@ export function ParentAuthForm({
       </label>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {noAccount && (
+        <button
+          type="button"
+          onClick={() => {
+            setMode("register");
+            setError(null);
+            setNoAccount(false);
+          }}
+          className="w-full cursor-pointer rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-stone-50"
+        >
+          أنشئ حساباً جديداً
+        </button>
+      )}
 
       <button
         type="submit"

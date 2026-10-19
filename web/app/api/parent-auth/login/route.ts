@@ -28,8 +28,17 @@ export async function POST(request: Request) {
   }
 
   const parent = await findParentByEmail(email);
-  // رسالة واحدة للحالتين حتى لا تكشف أي بريد مسجّل من عدمه
-  if (!parent || !verifyPassword(password, parent.passwordHash)) {
+  // لا حساب بهذا البريد: رسالة صريحة (قرار المالك) تحوّل لإنشاء حساب،
+  // ويُحتسب فاشلاً على الحدّين فلا يصلح مسحاً للبريد
+  if (!parent) {
+    await recordRateLimitHit(emailLimitKey, 900);
+    await recordFailedLoginAttempt(ip);
+    return Response.json(
+      { error: "ما عندك حساب بهذا البريد", code: "no_account", email },
+      { status: 404 },
+    );
+  }
+  if (!verifyPassword(password, parent.passwordHash)) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
     return Response.json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" }, { status: 401 });

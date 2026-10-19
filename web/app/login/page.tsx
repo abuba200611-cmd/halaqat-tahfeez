@@ -34,6 +34,7 @@ function UnifiedLoginForm() {
   const [identifier, setIdentifier] = useState(() => searchParams.get("identifier") ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [noAccount, setNoAccount] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -45,15 +46,22 @@ function UnifiedLoginForm() {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setNoAccount(false);
     try {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identifier, password }),
       });
-      const data = (await res.json().catch(() => ({}))) as { kind?: string; redirect?: string; error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        kind?: string;
+        redirect?: string;
+        error?: string;
+        code?: string;
+      };
       if (!res.ok || !data.kind) {
         setError(data.error ?? "تعذّر تسجيل الدخول");
+        setNoAccount(data.code === "no_account");
         return;
       }
       // تحميل كامل: القشرة الجديدة تقرأ الجلسة من الخادم من جديد
@@ -111,6 +119,16 @@ function UnifiedLoginForm() {
           </label>
 
           {error && <p className="text-sm text-destructive-light">{error}</p>}
+          {noAccount && (
+            <div>
+              <Link
+                href={`/signup?email=${encodeURIComponent(identifier.trim())}`}
+                className="block w-full rounded-xl border border-white/30 px-3 py-2.5 text-center text-sm font-semibold text-white transition-colors duration-200 hover:bg-white/10"
+              >
+                أنشئ حساباً جديداً
+              </Link>
+            </div>
+          )}
 
           <button
             type="submit"

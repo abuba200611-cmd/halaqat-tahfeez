@@ -113,11 +113,21 @@ describe("الترتيب الثابت للأنواع", () => {
   });
 });
 
-describe("لا عدّ للحسابات — كل الفشل ردٌّ واحد", () => {
-  it("نفس الرسالة والحالة للفشل بأي سبب", async () => {
-    // ١) لا حسابات إطلاقاً
-    const unknown = await call("nobody@x.com", "secret");
+describe("لا حساب بالمعرّف — رسالة صريحة (قرار المالك) تحوّل لإنشاء حساب", () => {
+  it("لا معلّم ولا مدير جامع ولا ولي: 404 + no_account", async () => {
+    const res = await call("nobody@x.com", "secret");
+    const data = (await res.json()) as { error: string; code: string; email: string };
 
+    expect(res.status).toBe(404);
+    expect(data.code).toBe("no_account");
+    expect(data.error).toBe("ما عندك حساب بهذا البريد");
+    expect(data.email).toBe("nobody@x.com");
+    expect(setSessionCookie).not.toHaveBeenCalled();
+  });
+});
+
+describe("حساب موجود — كل فشل بكلمة خاطئة/إيقاف ردٌّ واحد", () => {
+  it("نفس الرسالة والحالة للفشل بأي سبب", async () => {
     // ٢) معلّم موجود بكلمة خاطئة
     vi.mocked(findTeacherByUsername).mockResolvedValue({ ...TEACHER, passwordHash: "غيره" });
     const wrongPassword = await call("a@x.com", "wrong");
@@ -132,18 +142,12 @@ describe("لا عدّ للحسابات — كل الفشل ردٌّ واحد", (
     vi.mocked(findTeacherByUsername).mockResolvedValue({ ...TEACHER, deactivatedAt: "2026-10-01" });
     const deactivated = await call("a@x.com", "secret");
 
-    for (const res of [unknown, wrongPassword, wrongParent, deactivated]) {
+    for (const res of [wrongPassword, wrongParent, deactivated]) {
       expect(res.status).toBe(401);
     }
-    const [b1, b2, b3, b4] = await Promise.all([
-      unknown.json(),
-      wrongPassword.json(),
-      wrongParent.json(),
-      deactivated.json(),
-    ]);
+    const [b1, b2, b3] = await Promise.all([wrongPassword.json(), wrongParent.json(), deactivated.json()]);
     expect(b1).toEqual(b2);
     expect(b1).toEqual(b3);
-    expect(b1).toEqual(b4);
     expect(setSessionCookie).not.toHaveBeenCalled();
   });
 
