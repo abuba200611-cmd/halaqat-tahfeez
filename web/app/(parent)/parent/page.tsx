@@ -17,6 +17,7 @@ import type { ParentChildSummary } from "@/lib/parent-summary";
 import { JuzProgressCard } from "@/components/juz-progress";
 import { ReviewTrackCountsCard } from "@/components/review-track-bits";
 import { STATUS_LABEL, statusTone } from "@/lib/student-ward-display";
+import { formatScore } from "@/lib/error-grading";
 
 type Child = { halaqahId: number; studentId: string; studentName: string; halaqahName: string };
 type ChildDetail = {
@@ -283,6 +284,11 @@ function ChildPanel({ child }: { child: Child }) {
                 </div>
                 {w.hifz && <p className="text-sm text-stone-600">حفظ: {w.hifz}</p>}
                 {w.review && <p className="text-sm text-stone-600">مراجعة: {w.review}</p>}
+                {w.score !== undefined && w.band && (
+                  <p className="tabular mt-1 text-sm font-semibold text-accent-ink">
+                    الدرجة {formatScore(w.score)} · {w.band}
+                  </p>
+                )}
                 {!w.hifz && !w.review && <p className="text-sm text-stone-400">—</p>}
               </li>
             ))}

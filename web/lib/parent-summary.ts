@@ -23,6 +23,9 @@ export type ParentWardRow = {
   hifz: string | null;
   review: string | null;
   status: WardStatus;
+  /** درجة وتقدير تقييم نقاط الأخطاء (ميزة error_grading) — غائبان لورد لم يُقيَّم بالنقاط. الدرجة والتقدير فقط، لا عدّادات الأخطاء */
+  score?: number;
+  band?: string;
 };
 
 export type ParentChildSummary = {
@@ -54,6 +57,7 @@ export function buildParentChildSummary(logs: WardLog[], today: string): ParentC
       hifz: hifzRangeText(l.hifz, l.hifzAyah),
       review: reviewRangeText(l),
       status: l.status,
+      ...(l.errorScore !== undefined && l.errorBand ? { score: l.errorScore, band: l.errorBand } : {}),
     }));
 
   return {

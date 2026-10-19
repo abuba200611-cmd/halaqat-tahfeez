@@ -78,3 +78,24 @@ describe("summarizeAttendance — آخر ٣٠ يوماً", () => {
     expect(s).toMatchObject({ days: 1, present: 1, absent: 0, presentPct: 100 });
   });
 });
+
+
+describe("mergeDayAttendance — تسجيل الرمز (qr_attendance)", () => {
+  const students = [{ id: "a", name: "أ" }];
+  it("صفّ حاضر مصدره qr يحمل viaQr ووقته", () => {
+    const rows = mergeDayAttendance(
+      students,
+      [{ studentId: "a", status: "present", note: null, source: "qr", at: "2026-10-19T05:00:00.000Z" }],
+      [],
+    );
+    expect(rows[0]).toMatchObject({ status: "present", viaQr: true, at: "2026-10-19T05:00:00.000Z" });
+  });
+  it("قرار المعلّم المختلف أو التسجيل اليدوي بلا viaQr", () => {
+    expect(
+      mergeDayAttendance(students, [{ studentId: "a", status: "absent", note: null, source: "qr" }], [])[0],
+    ).not.toHaveProperty("viaQr");
+    expect(mergeDayAttendance(students, [{ studentId: "a", status: "present", note: null }], [])[0]).not.toHaveProperty(
+      "viaQr",
+    );
+  });
+});

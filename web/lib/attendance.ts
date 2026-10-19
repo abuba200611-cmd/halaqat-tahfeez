@@ -33,7 +33,15 @@ export function daysBeforeISO(from: string, days: number): string {
   return new Date(Date.parse(from) - days * 86400000).toISOString().slice(0, 10);
 }
 
-export type StoredAttendance = { studentId: string; status: AttendanceStatus; note: string | null };
+export type StoredAttendance = {
+  studentId: string;
+  status: AttendanceStatus;
+  note: string | null;
+  /** 'qr' = سجّله الطالب بمسح الرمز (ميزة qr_attendance)، غائب = تسجيل يدوي */
+  source?: string | null;
+  /** آخر تحديث للصفّ (ISO) — يُعرض لتسجيلات الرمز */
+  at?: string | null;
+};
 
 export type AttendanceRow = {
   studentId: string;
@@ -42,6 +50,10 @@ export type AttendanceRow = {
   /** true لو الحالة مشتقّة من ورد مرسَل (لا صفّ مخزَّن) */
   implicit: boolean;
   note: string;
+  /** سجّله الطالب بمسح الرمز (ولم يغيّره المعلّم لحالة أخرى) — غائب لغير ذلك */
+  viaQr?: true;
+  /** وقت التسجيل بالرمز (ISO) */
+  at?: string;
 };
 
 /** يدمج الطلاب مع القرارات المخزَّنة والحضور الضمني: الصفّ المخزَّن يغلب دائماً */
@@ -54,7 +66,17 @@ export function mergeDayAttendance(
   const withWard = new Set(wardStudentIds);
   return students.map((s) => {
     const row = storedById.get(s.id);
-    if (row) return { studentId: s.id, name: s.name, status: row.status, implicit: false, note: row.note ?? "" };
+    if (row) {
+      const viaQr = row.source === "qr" && row.status === "present";
+      return {
+        studentId: s.id,
+        name: s.name,
+        status: row.status,
+        implicit: false,
+        note: row.note ?? "",
+        ...(viaQr ? { viaQr: true as const, ...(row.at ? { at: row.at } : {}) } : {}),
+      };
+    }
     if (withWard.has(s.id)) return { studentId: s.id, name: s.name, status: "present", implicit: true, note: "" };
     return { studentId: s.id, name: s.name, status: null, implicit: false, note: "" };
   });

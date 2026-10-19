@@ -1047,6 +1047,13 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     reviewedBy: (row.reviewed_by as number | null) ?? null,
     reviewedAt: (row.reviewed_at as string | null) ?? null,
     reviewNote: (row.review_note as string | null) ?? null,
+    ...(row.error_score !== null && row.error_score !== undefined
+      ? {
+          errorScore: Number(row.error_score),
+          errorBand: (row.error_band as string | null) ?? null,
+          errorCounts: (row.error_counts as Record<string, number> | null) ?? null,
+        }
+      : {}),
     buddy: row.buddy_json ? (JSON.parse(row.buddy_json as string) as WardReviewBuddy) : null,
   };
 }
@@ -1222,7 +1229,8 @@ export async function updateWardLog(
          date = $1, hifz_from = $2, hifz_to = $3, review_from = $4, review_to = $5,
          hifz_from_surah = $6, hifz_from_ayah = $7, hifz_to_surah = $8, hifz_to_ayah = $9,
          review_from_surah = $10, review_from_ayah = $11, review_to_surah = $12, review_to_ayah = $13,
-         note = $14, status = 'new'
+         note = $14, status = 'new',
+         error_counts = NULL, error_score = NULL, error_band = NULL
        WHERE id = $15 AND teacher_id = $16 AND student_id = $17 AND status IN ('new', 'seen')`,
       [
         log.date, log.hifzFrom, log.hifzTo, log.reviewFrom, log.reviewTo,
@@ -1383,6 +1391,7 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
                w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
@@ -1407,6 +1416,7 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
                w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
@@ -1436,6 +1446,7 @@ export async function listApprovedWardLogs(teacherId: number): Promise<WardLog[]
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
@@ -1461,6 +1472,7 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
@@ -1495,6 +1507,7 @@ export async function listAllWardLogsForStudent(teacherId: number, studentId: st
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,

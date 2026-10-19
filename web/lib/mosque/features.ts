@@ -178,6 +178,22 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "error_grading",
+    nameAr: "تقييم الورد بنقاط الأخطاء",
+    descriptionAr:
+      "المعلّم يعدّ أخطاء الورد بأنواعها (حفظ، تردد/تلقين، تجويد، تشكيل) فتُحسب الدرجة والتقدير فورياً من خصومات يضبطها الجامع، وتظهر للطالب وولي الأمر ومتوسطها في تقرير الحلقة الشهري.",
+    defaultEnabled: false,
+    status: "ready",
+  },
+  {
+    key: "qr_attendance",
+    nameAr: "الحضور بالرمز",
+    descriptionAr:
+      "المعلّم يعرض رمز QR دوّاراً (يتجدد كل ٣٠ ثانية) والطلاب يمسحونه من جوالهم لتسجيل حضورهم في سجل الحضور نفسه — بلا تحديد موقع، ويبقى التعديل اليدوي متاحاً.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

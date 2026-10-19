@@ -117,6 +117,10 @@ export type WardLog = {
   reviewedAt: string | null;
   /** ملاحظة المعلّم — إلزامية فقط عند status = needs_revision */
   reviewNote: string | null;
+  /** تقييم نقاط الأخطاء (ميزة error_grading) — غائب لورد لم يُقيَّم بالنقاط */
+  errorScore?: number;
+  errorBand?: string | null;
+  errorCounts?: Record<string, number> | null;
   /** زميل المراجعة (STEP 56) — اختياري، null لورد بلا زميل أو ورد أقدم من هذي الميزة */
   buddy?: WardReviewBuddy | null;
   /** تصنيف كل مقطع مراجعة سبقي/منزل (B3) — محاذٍ لـreviewSegments، null داخل المصفوفة لمقطع بلا تصنيف، والحقل كله null لورد أقدم من الميزة */

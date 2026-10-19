@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { ReviewTrackSelect } from "@/components/review-track-bits";
+import { WardErrorGrader } from "@/components/ward-error-grader";
+import type { ErrorCounts, ErrorGradingConfig } from "@/lib/error-grading";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
 import { formatAyahRange, formatReviewSegments } from "@/lib/ward-ayah";
 import { reviewTextWithTracks } from "@/lib/review-tracks";
@@ -60,6 +62,29 @@ export default function InboxPage() {
   const [trackDrafts, setTrackDrafts] = useState<Record<number, (ReviewTrack | null)[]>>({});
   const [trackBusyId, setTrackBusyId] = useState<number | null>(null);
   const [trackError, setTrackError] = useState<string | null>(null);
+
+  // تقييم نقاط الأخطاء: يظهر فقط إن فعّل الجامع الميزة (وإلا تبقى الواجهة كما هي)
+  const [gradingConfig, setGradingConfig] = useState<ErrorGradingConfig | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/wards/grade")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { enabled?: boolean; config?: ErrorGradingConfig } | null) => {
+        if (!cancelled && data?.enabled && data.config) setGradingConfig(data.config);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function onGraded(id: number, grade: { score: number; band: string; counts: ErrorCounts }) {
+    setWards((prev) =>
+      prev.map((w) =>
+        w.id === id ? { ...w, errorScore: grade.score, errorBand: grade.band, errorCounts: grade.counts } : w,
+      ),
+    );
+  }
 
   const load = useCallback(() => {
     fetch("/api/wards")
@@ -261,6 +286,8 @@ export default function InboxPage() {
                   <p className="text-accent-ink">سبب طلب الإعادة: «{ward.reviewNote}»</p>
                 )}
               </div>
+
+              {gradingConfig && <WardErrorGrader ward={ward} config={gradingConfig} onSaved={onGraded} />}
 
               {(ward.status === "new" || ward.status === "seen") && (
                 <div className="mt-3 space-y-2">
