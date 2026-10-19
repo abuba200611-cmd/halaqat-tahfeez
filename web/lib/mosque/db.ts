@@ -328,9 +328,11 @@ export async function mosqueAdminPasswordHash(adminId: number): Promise<string |
   return (rows[0]?.password_hash as string | undefined) ?? null;
 }
 
-/** كلمة مرور جديدة لمدير الجامع (لا نسخة جلسة لهذا الدور، فلا إبطال للجلسات الأخرى) */
+/** كلمة مرور جديدة لمدير الجامع + رفع نسخة الجلسة */
 export async function updateMosqueAdminPassword(adminId: number, passwordHash: string): Promise<void> {
-  await db().sql`UPDATE mosque_admins SET password_hash = ${passwordHash} WHERE id = ${adminId}`;
+  // رفع session_version يبطل كل الجلسات القائمة للمدير (الأجهزة الأخرى)
+  await db().sql`UPDATE mosque_admins SET password_hash = ${passwordHash}, session_version = session_version + 1
+                 WHERE id = ${adminId}`;
 }
 
 /** حساب المدير الحالي لهذا الجامع، إن وُجد — لعرضه بلوحة المشرف العام */

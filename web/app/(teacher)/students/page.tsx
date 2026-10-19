@@ -9,6 +9,7 @@ import { pageCount, studentJuzes } from "@/lib/pairing";
 import { juzLabel, juzToPages } from "@/lib/quran";
 import { useStudents } from "@/lib/store";
 import type { AttendanceSummary } from "@/lib/attendance";
+import { STATUS_LABELS, type FeeStatus } from "@/lib/fees";
 import type { Student } from "@/lib/types";
 
 type DeletedStudent = { id: string; name: string; deletedAt: string };
@@ -34,6 +35,21 @@ export default function StudentsPage() {
   const [canUnlinkParents, setCanUnlinkParents] = useState(false);
   const [parentsFor, setParentsFor] = useState<Student | null>(null);
   const [attendance, setAttendance] = useState<Record<string, AttendanceSummary>>({});
+  // حالة رسوم آخر فترة (قراءة فقط) — تظهر الخانة فقط إن فُعّلت الميزة لجامع الحلقة
+  const [fees, setFees] = useState<Record<string, { status: FeeStatus; periodLabel: string }> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/teacher/fees")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { enabled?: boolean; statuses?: Record<string, { status: FeeStatus; periodLabel: string }> } | null) => {
+        if (!cancelled && data?.enabled) setFees(data.statuses ?? {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,6 +266,7 @@ export default function StudentsPage() {
               <th className="px-3 py-2 font-medium">النطاق</th>
               <th className="px-3 py-2 font-medium">الإتقان</th>
               <th className="px-3 py-2 font-medium">الحضور (٣٠ يوماً)</th>
+              {fees && <th className="px-3 py-2 font-medium">الرسوم</th>}
               <th className="no-print px-3 py-2 font-medium">تقييمك</th>
               <th className="no-print px-3 py-2" />
             </tr>
@@ -287,6 +304,19 @@ export default function StudentsPage() {
                       ? `${attendance[student.id].presentPct}٪ · غياب ${attendance[student.id].absent}`
                       : "—"}
                   </td>
+                  {fees && (
+                    <td className="px-3 py-2">
+                      {fees[student.id] ? (
+                        <span title={`الفترة ${fees[student.id].periodLabel}`}>
+                          <Badge tone={fees[student.id].status === "paid" ? "good" : fees[student.id].status === "waived" ? "neutral" : "warn"}>
+                            {STATUS_LABELS[fees[student.id].status]}
+                          </Badge>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="no-print px-3 py-2">
                     <StarRating value={student.rating} onChange={(rating) => upsert({ ...student, rating })} />
                   </td>

@@ -1,4 +1,4 @@
-import { currentMosqueAdmin } from "@/lib/mosque-auth";
+import { currentMosqueAdmin, setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
 import { mosqueAdminPasswordHash, updateMosqueAdminPassword } from "@/lib/mosque/db";
 import { handlePasswordChange, passwordInfoResponse } from "@/lib/password-change";
 
@@ -12,10 +12,7 @@ export async function GET() {
   return passwordInfoResponse(await mosqueAdminPasswordHash(admin.id));
 }
 
-/**
- * تغيير كلمة مرور مدير الجامع. جلسات هذا الدور بلا نسخة جلسة (لا عمود لها)،
- * فلا إبطال للأجهزة الأخرى — الكوكي الحالي يبقى صالحاً.
- */
+/** تغيير كلمة مرور مدير الجامع — updateMosqueAdminPassword يرفع session_version (يُخرج الأجهزة الأخرى)، ونعيد إصدار كوكي هذا الجهاز */
 export async function POST(request: Request) {
   const admin = await currentMosqueAdmin();
   if (!admin) return unauthorized();
@@ -24,6 +21,9 @@ export async function POST(request: Request) {
     scope: "mosque-admin",
     sessionId: admin.id,
     loadHash: () => mosqueAdminPasswordHash(admin.id),
-    apply: (hash) => updateMosqueAdminPassword(admin.id, hash),
+    apply: async (hash) => {
+      await updateMosqueAdminPassword(admin.id, hash);
+      await setMosqueAdminSessionCookie(admin.id);
+    },
   });
 }

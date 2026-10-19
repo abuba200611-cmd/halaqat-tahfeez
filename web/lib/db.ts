@@ -2427,12 +2427,20 @@ export async function applyLinkSummary(
 // lib/super-admin-auth.ts). إنشاء الحسابات والدخول بكلمة مرور خطوة
 // لاحقة منفصلة (تحتاج مسار API لا وجود له بعد).
 
-export type MosqueAdmin = { id: number; mosqueId: number; username: string };
+export type MosqueAdmin = { id: number; mosqueId: number; username: string; sessionVersion: number };
 
 export async function findMosqueAdminById(id: number): Promise<MosqueAdmin | null> {
-  const rows = await db().sql`SELECT id, mosque_id, username FROM mosque_admins WHERE id = ${id}`;
+  const rows = await db().sql`SELECT id, mosque_id, username, session_version FROM mosque_admins WHERE id = ${id}`;
   const row = rows[0];
-  return row ? { id: row.id, mosqueId: row.mosque_id, username: row.username } : null;
+  return row
+    ? { id: row.id, mosqueId: row.mosque_id, username: row.username, sessionVersion: Number(row.session_version ?? 0) }
+    : null;
+}
+
+/** نسخة جلسة مدير الجامع الحالية (٠ إن لم يوجد) — تُدرج في كوكيه عند الإصدار */
+export async function mosqueAdminSessionVersion(adminId: number): Promise<number> {
+  const rows = await db().sql`SELECT session_version FROM mosque_admins WHERE id = ${adminId}`;
+  return Number(rows[0]?.session_version ?? 0);
 }
 
 export type SuperAdmin = { id: number; username: string };

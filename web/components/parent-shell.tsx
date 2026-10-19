@@ -32,6 +32,7 @@ export function useParentSession(): ParentContextValue {
 export function ParentShell({ children }: { children: React.ReactNode }) {
   const [parent, setParent] = useState<ParentSession | null>(null);
   const [checking, setChecking] = useState(true);
+  const [feesEnabled, setFeesEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +51,24 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, []);
+
+  // رابط الرسوم يظهر فقط إن كانت الميزة مفعّلة لجامع أحد الأبناء (الخادم يحدّد)
+  const parentId = parent?.id ?? null;
+  useEffect(() => {
+    if (parentId === null) return;
+    let cancelled = false;
+    fetch("/api/parent/fees?check=1")
+      .then((res) => (res.ok ? res.json() : { enabled: false }))
+      .then((data: { enabled?: boolean }) => {
+        if (!cancelled) setFeesEnabled(data.enabled === true);
+      })
+      .catch(() => {
+        if (!cancelled) setFeesEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [parentId]);
 
   const logout = useCallback(async () => {
     await fetch("/api/parent-auth/logout", { method: "POST" });
@@ -73,6 +92,14 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                 >
                   نتائج الاختبارات
                 </Link>
+                {feesEnabled && (
+                  <Link
+                    href="/parent/fees"
+                    className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50"
+                  >
+                    الرسوم
+                  </Link>
+                )}
                 <Link
                   href="/parent/messages"
                   className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors duration-200 hover:bg-accent-soft"

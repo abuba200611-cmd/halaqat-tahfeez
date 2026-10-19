@@ -58,6 +58,7 @@ export function mosqueNavItems(opts: {
   feature("permits", "permits", "تصاريح الحلقات", <ClipboardIcon />);
   feature("teacher_eval", "teacher-eval", "تقييم المعلّمين والحوافز", <AwardIcon />);
   feature("supervisor_visits", "supervisor-visits", "زيارات المشرف التربوي", <ShieldIcon />);
+  feature("fees", "fees", "الرسوم والاشتراكات", <ClipboardIcon />);
 
   if (features.messaging) {
     const href = `/mosque/${mosqueId}/messages`;
