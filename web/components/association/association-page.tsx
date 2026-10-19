@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { DashboardShell } from "@/components/mosque/shell";
 import { Empty } from "@/components/mosque/ui";
-import { BuildingIcon, ClipboardIcon } from "@/components/mosque/icons";
+import { BuildingIcon, ClipboardIcon, SettingsIcon } from "@/components/mosque/icons";
 
 type Me = { admin: { username: string } | null; association: { name: string; city: string } | null };
 
@@ -52,7 +52,7 @@ export function AssociationPage({
     <DashboardShell
       brandTitle="لوحة الجمعية"
       nav={[
-        { href: "/association", label: me.association?.name ?? "الجمعية", icon: <BuildingIcon />, active: activeHref === "/association" },
+        { href: "/association", label: me.association?.name ?? "الجمعية", icon: <BuildingIcon />, active: activeHref === "/association", group: "top" },
         {
           href: "/association/visits",
           label: "زيارات المشرف التربوي",

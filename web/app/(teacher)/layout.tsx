@@ -1,30 +1,66 @@
-import { AuthGate } from "@/components/auth-gate";
+import { AuthGate, type NavItem } from "@/components/auth-gate";
+import type { NavGroup } from "@/lib/nav-groups";
 import { MessagesBadge } from "@/components/messages-badge";
 import { NewWardBadge } from "@/components/new-ward-badge";
 import { PendingRecitationsBadge } from "@/components/pending-recitations-badge";
 import { ImpersonationBannerBar } from "@/components/dev/banner-server";
-import { ChartIcon, CalendarIcon, ClipboardIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, ShuffleIcon, StarIcon, UsersIcon } from "@/components/icons";
+import { ChartIcon, CalendarIcon, ClipboardIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, SettingsIcon, ShuffleIcon, StarIcon, UsersIcon } from "@/components/icons";
 import type { Metadata } from "next";
 
 /** عنوان تبويب قسم المعلّم — الاسم العربي للقسم يبقى، مع وسم MOS الموحّد (M5) */
 export const metadata: Metadata = { title: "المعلم — السلام" };
 
-const NAV = [
-  { href: "/", label: "لوحة الحلقة", desc: "نظرة عامة على حلقتك اليوم", icon: <HomeIcon size={19} /> },
-  { href: "/students", label: "الطلاب", desc: "إدارة قائمة طلاب حلقتك", icon: <UsersIcon size={19} /> },
-  { href: "/pairing", label: "المطابقة", desc: "توليد ثنائيات التسميع", icon: <ShuffleIcon size={19} /> },
-  { href: "/schedule", label: "جدول الشهر", desc: "اعتماد جدول التسميع الشهري", icon: <CalendarIcon size={19} /> },
-  { href: "/reports", label: "تقرير الحلقة", desc: "أداء الحلقة الشهري", icon: <ChartIcon size={19} /> },
-  { href: "/inbox", label: "الوارد", desc: "أوراد الطلاب الجديدة", icon: <MailIcon size={19} />, badge: <NewWardBadge /> },
-  { href: "/messages", label: "الرسائل", desc: "محادثات أولياء الأمور والطلاب والإدارة", icon: <MessageIcon size={19} />, badge: <MessagesBadge role="teacher" /> },
-  { href: "/recitations", label: "التلاوات", desc: "الاستماع لتلاوات الطلاب وتقييمها", icon: <MicIcon size={19} />, badge: <PendingRecitationsBadge /> },
-  { href: "/attendance", label: "الحضور", desc: "تسجيل حضور الطلاب اليومي", icon: <ClipboardIcon size={19} /> },
-  { href: "/plans", label: "الخطة الشهرية", desc: "مستهدف الحفظ والمراجعة لكل طالب", icon: <ChartIcon size={19} /> },
-  { href: "/cases", label: "دراسة الحالة", desc: "متابعة الطلاب المتعثّرين", icon: <SearchIcon size={19} /> },
-  { href: "/exams", label: "الاختبارات", desc: "ترشيح الطلاب وتقييم جلسات الاختبار", icon: <StarIcon size={19} /> },
-  { href: "/discipline", label: "الانضباط", desc: "سُلّم الغياب والمخالفات وكشف المتابعة الشهري", icon: <ClipboardIcon size={19} /> },
-  { href: "/visits", label: "زيارات المشرف", desc: "تقارير زيارات المشرف التربوي لحلقتك", icon: <SearchIcon size={19} /> },
-  { href: "/suggest", label: "اقتراح / بلاغ", desc: "شاركنا رأيك أو بلاغك", icon: <MessageIcon size={19} /> },
+const item = (href: string, label: string, desc: string, icon: React.ReactNode, badge?: React.ReactNode) => ({ href, label, desc, icon, badge });
+const ic = 19;
+
+const NAV: NavGroup<NavItem>[] = [
+  {
+    id: "top",
+    items: [
+      item("/", "لوحة الحلقة", "نظرة عامة على حلقتك اليوم", <HomeIcon size={ic} />),
+      item("/inbox", "الوارد", "أوراد الطلاب الجديدة", <MailIcon size={ic} />, <NewWardBadge />),
+      item("/messages", "الرسائل", "محادثات أولياء الأمور والطلاب والإدارة", <MessageIcon size={ic} />, <MessagesBadge role="teacher" />),
+    ],
+  },
+  {
+    id: "halaqah",
+    title: "الحلقة",
+    collapsible: true,
+    items: [
+      item("/students", "الطلاب", "إدارة قائمة طلاب حلقتك", <UsersIcon size={ic} />),
+      item("/attendance", "الحضور", "تسجيل حضور الطلاب اليومي", <ClipboardIcon size={ic} />),
+      item("/recitations", "التلاوات", "الاستماع لتلاوات الطلاب وتقييمها", <MicIcon size={ic} />, <PendingRecitationsBadge />),
+      item("/pairing", "المطابقة", "توليد ثنائيات التسميع", <ShuffleIcon size={ic} />),
+      item("/schedule", "جدول الشهر", "اعتماد جدول التسميع الشهري", <CalendarIcon size={ic} />),
+    ],
+  },
+  {
+    id: "followup",
+    title: "المتابعة والتقييم",
+    collapsible: true,
+    initialVisible: 3,
+    items: [
+      item("/plans", "الخطة الشهرية", "مستهدف الحفظ والمراجعة لكل طالب", <ChartIcon size={ic} />),
+      item("/exams", "الاختبارات", "ترشيح الطلاب وتقييم جلسات الاختبار", <StarIcon size={ic} />),
+      item("/discipline", "الانضباط", "سُلّم الغياب والمخالفات وكشف المتابعة الشهري", <ClipboardIcon size={ic} />),
+      item("/cases", "دراسة الحالة", "متابعة الطلاب المتعثّرين", <SearchIcon size={ic} />),
+      item("/visits", "زيارات المشرف", "تقارير زيارات المشرف التربوي لحلقتك", <SearchIcon size={ic} />),
+    ],
+  },
+  {
+    id: "reports",
+    title: "التقارير",
+    collapsible: true,
+    items: [item("/reports", "تقرير الحلقة", "أداء الحلقة الشهري", <ChartIcon size={ic} />)],
+  },
+  {
+    id: "bottom",
+    pinned: true,
+    items: [
+      item("/settings", "الإعدادات", "إعدادات الحلقة والحساب والإشعارات", <SettingsIcon size={ic} />),
+      item("/suggest", "اقتراح / بلاغ", "شاركنا رأيك أو بلاغك", <MessageIcon size={ic} />),
+    ],
+  },
 ];
 
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {

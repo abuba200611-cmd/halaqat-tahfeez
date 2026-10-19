@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card, Empty, Stat } from "@/components/mosque/ui";
 import { DashboardShell } from "@/components/mosque/shell";
-import { BuildingIcon, HomeIcon, PlusIcon } from "@/components/mosque/icons";
+import { BuildingIcon, HomeIcon, PlusIcon, SettingsIcon } from "@/components/mosque/icons";
 
 type Mosque = { id: number; name: string; city: string; createdAt: string };
 
@@ -124,7 +124,10 @@ function Dashboard({ onLoggedOut }: { onLoggedOut: () => void }) {
 
   return (
     <DashboardShell
-      nav={[{ href: "/mosque", label: "الرئيسية", icon: <HomeIcon />, active: true }]}
+      nav={[
+        { href: "/mosque", label: "الرئيسية", icon: <HomeIcon />, active: true, group: "top" },
+        { href: "/mosque/settings", label: "الإعدادات", icon: <SettingsIcon />, group: "bottom" },
+      ]}
       title="أهلاً بك 👋"
       subtitle="نظرة عامة على كل الجوامع اللي تديرها"
       userLabel="المشرف العام"

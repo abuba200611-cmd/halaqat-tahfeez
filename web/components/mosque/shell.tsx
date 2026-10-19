@@ -5,8 +5,16 @@ import Link from "next/link";
 import { RoleSwitcher } from "../role-switcher";
 import { BrandLockup } from "../brand";
 import { LogoutIcon, MenuIcon, XIcon } from "./icons";
+import { GroupedNav } from "../grouped-nav";
+import { groupByField } from "@/lib/nav-groups";
 
-type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode };
+type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode; group?: "top" | "features" | "bottom" };
+
+const GROUP_DEFS = [
+  { id: "top" },
+  { id: "features", title: "الميزات والمتابعة", collapsible: true, initialVisible: 6 },
+  { id: "bottom", pinned: true },
+];
 
 /**
  * قالب لوحة SaaS: سايدبار داكن كامل (شعار + قائمة أيقونة/تسمية + بطاقة
@@ -34,6 +42,30 @@ export function DashboardShell({
 }) {
   const [open, setOpen] = useState(false);
 
+  const groups = groupByField(nav, GROUP_DEFS);
+  const navProps = {
+    groups,
+    scope: "mosque",
+    isActive: (item: NavItem) => Boolean(item.active),
+    headerClass: "text-white/50 hover:text-white/80",
+    dividerClass: "border-white/10",
+    toggleClass: "text-white/60 hover:text-white",
+    renderItem: (item: NavItem) => (
+      <Link
+        href={item.href}
+        onClick={() => setOpen(false)}
+        aria-current={item.active ? "page" : undefined}
+        className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+          item.active ? "bg-secondary font-semibold text-on-secondary" : "text-white/70 hover:bg-white/10 hover:text-white"
+        }`}
+      >
+        <span className="shrink-0">{item.icon}</span>
+        <span className="flex-1 truncate">{item.label}</span>
+        {item.badge}
+      </Link>
+    ),
+  };
+
   const sidebarContent = (
     <>
       <div className="mb-6 flex items-center justify-between px-2">
@@ -46,22 +78,12 @@ export function DashboardShell({
         </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1">
-        {nav.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors duration-200 ${
-              item.active ? "bg-secondary font-semibold text-on-secondary" : "text-white/70 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            <span className="shrink-0">{item.icon}</span>
-            <span className="flex-1 truncate">{item.label}</span>
-            {item.badge}
-          </Link>
-        ))}
+      <nav aria-label="القائمة الرئيسية" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <GroupedNav {...navProps} />
       </nav>
+      <div className="mt-1">
+        <GroupedNav {...navProps} pinned />
+      </div>
 
       {userLabel && (
         <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-2.5">

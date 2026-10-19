@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { MessagesBadge } from "@/components/messages-badge";
 import { AwardIcon, BookIcon, BrainIcon, CalendarIcon, ChartIcon, ClipboardIcon, HomeIcon, ImageIcon, MessageIcon, SettingsIcon, ShieldIcon, StarIcon, TrophyIcon, UsersIcon } from "./icons";
 
-export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode };
+export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode; group?: "top" | "features" | "bottom" };
 
 /**
  * عناصر سايدبار الجامع المشتركة بين صفحات /mosque/[id] — عنصر كل ميزة
@@ -88,5 +88,10 @@ export function mosqueNavItems(opts: {
     active: activeHref === `/mosque/${mosqueId}/settings`,
   });
 
-  return items;
+  // التجميع: أول عنصرين/ثلاثة أعلى، السياق الإضافي والمزايا في الوسط، واقتراح/إعدادات مثبّتة بالأسفل
+  return items.map((i) => {
+    if (i.href.endsWith("/suggest") || i.href.endsWith("/settings")) return { ...i, group: "bottom" as const };
+    if (i.href === "/mosque" || i.href === `/mosque/${mosqueId}` || i.href.endsWith("/brain") || i.href.endsWith("/messages")) return { ...i, group: "top" as const };
+    return { ...i, group: "features" as const };
+  });
 }

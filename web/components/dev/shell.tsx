@@ -24,6 +24,9 @@ const NAV = [
   { href: "/dev/audit", label: "سجل التدقيق", icon: "🧾" },
 ];
 
+/** الإعدادات مثبّتة أسفل القائمة دائماً (وآخر عنصر بشريط الجوال) */
+const SETTINGS = { href: "/dev/settings", label: "الإعدادات", icon: "⚙️" };
+
 export function DevShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [busy, setBusy] = useState(false);
@@ -38,8 +41,8 @@ export function DevShell({ children }: { children: ReactNode }) {
     }
   }
 
-  const links = (vertical: boolean) =>
-    NAV.map((item) => {
+  const links = (vertical: boolean, items = NAV) =>
+    items.map((item) => {
       const active = vertical && (pathname === item.href || (item.href !== "/dev" && pathname.startsWith(`${item.href}/`)));
       return (
         <Link
@@ -60,7 +63,7 @@ export function DevShell({ children }: { children: ReactNode }) {
       {/* الجوال: شريط علوي */}
       <header className="flex items-center gap-3 bg-foreground px-3 py-2 md:hidden">
         <p className="font-naskh text-sm font-bold text-white">لوحة المطوّر</p>
-        <nav className="flex flex-1 gap-1 overflow-x-auto">{links(false)}</nav>
+        <nav className="flex flex-1 gap-1 overflow-x-auto">{links(false, [...NAV, SETTINGS])}</nav>
       </header>
 
       {/* الشاشات الواسعة: سايدبار داكن */}
@@ -68,7 +71,8 @@ export function DevShell({ children }: { children: ReactNode }) {
         <div className="mb-6 px-2">
           <BrandLockup tone="onDark" context="لوحة المطوّر" />
         </div>
-        <nav className="flex flex-1 flex-col gap-1">{links(true)}</nav>
+        <nav aria-label="القائمة الرئيسية" className="flex flex-1 flex-col gap-1 overflow-y-auto">{links(true)}</nav>
+        <div className="mt-2 border-t border-white/10 pt-2">{links(true, [SETTINGS])}</div>
         {/* جلسة الأدمن بلا مستخدم موحّد (ADMIN_SECRET ليس حساباً) فيختفي
             المبدّل تلقائياً؛ يظهر فقط لو دخلت اللوحة بحساب له عضويات أخرى */}
         <RoleSwitcher />

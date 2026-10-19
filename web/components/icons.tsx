@@ -291,3 +291,7 @@ export function MicIcon(props: IconProps) {
     props,
   );
 }
+
+export function ChevronDownIcon(props: IconProps) {
+  return base(<path d="m6 9 6 6 6-6" />, props);
+}

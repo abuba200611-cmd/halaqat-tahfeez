@@ -86,6 +86,12 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                 >
                   اقتراح / بلاغ
                 </Link>
+                <Link
+                  href="/parent/settings"
+                  className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50"
+                >
+                  الإعدادات
+                </Link>
                 <RoleSwitcher tone="light" />
                 <button
                   type="button"

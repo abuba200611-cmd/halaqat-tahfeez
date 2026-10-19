@@ -8,9 +8,11 @@ import { BrandLockup } from "./brand";
 import { TeacherAuthScreen, markAccountKnown, type TeacherAuthUser } from "./teacher-auth";
 import { BellIcon, CloseIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon } from "./icons";
 import { resetStore } from "@/lib/store";
+import { GroupedNav } from "./grouped-nav";
+import { flattenNav, type NavGroup } from "@/lib/nav-groups";
 
 type Teacher = TeacherAuthUser;
-type NavItem = { href: string; label: string; desc?: string; icon: React.ReactNode; badge?: React.ReactNode };
+export type NavItem = { href: string; label: string; desc?: string; icon: React.ReactNode; badge?: React.ReactNode };
 
 /* ————— لوحة ألوان الهيكل — هوية «السلام»: سايدبار أسود، تفعيل بيج فرنسي، نص ثانوي راودو دست ————— */
 const B = {
@@ -23,7 +25,7 @@ const B = {
  * يحرس التطبيق كله: لا يعرض المحتوى قبل التحقق من الجلسة.
  * الحماية الفعلية على الخادم في مسارات الـ API — هذي طبقة تجربة استخدام.
  */
-export function AuthGate({ nav, children }: { nav: NavItem[]; children: React.ReactNode }) {
+export function AuthGate({ nav, children }: { nav: NavGroup<NavItem>[]; children: React.ReactNode }) {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [checking, setChecking] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -96,7 +98,7 @@ function Sidebar({
   onCloseDrawer,
   onLogout,
 }: {
-  nav: NavItem[];
+  nav: NavGroup<NavItem>[];
   teacher: Teacher;
   drawerOpen: boolean;
   onCloseDrawer: () => void;
@@ -104,6 +106,28 @@ function Sidebar({
 }) {
   const pathname = usePathname();
   const initial = (teacher.teacherName || teacher.halaqahName || "م").trim().charAt(0);
+
+  const isActive = (item: NavItem) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href));
+  const renderItem = (item: NavItem) => {
+    const active = isActive(item);
+    return (
+      <Link
+        href={item.href}
+        onClick={onCloseDrawer}
+        aria-current={active ? "page" : undefined}
+        className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        style={{
+          backgroundColor: active ? B.sidebarActive : "transparent",
+          color: active ? "#000000" : B.sidebarText,
+          fontWeight: active ? 600 : 400,
+        }}
+      >
+        {item.icon}
+        <span className="flex-1">{item.label}</span>
+        {item.badge}
+      </Link>
+    );
+  };
 
   const body = (
     <>
@@ -114,28 +138,31 @@ function Sidebar({
         </button>
       </div>
 
-      <nav className="mt-2 flex-1 space-y-1 overflow-y-auto px-3">
-        {nav.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onCloseDrawer}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              style={{
-                backgroundColor: active ? B.sidebarActive : "transparent",
-                color: active ? "#000000" : B.sidebarText,
-                fontWeight: active ? 600 : 400,
-              }}
-            >
-              {item.icon}
-              <span className="flex-1">{item.label}</span>
-              {item.badge}
-            </Link>
-          );
-        })}
+      <nav aria-label="القائمة الرئيسية" className="mt-2 flex min-h-0 flex-1 flex-col overflow-y-auto px-3">
+        <GroupedNav
+          groups={nav}
+          scope="teacher"
+          isActive={isActive}
+          renderItem={renderItem}
+          headerClass="text-white/50 hover:text-white/80"
+          dividerClass="border-white/10"
+          toggleClass="text-white/60 hover:text-white"
+        />
       </nav>
+
+      {/* الأقسام المثبّتة (الإعدادات…) ظاهرة دائماً فوق بطاقة المستخدم */}
+      <div className="px-3 pb-2">
+        <GroupedNav
+          groups={nav}
+          scope="teacher"
+          pinned
+          isActive={isActive}
+          renderItem={renderItem}
+          headerClass="text-white/50"
+          dividerClass="border-white/10"
+          toggleClass="text-white/60 hover:text-white"
+        />
+      </div>
 
       {/* بطاقة المستخدم — أسفل القائمة الجانبية دائماً */}
       <div className="border-t border-white/10 p-3">
@@ -195,8 +222,9 @@ function Sidebar({
  * بحث (بصري حالياً — بلا نتائج فعلية، لا نضيف منطق بحث جديد فوق طلاب
  * الحلقة بهذي الخطوة) + جرس التنبيهات (newCount حقيقي) + صورة المعلّم.
  */
-function TopBar({ nav, teacher, onOpenDrawer }: { nav: NavItem[]; teacher: Teacher; onOpenDrawer: () => void }) {
+function TopBar({ nav: groups, teacher, onOpenDrawer }: { nav: NavGroup<NavItem>[]; teacher: Teacher; onOpenDrawer: () => void }) {
   const pathname = usePathname();
+  const nav = flattenNav(groups);
   const active = nav.find((item) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href))) ?? nav[0];
   const newWardsHref = nav.find((n) => n.href === "/inbox")?.badge;
   const initial = (teacher.teacherName || teacher.halaqahName || "م").trim().charAt(0);
