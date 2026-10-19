@@ -21,6 +21,9 @@ export const SESSION_COOKIES: readonly string[] = [
 /** كوكي «مرّ بالترحيب» — تضبطه صفحة /welcome عند عرضها (٣٠ يوماً) */
 export const INTRO_COOKIE = "mos_intro";
 
+/** كوكي «تسليم جوجل» الموقّع — يُضبط من callback جوجل لمن لا حساب له، ويفتح /signup بلا ترحيب */
+export const GOOGLE_HANDOFF_COOKIE = "google_handoff";
+
 export const WELCOME_PATH = "/welcome";
 
 /**

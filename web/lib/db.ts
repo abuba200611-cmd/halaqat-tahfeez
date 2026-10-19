@@ -187,28 +187,37 @@ export async function findTeacherByUsername(
 }
 
 /**
- * دخول جوجل: يجد معلّماً ببريده أو ينشئ له حلقة جديدة فوراً بكلمة مرور
- * عشوائية لن يستخدمها أبداً (دخوله دائماً عبر جوجل). البريد نفسه عمود
- * username. الاسم من ملف جوجل الشخصي يُخزَّن كاسم المعلّم مباشرة.
+ * دخول جوجل لحساب قائم: يرجع معرّف المعلّم صاحب هذا البريد، أو null إن لم
+ * يكن له حساب (فالمتصل يحوّله لتسجيل حساب جديد — لا إنشاء صامت). البريد
+ * نفسه عمود username. يُستدعى فقط ببريد أكّدته جوجل (email_verified=true).
+ */
+export async function findTeacherIdByGoogleEmail(email: string): Promise<number | null> {
+  const existing = await findTeacherByUsername(email);
+  if (!existing) return null;
+  // حساب موقوف من مشرف الحلقة: يُرفض دخوله بجوجل كما بكلمة المرور —
+  // رسالة الإيقاف تصل للمستخدم عبر ?googleError= بمسار الاستدعاء
+  if (existing.deactivatedAt) throw new Error("تم إيقاف حسابك من مشرف الحلقة");
+  // دخول جوجل يثبت ملكية البريد: حساب غير موثّق قد يسجّله منتحل بكلمة
+  // مرور يعرفها، فنُبطِلها فوراً (بصمة بلا ":" لا يتحقق منها verifyPassword أبداً)
+  if (!existing.emailVerified) {
+    // رفع نسخة الجلسة مع إبطال كلمة المرور — الجلسات القديمة تسقط معها
+    await db().sql`
+      UPDATE teachers SET password_hash = ${randomBytes(32).toString("hex")}, email_verified = true,
+                          session_version = session_version + 1
+      WHERE id = ${existing.id} AND email_verified = false
+    `;
+  }
+  return existing.id;
+}
+
+/**
+ * يجد معلّماً ببريده أو ينشئ له حلقة جديدة بكلمة مرور عشوائية. مسار الدخول
+ * بجوجل صار يستعمل findTeacherIdByGoogleEmail (لا إنشاء صامت)؛ هذي للإنشاء
+ * الصريح فقط.
  */
 export async function findOrCreateTeacherByEmail(email: string, name = ""): Promise<number> {
-  const existing = await findTeacherByUsername(email);
-  if (existing) {
-    // حساب موقوف من مشرف الحلقة: يُرفض دخوله بجوجل كما بكلمة المرور —
-    // رسالة الإيقاف تصل للمستخدم عبر ?googleError= بمسار الاستدعاء
-    if (existing.deactivatedAt) throw new Error("تم إيقاف حسابك من مشرف الحلقة");
-    // دخول جوجل يثبت ملكية البريد: حساب غير موثّق قد يسجّله منتحل بكلمة
-    // مرور يعرفها، فنُبطِلها فوراً (بصمة بلا ":" لا يتحقق منها verifyPassword أبداً)
-    if (!existing.emailVerified) {
-      // رفع نسخة الجلسة مع إبطال كلمة المرور — الجلسات القديمة تسقط معها
-      await db().sql`
-        UPDATE teachers SET password_hash = ${randomBytes(32).toString("hex")}, email_verified = true,
-                            session_version = session_version + 1
-        WHERE id = ${existing.id} AND email_verified = false
-      `;
-    }
-    return existing.id;
-  }
+  const existingId = await findTeacherIdByGoogleEmail(email);
+  if (existingId !== null) return existingId;
 
   const randomPasswordHash = randomBytes(32).toString("hex");
   // بريد جوجل موثّق من جوجل نفسها — نعتبره مؤكَّداً هنا فوراً

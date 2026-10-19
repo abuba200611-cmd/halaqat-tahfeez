@@ -3,6 +3,8 @@ import { setSessionCookie, verifyPassword } from "@/lib/auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 
+const NO_ACCOUNT_MESSAGE = "ما عندك حساب بهذا البريد";
+
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
 function clientIp(request: Request): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -27,8 +29,14 @@ export async function POST(request: Request) {
   }
 
   const teacher = await findTeacherByUsername(username);
-  // رسالة واحدة للحالتين حتى لا تكشف أي بريد إلكتروني مسجّل من عدمه
-  if (!teacher || !verifyPassword(password, teacher.passwordHash)) {
+  // لا حساب بهذا البريد: قرار المالك أن يُقال صراحةً ليُحوَّل لإنشاء حساب
+  // (يُحتسب فاشلاً على الحدّين فلا يصلح مسحاً للبريد)
+  if (!teacher) {
+    await recordRateLimitHit(emailLimitKey, 900);
+    await recordFailedLoginAttempt(ip);
+    return Response.json({ error: NO_ACCOUNT_MESSAGE, code: "no_account", email: username }, { status: 404 });
+  }
+  if (!verifyPassword(password, teacher.passwordHash)) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
     return Response.json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" }, { status: 401 });

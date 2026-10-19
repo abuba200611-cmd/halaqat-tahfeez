@@ -46,7 +46,8 @@ export async function exchangeGoogleCode(code: string, redirectUri: string): Pro
     name?: string;
     email_verified?: boolean;
   };
-  if (!info.email || info.email_verified === false) throw new Error("بريد جوجل غير موثّق");
+  // الربط بحساب قائم يتطلب تأكيد جوجل الصريح للبريد (لا غيابه)
+  if (!info.email || info.email_verified !== true) throw new Error("بريد جوجل غير موثّق");
   if (!info.sub) throw new Error("تعذّر التحقق من هوية حساب جوجل");
 
   return { sub: info.sub, email: info.email.toLowerCase(), name: info.name ?? info.email };

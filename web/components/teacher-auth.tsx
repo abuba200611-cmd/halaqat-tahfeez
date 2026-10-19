@@ -61,7 +61,9 @@ export function TeacherAuthScreen({
       return "register";
     }
   });
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(() =>
+    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("email") ?? "",
+  );
   const [password, setPassword] = useState("");
   const [teacherName, setTeacherName] = useState("");
   const [halaqahName, setHalaqahName] = useState("");
@@ -70,10 +72,31 @@ export function TeacherAuthScreen({
   );
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // كود يفسّر الخطأ فيعرض زراً مناسباً: لا حساب بالبريد، أو البريد مسجّل مسبقاً
+  const [errorCode, setErrorCode] = useState<"no_account" | "account_exists" | null>(null);
+  // تسليم جوجل (بريد/اسم موثّقان من جوجل بكوكي موقّع) — يُفعَّل عند ?google=1
+  const [googleHandoff, setGoogleHandoff] = useState(false);
 
   useEffect(() => {
     if (error) window.history.replaceState(null, "", window.location.pathname);
   }, [error]);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("google") !== "1") return;
+    fetch("/api/auth/google/handoff")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { email?: string; name?: string } | null) => {
+        if (!data?.email) {
+          setError("انتهت صلاحية التحقق من جوجل — اضغط «الدخول بحساب جوجل» من جديد");
+          return;
+        }
+        setGoogleHandoff(true);
+        setMode("register");
+        setUsername(data.email);
+        setTeacherName((current) => current || data.name || "");
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!joinCode) return;
@@ -89,22 +112,30 @@ export function TeacherAuthScreen({
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setErrorCode(null);
     try {
       const res = await fetch(`/api/auth/${mode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // مع تسليم جوجل يعتمد الخادم بريده من الكوكي الموقّع لا من هنا
           username,
-          password,
+          password: googleHandoff ? undefined : password,
           teacherName,
           halaqahName,
           joinCode: mode === "register" ? joinCode : undefined,
+          googleHandoff: mode === "register" && googleHandoff ? true : undefined,
         }),
       });
-      const data = (await res.json()) as { teacher?: TeacherAuthUser; error?: string; message?: string };
+      const data = (await res.json()) as {
+        teacher?: TeacherAuthUser;
+        error?: string;
+        message?: string;
+        code?: string;
+      };
       if (!res.ok || !data.teacher) {
-        // رسالة التسجيل الموحّدة (بريد موجود مسبقاً) تُعرض كما هي — لا تكشف شيئاً
         setError(data.error ?? data.message ?? "تعذّر إتمام العملية");
+        if (data.code === "no_account" || data.code === "account_exists") setErrorCode(data.code);
         return;
       }
       markAccountKnown();
@@ -181,12 +212,20 @@ export function TeacherAuthScreen({
                 onChange={(e) => setUsername(e.target.value)}
                 autoComplete="email"
                 required
+                readOnly={googleHandoff}
                 className={field}
               />
               <UserIcon size={18} className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-white/40" />
             </div>
           </label>
 
+          {googleHandoff && (
+            <p className="rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-center text-xs text-white/80">
+              تم التحقق من بريدك عبر جوجل — أكمل بياناتك وسيُربط حسابك بجوجل
+            </p>
+          )}
+
+          {!googleHandoff && (
           <label className="block text-sm">
             <span className="text-xs text-white/60">كلمة المرور</span>
             <div className="relative">
@@ -209,6 +248,7 @@ export function TeacherAuthScreen({
               </button>
             </div>
           </label>
+          )}
 
           {mode === "login" && (
             <Link href="/forgot-password" className="block text-left text-xs text-white/60 hover:text-white hover:underline">
@@ -217,6 +257,40 @@ export function TeacherAuthScreen({
           )}
 
           {error && <p className="text-sm text-destructive-light">{error}</p>}
+          {errorCode === "no_account" && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode("register");
+                setError(null);
+                setErrorCode(null);
+              }}
+              className="w-full cursor-pointer rounded-xl border border-white/30 px-3 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-white/10"
+            >
+              أنشئ حساباً جديداً
+            </button>
+          )}
+          {errorCode === "account_exists" && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("login");
+                  setError(null);
+                  setErrorCode(null);
+                }}
+                className="flex-1 cursor-pointer rounded-xl border border-white/30 px-3 py-2.5 text-sm font-semibold text-white transition-colors duration-200 hover:bg-white/10"
+              >
+                تسجيل الدخول
+              </button>
+              <a
+                href="/api/auth/google/start"
+                className="flex-1 rounded-xl border border-white/30 px-3 py-2.5 text-center text-sm font-semibold text-white transition-colors duration-200 hover:bg-white/10"
+              >
+                الدخول بجوجل
+              </a>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -251,6 +325,7 @@ export function TeacherAuthScreen({
                 onClick={() => {
                   setMode("register");
                   setError(null);
+                  setErrorCode(null);
                 }}
                 className="cursor-pointer font-semibold text-white hover:underline"
               >
@@ -265,6 +340,7 @@ export function TeacherAuthScreen({
                 onClick={() => {
                   setMode("login");
                   setError(null);
+                  setErrorCode(null);
                 }}
                 className="cursor-pointer font-semibold text-white hover:underline"
               >

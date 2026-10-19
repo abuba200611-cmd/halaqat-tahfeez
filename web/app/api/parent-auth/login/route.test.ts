@@ -61,10 +61,11 @@ describe("POST /api/parent-auth/login — حدّ البريد على الفشل 
     expect(parentAuthMocks.setParentSessionCookie).not.toHaveBeenCalled();
   });
 
-  it("بريد غير مسجّل: نفس الرد 401 ونفس الاحتساب", async () => {
+  it("بريد غير مسجّل: 404 + no_account (قرار المالك) ونفس الاحتساب", async () => {
     parentDbMocks.findParentByEmail.mockResolvedValue(null);
     const res = await POST(req("ghost@b.com", "x"));
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { code: string }).code).toBe("no_account");
     expect(rl.recordRateLimitHit).toHaveBeenCalledWith("parent-login:email:ghost@b.com", 900);
   });
 

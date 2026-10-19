@@ -46,7 +46,7 @@ function registerReq(overrides: Record<string, unknown> = {}): Request {
   });
 }
 
-describe("POST /api/auth/register — ردّ موحّد لا يكشف وجود البريد (الدفعة الأمنية ب)", () => {
+describe("POST /api/auth/register — البريد المسجّل مسبقاً: خطأ واضح (قرار المالك)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     dbMocks.checkRegisterRateLimit.mockResolvedValue(true);
@@ -68,24 +68,26 @@ describe("POST /api/auth/register — ردّ موحّد لا يكشف وجود �
     expect(mailMocks.sendMail).toHaveBeenCalledOnce();
   });
 
-  it("بريد مسجّل مسبقاً: نفس الحالة (200) ونفس الرسالة تماماً — بلا جلسة أو إنشاء أو بريد", async () => {
+  it("بريد مسجّل مسبقاً: 409 + account_exists — بلا جلسة أو إنشاء أو بريد", async () => {
     dbMocks.findTeacherByUsername.mockResolvedValue({ id: 1 });
 
     const res = await POST(registerReq());
-    const data = (await res.json()) as { teacher?: unknown; message?: string };
+    const data = (await res.json()) as { teacher?: unknown; code?: string; error?: string };
 
-    expect(res.status).toBe(200);
-    expect(data.message).toBe("إذا كان البريد صالحاً ستصلك رسالة للتفعيل");
+    expect(res.status).toBe(409);
+    expect(data.code).toBe("account_exists");
+    expect(data.error).toContain("مسجّل مسبقاً");
     expect(data.teacher).toBeUndefined();
     expect(authMocks.setSessionCookie).not.toHaveBeenCalled();
     expect(mailMocks.sendMail).not.toHaveBeenCalled();
     expect(dbMocks.createHalaqahWithSupervisor).not.toHaveBeenCalled();
   });
 
-  it("الرسالة نفسها تظهر في حالة الإنشاء أيضاً — الحالتان غير متمايزتين بالنص", async () => {
+  it("إنشاء جديد: يرجع رسالة نجاح", async () => {
     dbMocks.findTeacherByUsername.mockResolvedValue(null);
     const res = await POST(registerReq());
     const data = (await res.json()) as { message?: string };
-    expect(data.message).toBe("إذا كان البريد صالحاً ستصلك رسالة للتفعيل");
+    expect(res.status).toBe(200);
+    expect(data.message).toBeTruthy();
   });
 });

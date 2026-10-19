@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDevConsoleHost, requestHost } from "@/lib/hosts";
-import { INTRO_COOKIE, SESSION_COOKIES, WELCOME_PATH, isRegistrationPath } from "@/lib/landing";
+import { GOOGLE_HANDOFF_COOKIE, INTRO_COOKIE, SESSION_COOKIES, WELCOME_PATH, isRegistrationPath } from "@/lib/landing";
 
 /*
   dev split — فصل لوحة المطوّر عن المنصة العامة بالمستضيج (Next 16:
@@ -76,7 +76,11 @@ export function proxy(request: NextRequest) {
   }
 
   // من معه جلسة مستخدم قائم لا مسجِّل جديد — لا نرجعه للترحيب
-  if (!loggedIn && isRegistrationPath(pathname) && !request.cookies.get(INTRO_COOKIE)) {
+  // تسليم جوجل (كوكي موقّع ١٠ دقائق) يُعدّ مروراً بالترحيب: فحص وجود متفائل
+  // هنا، والتحقق من التوقيع والصلاحية خادمي عند /api/auth/register
+  const introPassed =
+    request.cookies.get(INTRO_COOKIE) !== undefined || request.cookies.get(GOOGLE_HANDOFF_COOKIE) !== undefined;
+  if (!loggedIn && isRegistrationPath(pathname) && !introPassed) {
     const welcome = new URL(WELCOME_PATH, request.url);
     welcome.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(welcome);

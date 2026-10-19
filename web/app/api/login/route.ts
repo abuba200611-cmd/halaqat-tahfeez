@@ -21,6 +21,7 @@ import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit
 */
 
 const GENERIC_LOGIN_ERROR = "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+const NO_ACCOUNT_MESSAGE = "ما عندك حساب بهذا البريد";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط بقية مسارات الدخول */
 function clientIp(request: Request): string {
@@ -46,9 +47,13 @@ export async function POST(request: Request) {
     return rateLimited();
   }
 
-  const fail = async () => {
+  const fail = async (noAccount = false) => {
     await recordRateLimitHit(idLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    // لا حساب بالمعرّف عند أي دور: رسالة صريحة (قرار المالك) تحوّل لإنشاء حساب
+    if (noAccount) {
+      return Response.json({ error: NO_ACCOUNT_MESSAGE, code: "no_account", email: identifier }, { status: 404 });
+    }
     return Response.json({ error: GENERIC_LOGIN_ERROR }, { status: 401 });
   };
 
@@ -86,8 +91,10 @@ export async function POST(request: Request) {
 
   // ٣) ولي الأمر — بريد إلكتروني فقط
   const email = normalizeParentEmail(identifier);
+  let parentExists = false;
   if (isValidParentEmail(email)) {
     const parent = await findParentByEmail(email);
+    parentExists = parent !== null;
     if (parent && verifyPassword(password, parent.passwordHash)) {
       await setParentSessionCookie(parent.id);
       await recordLogin({ role: "parent", parentId: parent.id });
@@ -95,5 +102,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return fail();
+  return fail(!teacher && !mosqueAdmin && !parentExists);
 }
