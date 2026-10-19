@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/back-button";
 import { useEffect, useState } from "react";
 import { Button, Card, Empty } from "@/components/ui";
 import { BrandLockup } from "@/components/brand";
@@ -52,6 +53,7 @@ function AdminLogin({ onIn }: { onIn: () => Promise<void> }) {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
+      <BackButton className="mb-3 self-start" />
       <Card className="p-5">
         <div className="mb-4 flex justify-center">
           <BrandLockup tone="onLight" size={44} />

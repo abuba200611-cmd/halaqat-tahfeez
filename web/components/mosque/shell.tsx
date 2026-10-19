@@ -6,6 +6,7 @@ import { RoleSwitcher } from "../role-switcher";
 import { BrandLockup } from "../brand";
 import { LogoutIcon, MenuIcon, XIcon } from "./icons";
 import { GroupedNav } from "../grouped-nav";
+import { BackButton } from "../back-button";
 import { groupByField } from "@/lib/nav-groups";
 
 type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode; group?: "top" | "features" | "bottom" };
@@ -139,6 +140,7 @@ export function DashboardShell({
             >
               <MenuIcon className="h-5 w-5" />
             </button>
+            <BackButton />
             <div className="min-w-0">
               <h1 className="font-display truncate text-xl font-bold text-foreground">{title}</h1>
               {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}

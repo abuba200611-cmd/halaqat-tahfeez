@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { RoleSwitcher } from "./role-switcher";
 import { BrandLockup } from "./brand";
+import { BackButton } from "./back-button";
 import { markAccountKnown, type TeacherAuthUser } from "./teacher-auth";
 import { BellIcon, CloseIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon } from "./icons";
 import { resetStore } from "@/lib/store";
@@ -255,6 +256,7 @@ function TopBar({ nav: groups, teacher, onOpenDrawer }: { nav: NavGroup<NavItem>
           <MenuIcon size={22} />
         </button>
 
+        <BackButton />
         <div className="min-w-0">
           <h1 className="font-display truncate text-base font-bold text-foreground sm:text-lg">{active.label}</h1>
           {active.desc && <p className="hidden truncate text-xs text-muted-foreground sm:block">{active.desc}</p>}

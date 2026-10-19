@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { AuthCard, AuthShell } from "./auth-shell";
 import { BrandLockup } from "./brand";
 import { RoleSwitcher, RoleSwitcherList } from "./role-switcher";
+import { BackButton } from "./back-button";
 import { BellIcon, CloseIcon, EyeIcon, EyeOffIcon, LogoutIcon, MenuIcon, UserIcon } from "./icons";
 import { splitBottomNav } from "@/lib/bottom-nav";
 
@@ -220,6 +221,7 @@ function TopBar({ nav, student, onLogout }: { nav: StudentNavItem[]; student: St
   return (
     <header className="no-print border-b border-border bg-surface">
       <div className="flex items-center gap-3 px-4 py-3 md:px-8">
+        <BackButton />
         <div className="min-w-0">
           <h1 className="font-display truncate text-base font-bold text-foreground sm:text-lg">{active.label}</h1>
           {active.desc && <p className="hidden truncate text-xs text-muted-foreground sm:block">{active.desc}</p>}

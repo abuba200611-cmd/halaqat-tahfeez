@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RoleSwitcher } from "../role-switcher";
 import { BrandLockup } from "../brand";
+import { BackButton } from "../back-button";
 
 /*
   قالب لوحة المطوّر — سايدبار داكن خاص بهذه اللوحة وحدها (مستقل عن قالب
@@ -110,7 +111,10 @@ export function DevShell({ children }: { children: ReactNode }) {
         </button>
       </aside>
 
-      <main className="min-w-0 flex-1 bg-background px-4 py-6 md:px-8">{children}</main>
+      <main className="min-w-0 flex-1 bg-background px-4 py-6 md:px-8">
+        <BackButton className="mb-4" />
+        {children}
+      </main>
     </div>
   );
 }

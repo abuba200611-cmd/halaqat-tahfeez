@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/back-button";
 import { useEffect, useState } from "react";
 import { BrandLockup } from "@/components/brand";
 
@@ -41,6 +42,9 @@ export default function VerifyCertificatePage({ params }: { params: Promise<{ co
 
   return (
     <main className="flex min-h-dvh flex-1 flex-col items-center justify-center bg-stone-50 px-4 py-10">
+      <div className="mb-3 w-full max-w-md">
+        <BackButton />
+      </div>
       <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 text-center shadow-sm">
         <BrandLockup tone="onLight" size={44} />
         <h1 className="font-display mt-2 text-xl font-bold text-foreground">التحقق من الشهادات</h1>

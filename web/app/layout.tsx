@@ -3,6 +3,7 @@ import { Noto_Naskh_Arabic, Noto_Sans_Arabic } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { NavHistoryTracker } from "@/components/nav-history-tracker";
 
 /* خط العلامة — KOMission Black (900): اسم «السلام» والعناوين فقط */
 const display = localFont({
@@ -51,7 +52,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* يضبط data-theme قبل أول رسم فلا يومض المظهر؛ التفاصيل في lib/theme.ts */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans">
+        <NavHistoryTracker />
+        {children}
+      </body>
     </html>
   );
 }

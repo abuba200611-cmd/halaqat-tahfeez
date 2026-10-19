@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/back-button";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -44,6 +45,7 @@ export default function MosqueSuggestPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
+      <BackButton className="mb-4" />
       <SuggestionForm endpoint="/api/mosque-admin/suggestions" maxLength={1000} />
     </main>
   );

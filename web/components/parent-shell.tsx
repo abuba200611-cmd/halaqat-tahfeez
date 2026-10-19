@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { BackButton } from "./back-button";
 import { RoleSwitcher } from "./role-switcher";
 import { BrandLockup } from "./brand";
 import { MessagesBadge } from "./messages-badge";
@@ -33,6 +35,7 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
   const [parent, setParent] = useState<ParentSession | null>(null);
   const [checking, setChecking] = useState(true);
   const [feesEnabled, setFeesEnabled] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     let cancelled = false;
@@ -131,7 +134,11 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </header>
-        <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">{children}</main>
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
+          {/* صفحة الدخول فيها «الرجوع للواجهة» الخاص بها */}
+          {pathname !== "/parent/login" && <BackButton className="mb-4" />}
+          {children}
+        </main>
       </div>
     </ParentContext.Provider>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/back-button";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Button, Card } from "@/components/mosque/ui";
@@ -64,6 +65,7 @@ export default function JoinPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
+      <BackButton className="mb-3 self-start" />
       <div className="mb-4 flex justify-center">
         <BrandLockup tone="onLight" size={44} />
       </div>

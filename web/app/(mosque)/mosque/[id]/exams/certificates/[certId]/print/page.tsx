@@ -1,7 +1,7 @@
 "use client";
 
+import { BackButton } from "@/components/back-button";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CERTIFICATE_KIND_LABELS, hijriDateLabel, type CertificateKind } from "@/lib/mosque/exams";
 import { BrandLogo } from "@/components/brand";
@@ -66,9 +66,7 @@ export default function CertificatePrintPage() {
   return (
     <main className="flex min-h-dvh flex-1 flex-col items-center gap-4 bg-stone-100 px-4 py-6">
       <div className="no-print flex w-full max-w-[210mm] items-center justify-between">
-        <Link href={`/mosque/${id}/exams`} className="text-sm text-accent-ink hover:underline">
-          عودة للاختبارات
-        </Link>
+        <BackButton />
         <button
           type="button"
           onClick={() => window.print()}

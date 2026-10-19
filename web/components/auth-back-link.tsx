@@ -1,19 +1,20 @@
-import Link from "next/link";
+import { BackButton } from "./back-button";
 
 /*
-  رابط «الرجوع للواجهة» الموحّد لكل صفحات الدخول/التسجيل — يعود دائماً إلى
-  /welcome (لا إلى "/" الذي قد يعرض شاشة دخول المعلّم). tone="onDark" للأسطح
+  زر «الرجوع للواجهة» الموحّد لكل صفحات الدخول/التسجيل — يعود دائماً إلى
+  /welcome (لا إلى "/" الذي قد يعرض شاشة دخول المعلّم). نفس مكوّن BackButton
+  (نفس الشكل والحجم)، بوضع المسار الاحتياطي الثابت. tone="onDark" للأسطح
   السوداء (AuthShell)، و"onLight" للصفحات الفاتحة.
 */
 export function AuthBackLink({ tone = "onDark", className = "" }: { tone?: "onDark" | "onLight"; className?: string }) {
-  const color = tone === "onDark" ? "text-sand/90 hover:text-white" : "text-muted-foreground hover:text-foreground";
   return (
-    <Link
+    <BackButton
       href="/welcome"
-      className={`inline-flex items-center gap-1.5 py-1 text-sm font-semibold leading-normal transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${color} ${className}`}
-    >
-      <span aria-hidden>→</span>
-      الرجوع للواجهة
-    </Link>
+      mode="fallback"
+      force
+      label="الرجوع للواجهة"
+      tone={tone === "onDark" ? "onDark" : "default"}
+      className={className}
+    />
   );
 }

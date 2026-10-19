@@ -1,5 +1,6 @@
 "use client";
 
+import { BackButton } from "@/components/back-button";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, Empty } from "@/components/mosque/ui";
@@ -34,6 +35,7 @@ export default function PublicSchedulePage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 sm:px-6">
+      <BackButton className="mb-3" />
       <div className="mb-4 flex justify-center">
         <BrandLockup tone="onLight" size={44} context="الجدول الأسبوعي" />
       </div>
