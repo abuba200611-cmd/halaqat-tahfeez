@@ -34,18 +34,18 @@ export function BrandLockup({
         priority={false}
         className="shrink-0"
       />
-      <div className="min-w-0">
+      <div className="flex min-w-0 flex-col gap-1">
         <Link
           href={href}
-          className={`font-display block text-xl leading-tight font-black ${onDark ? "text-accent-ink" : "text-foreground"}`}
+          className={`font-display block pb-0.5 text-xl leading-[1.35] font-black ${onDark ? "text-sand" : "text-foreground"}`}
         >
           السلام
         </Link>
-        <p className={`truncate text-[10px] leading-tight ${onDark ? "text-sand/80" : "text-muted-foreground"}`}>
+        <p className={`truncate text-[11px] leading-normal ${onDark ? "text-sand/80" : "text-muted-foreground"}`}>
           MOS — نظام تشغيل الجامع
         </p>
         {context && (
-          <p className={`truncate text-[10px] leading-tight ${onDark ? "text-white/50" : "text-muted-foreground/80"}`}>
+          <p className={`truncate text-[11px] leading-normal ${onDark ? "text-white/60" : "text-muted-foreground/80"}`}>
             {context}
           </p>
         )}
