@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/mosque/ui";
 import { AssociationPage } from "@/components/association/association-page";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { PasswordChangeForm } from "@/components/password-change-form";
 
 type Me = { admin: { username: string } | null; association: { name: string; city: string } | null };
 
@@ -34,6 +36,8 @@ export default function AssociationSettingsPage() {
           </p>
           <p>المستخدم: {me?.admin?.username ?? "—"}</p>
         </Card>
+        <PasswordChangeForm endpoint="/api/association/change-password" />
+        <ThemeToggle />
         <Card className="space-y-3 p-4 text-sm">
           <Link href="/association/visits" className="block text-accent-ink underline">زيارات المشرف التربوي</Link>
           <button

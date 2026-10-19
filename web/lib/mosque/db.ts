@@ -155,6 +155,15 @@ export async function joinHalaqahToMosqueByCode(halaqahId: number, code: string)
   return { ok: true, alreadyJoined: outcome === "already", mosqueName: mosque.name };
 }
 
+/** الجامع الذي تنتمي إليه الحلقة حالياً (halaqahs.mosque_id)، أو null — لقسم «الانضمام لجامع» بالإعدادات */
+export async function findHalaqahMosque(halaqahId: number): Promise<{ id: number; name: string; city: string } | null> {
+  const rows = await db().sql`
+    SELECT m.id, m.name, m.city FROM halaqahs h JOIN mosques m ON m.id = h.mosque_id WHERE h.id = ${halaqahId}
+  `;
+  const row = rows[0];
+  return row ? { id: row.id as number, name: row.name as string, city: (row.city as string) ?? "" } : null;
+}
+
 // ————— رابط انضمام المعلّمين (رمز واحد لكل جامع) —————
 
 function newJoinCode(): string {
@@ -311,6 +320,17 @@ export async function findMosqueAdminByUsername(
   return row
     ? { id: row.id, mosqueId: row.mosque_id, username: row.username, passwordHash: row.password_hash }
     : null;
+}
+
+/** بصمة كلمة مرور مدير الجامع الحالية — للتحقق من «الحالية» عند تغييرها من الإعدادات فقط */
+export async function mosqueAdminPasswordHash(adminId: number): Promise<string | null> {
+  const rows = await db().sql`SELECT password_hash FROM mosque_admins WHERE id = ${adminId}`;
+  return (rows[0]?.password_hash as string | undefined) ?? null;
+}
+
+/** كلمة مرور جديدة لمدير الجامع (لا نسخة جلسة لهذا الدور، فلا إبطال للجلسات الأخرى) */
+export async function updateMosqueAdminPassword(adminId: number, passwordHash: string): Promise<void> {
+  await db().sql`UPDATE mosque_admins SET password_hash = ${passwordHash} WHERE id = ${adminId}`;
 }
 
 /** حساب المدير الحالي لهذا الجامع، إن وُجد — لعرضه بلوحة المشرف العام */

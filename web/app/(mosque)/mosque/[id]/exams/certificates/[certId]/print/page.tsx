@@ -86,7 +86,7 @@ export default function CertificatePrintPage() {
 
       <article
         dir="rtl"
-        className="print-block flex w-full max-w-[210mm] flex-col items-center justify-between gap-6 border-[6px] border-double border-foreground bg-white p-10 text-center shadow-sm"
+        className="print-block force-light flex w-full max-w-[210mm] flex-col items-center justify-between gap-6 border-[6px] border-double border-foreground bg-white p-10 text-center shadow-sm"
         style={{ aspectRatio: "210 / 297" }}
       >
         <header className="flex flex-col items-center space-y-1">

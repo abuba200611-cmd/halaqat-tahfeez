@@ -70,7 +70,7 @@ export function DisciplineDoc({ doc }: { doc: DisciplineDocData }) {
   const body = buildDocBody(doc);
   const signatures = SIGNATURES[doc.docKind];
   return (
-    <div className="discipline-doc mx-auto max-w-[210mm] bg-white p-10 text-stone-900 shadow-sm print:max-w-none print:p-0 print:shadow-none">
+    <div className="discipline-doc force-light mx-auto max-w-[210mm] bg-white p-10 text-stone-900 shadow-sm print:max-w-none print:p-0 print:shadow-none">
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 15mm; }

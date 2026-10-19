@@ -3,6 +3,7 @@
 import { useStudentLogout, useStudentSession } from "@/components/student-gate";
 import { StudentPushToggle } from "@/components/student-push-toggle";
 import { LogoutIcon } from "@/components/icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /** "الإعدادات" — التذكير اليومي وتسجيل الخروج (STEP 58)، كان زر الإشعارات مبعثراً برأس الرئيسية */
 export default function StudentSettingsPage() {
@@ -17,6 +18,8 @@ export default function StudentSettingsPage() {
         <h2 className="mb-2 text-sm font-semibold text-stone-700">التذكير اليومي</h2>
         <StudentPushToggle />
       </div>
+
+      <ThemeToggle />
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-semibold text-stone-700">الحساب</h2>

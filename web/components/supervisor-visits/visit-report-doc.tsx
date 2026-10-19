@@ -34,7 +34,7 @@ export function VisitReportDoc({ data }: { data: VisitReportDocData }) {
   const visitedLabel = data.visitedAt ? data.visitedAt.slice(0, 10) : "لم تُنجز بعد";
 
   return (
-    <article dir="rtl" className="mx-auto max-w-3xl bg-white p-6 text-black print:p-0">
+    <article dir="rtl" className="force-light mx-auto max-w-3xl bg-white p-6 text-black print:p-0">
       <header className="mb-4 border-b-2 border-secondary pb-3 text-center">
         <div className="flex justify-center">
           <BrandLogo size={40} />

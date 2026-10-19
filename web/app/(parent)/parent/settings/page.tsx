@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useParentSession } from "@/components/parent-shell";
 import { ParentPushToggle } from "@/components/parent-push-toggle";
 import { ParentWhatsappCard } from "@/components/parent-whatsapp-card";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ProfileNameForm } from "@/components/profile-name-form";
+import { PasswordChangeForm } from "@/components/password-change-form";
 
 const CARD = "rounded-2xl border border-stone-200 bg-white p-4";
 
@@ -33,7 +36,6 @@ export default function ParentSettingsPage() {
         <h2 className="mb-2 text-sm font-semibold text-stone-700">الحساب</h2>
         <p className="mb-3 text-sm text-stone-500">{parent.name} — {parent.email}</p>
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <Link href="/forgot-password" className="font-semibold text-accent-ink underline">تغيير كلمة المرور (عبر البريد)</Link>
           <Link href="/parent/suggest" className="font-semibold text-accent-ink underline">اقتراح / بلاغ</Link>
           <button
             type="button"
@@ -44,6 +46,9 @@ export default function ParentSettingsPage() {
           </button>
         </div>
       </div>
+      <ProfileNameForm key={parent.name} endpoint="/api/parent-auth/profile" initialName={parent.name} />
+      <PasswordChangeForm endpoint="/api/parent-auth/change-password" />
+      <ThemeToggle />
     </div>
   );
 }

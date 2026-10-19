@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, Empty } from "@/components/mosque/ui";
 import { DashboardShell } from "@/components/mosque/shell";
 import { HomeIcon, SettingsIcon } from "@/components/mosque/icons";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type Mosque = { id: number; name: string; city: string };
 
@@ -71,6 +72,7 @@ export default function MosqueRootSettingsPage() {
             </ul>
           )}
         </Card>
+        <ThemeToggle />
         <Card className="p-4">
           <h2 className="mb-2 text-sm font-semibold">الحساب</h2>
           <button

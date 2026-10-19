@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Naskh_Arabic, Noto_Sans_Arabic } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 /* خط العلامة — KOMission Black (900): اسم «السلام» والعناوين فقط */
 const display = localFont({
@@ -44,7 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="ar"
       dir="rtl"
       className={`${display.variable} ${body.variable} ${naskh.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* يضبط data-theme قبل أول رسم فلا يومض المظهر؛ التفاصيل في lib/theme.ts */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );

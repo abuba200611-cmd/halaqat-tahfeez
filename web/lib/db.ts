@@ -537,6 +537,17 @@ export async function updateTeacherPassword(teacherId: number, passwordHash: str
     WHERE id = ${teacherId}`;
 }
 
+/** بصمة كلمة مرور المعلّم الحالية — للتحقق من «الحالية» عند تغييرها من الإعدادات فقط */
+export async function teacherPasswordHash(teacherId: number): Promise<string | null> {
+  const rows = await db().sql`SELECT password_hash FROM teachers WHERE id = ${teacherId}`;
+  return (rows[0]?.password_hash as string | undefined) ?? null;
+}
+
+/** اسم المعلّم (للعرض) — المعرّف من جلسة المعلّم حصراً */
+export async function updateTeacherName(teacherId: number, name: string): Promise<void> {
+  await db().sql`UPDATE teachers SET teacher_name = ${name} WHERE id = ${teacherId}`;
+}
+
 // ————— تأكيد البريد الإلكتروني —————
 
 /** يولّد رمز تأكيد صالح ٢٤ ساعة، ويرجعه خاماً (يُرسَل بالبريد فقط) */

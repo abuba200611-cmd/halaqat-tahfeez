@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const CARD = "rounded-2xl border border-border bg-surface p-4";
 
@@ -30,6 +31,7 @@ export default function DevSettingsPage() {
           <li><Link href="/dev/mosques" className="text-accent-ink underline">الجوامع ومزاياها</Link></li>
         </ul>
       </div>
+      <ThemeToggle />
       <div className={CARD}>
         <h2 className="mb-2 text-sm font-semibold">الجلسة</h2>
         <button

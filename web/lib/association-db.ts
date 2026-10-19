@@ -146,6 +146,12 @@ export async function resetAssociationAdminPassword(adminId: number, passwordHas
   return rows.length > 0;
 }
 
+/** بصمة كلمة مرور مدير الجمعية الحالية — للتحقق من «الحالية» عند تغييرها من الإعدادات فقط */
+export async function associationAdminPasswordHash(adminId: number): Promise<string | null> {
+  const rows = await db().sql`SELECT password_hash FROM association_admins WHERE id = ${adminId}`;
+  return (rows[0]?.password_hash as string | undefined) ?? null;
+}
+
 // ————— ربط الجوامع —————
 
 export async function getMosqueAssociationId(mosqueId: number): Promise<number | null> {

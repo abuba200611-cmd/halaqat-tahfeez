@@ -7,6 +7,8 @@ import { Badge, Card, Empty } from "@/components/mosque/ui";
 import { DashboardShell } from "@/components/mosque/shell";
 import { mosqueNavItems } from "@/components/mosque/mosque-nav";
 import { SettingsIcon } from "@/components/mosque/icons";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { PasswordChangeForm } from "@/components/password-change-form";
 import type { MosqueFeature } from "@/lib/mosque/db";
 
 type Mosque = { id: number; name: string; city: string };
@@ -159,6 +161,14 @@ export default function MosqueSettingsPage() {
             </div>
           </div>
         )}
+
+        {role === "mosque" && (
+          <PasswordChangeForm
+            endpoint="/api/mosque-admin/change-password"
+            note="تغيير كلمة المرور لا يُنهي جلسات الأجهزة الأخرى لهذا الدور."
+          />
+        )}
+        <ThemeToggle />
       </div>
     </DashboardShell>
   );

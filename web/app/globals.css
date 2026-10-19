@@ -79,6 +79,201 @@ body {
   font-feature-settings: "tnum";
 }
 
+/*
+  ——— المظهر الداكن ———
+  فاتح (افتراضي) ← :root بالأعلى. داكن صريح: data-theme="dark". تلقائي: بلا
+  سمة ويحكم prefers-color-scheme، وسمة "light" الصريحة تُبطله. لوحة داكنة
+  من ألوان الهوية نفسها (أسود دافئ #0E0B08 + بيج/راودو دست). الزر الأساسي
+  يصير راودو دست #CDB49E بنص أسود. تباين النصوص ≥ 4.5:1 على السطح والخلفية.
+  --color-stone-* تُعاد تعريفها لأن صفحات الطالب/ولي الأمر القديمة تستعملها.
+  خطتان متطابقتان بالقيم عمداً (CSS لا يشارك كتلة بين :root[data-theme] وmedia).
+*/
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-primary: #cdb49e;
+  --color-primary-hover: #ddc8b5;
+  --color-on-primary: #000000;
+  --color-secondary: #ad7d56;
+  --color-secondary-hover: #bd8d66;
+  --color-on-secondary: #000000;
+  --color-accent: #ad7d56;
+  --color-accent-hover: #bd8d66;
+  --color-accent-ink: #cdb49e;
+  --color-accent-soft: #2a2017;
+  --color-sand: #cdb49e;
+  --color-surface: #1a1510;
+  --color-background: #0e0b08;
+  --color-foreground: #f3ede6;
+  --color-muted: #241c14;
+  --color-muted-foreground: #cdb49e;
+  --color-border: #3a2e22;
+  --color-border-strong: #5a4733;
+  --color-destructive: #d4574a;
+  --color-destructive-hover: #e06a5d;
+  --color-destructive-soft: #3a1f19;
+  --color-destructive-light: #e39b8d;
+  --color-success: #7db88a;
+  --color-success-hover: #93c79e;
+  --color-success-soft: #1e2a20;
+  --color-ring: #ad7d56;
+  --color-stone-50: #1a1510;
+  --color-stone-100: #241c14;
+  --color-stone-200: #3a2e22;
+  --color-stone-300: #4a3b2c;
+  --color-stone-400: #9c8570;
+  --color-stone-500: #b9a38e;
+  --color-stone-600: #cdb49e;
+  --color-stone-700: #dccbbb;
+  --color-stone-800: #eadfd3;
+  --color-stone-900: #f3ede6;
+}
+:root[data-theme="dark"] .bg-white:not(.force-light, .force-light *) {
+  background-color: var(--color-surface);
+}
+:root[data-theme="dark"] :is(.bg-primary, .bg-destructive, .bg-success).text-white:not(.force-light *) {
+  color: var(--color-on-primary);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-primary: #cdb49e;
+    --color-primary-hover: #ddc8b5;
+    --color-on-primary: #000000;
+    --color-secondary: #ad7d56;
+    --color-secondary-hover: #bd8d66;
+    --color-on-secondary: #000000;
+    --color-accent: #ad7d56;
+    --color-accent-hover: #bd8d66;
+    --color-accent-ink: #cdb49e;
+    --color-accent-soft: #2a2017;
+    --color-sand: #cdb49e;
+    --color-surface: #1a1510;
+    --color-background: #0e0b08;
+    --color-foreground: #f3ede6;
+    --color-muted: #241c14;
+    --color-muted-foreground: #cdb49e;
+    --color-border: #3a2e22;
+    --color-border-strong: #5a4733;
+    --color-destructive: #d4574a;
+    --color-destructive-hover: #e06a5d;
+    --color-destructive-soft: #3a1f19;
+    --color-destructive-light: #e39b8d;
+    --color-success: #7db88a;
+    --color-success-hover: #93c79e;
+    --color-success-soft: #1e2a20;
+    --color-ring: #ad7d56;
+    --color-stone-50: #1a1510;
+    --color-stone-100: #241c14;
+    --color-stone-200: #3a2e22;
+    --color-stone-300: #4a3b2c;
+    --color-stone-400: #9c8570;
+    --color-stone-500: #b9a38e;
+    --color-stone-600: #cdb49e;
+    --color-stone-700: #dccbbb;
+    --color-stone-800: #eadfd3;
+    --color-stone-900: #f3ede6;
+  }
+  :root:not([data-theme="light"]) .bg-white:not(.force-light, .force-light *) {
+    background-color: var(--color-surface);
+  }
+  :root:not([data-theme="light"]) :is(.bg-primary, .bg-destructive, .bg-success).text-white:not(.force-light *) {
+    color: var(--color-on-primary);
+  }
+}
+
+/*
+  المستندات المطبوعة (شهادات/خطابات/تقارير) تبقى فاتحة دائماً: صنف
+  force-light على جذر الورقة يعيد قيم الفاتح لتوابعه، وعند الطباعة يعود
+  الجذر نفسه للفاتح مهما كان مظهر الشاشة.
+*/
+.force-light {
+  color-scheme: light;
+  --color-primary: #000000;
+  --color-primary-hover: #241b12;
+  --color-on-primary: #ffffff;
+  --color-secondary: #ad7d56;
+  --color-secondary-hover: #976b46;
+  --color-on-secondary: #000000;
+  --color-accent: #ad7d56;
+  --color-accent-hover: #976b46;
+  --color-accent-ink: #7f5636;
+  --color-accent-soft: #f0e4d2;
+  --color-sand: #cdb49e;
+  --color-surface: #ffffff;
+  --color-background: #f3ede6;
+  --color-foreground: #000000;
+  --color-muted: #ece2d2;
+  --color-muted-foreground: #5f5344;
+  --color-border: #e2d6c3;
+  --color-border-strong: #cdb49e;
+  --color-destructive: #a13e2e;
+  --color-destructive-hover: #87301f;
+  --color-destructive-soft: #f6e7e0;
+  --color-destructive-light: #e39b8d;
+  --color-success: #3e6b4a;
+  --color-success-hover: #33573d;
+  --color-success-soft: #e9eee4;
+  --color-ring: #ad7d56;
+  --color-stone-50: #fafaf9;
+  --color-stone-100: #f5f5f4;
+  --color-stone-200: #e7e5e4;
+  --color-stone-300: #d6d3d1;
+  --color-stone-400: #a8a29e;
+  --color-stone-500: #78716c;
+  --color-stone-600: #57534e;
+  --color-stone-700: #44403c;
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+@media print {
+  :root:root:root {
+    color-scheme: light;
+    --color-primary: #000000;
+    --color-primary-hover: #241b12;
+    --color-on-primary: #ffffff;
+    --color-secondary: #ad7d56;
+    --color-secondary-hover: #976b46;
+    --color-on-secondary: #000000;
+    --color-accent: #ad7d56;
+    --color-accent-hover: #976b46;
+    --color-accent-ink: #7f5636;
+    --color-accent-soft: #f0e4d2;
+    --color-sand: #cdb49e;
+    --color-surface: #ffffff;
+    --color-background: #f3ede6;
+    --color-foreground: #000000;
+    --color-muted: #ece2d2;
+    --color-muted-foreground: #5f5344;
+    --color-border: #e2d6c3;
+    --color-border-strong: #cdb49e;
+    --color-destructive: #a13e2e;
+    --color-destructive-hover: #87301f;
+    --color-destructive-soft: #f6e7e0;
+    --color-destructive-light: #e39b8d;
+    --color-success: #3e6b4a;
+    --color-success-hover: #33573d;
+    --color-success-soft: #e9eee4;
+    --color-ring: #ad7d56;
+    --color-stone-50: #fafaf9;
+    --color-stone-100: #f5f5f4;
+    --color-stone-200: #e7e5e4;
+    --color-stone-300: #d6d3d1;
+    --color-stone-400: #a8a29e;
+    --color-stone-500: #78716c;
+    --color-stone-600: #57534e;
+    --color-stone-700: #44403c;
+    --color-stone-800: #292524;
+    --color-stone-900: #1c1917;
+  }
+  :root:root:root .bg-white {
+    background-color: #ffffff;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

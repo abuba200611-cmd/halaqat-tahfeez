@@ -5,6 +5,10 @@ import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { BuddyResetSetting, ClassmatesVisibleSetting } from "@/components/halaqah-settings";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { ProfileNameForm } from "@/components/profile-name-form";
+import { PasswordChangeForm } from "@/components/password-change-form";
+import { JoinMosqueBox } from "@/components/join-mosque-box";
 
 type Me = { teacherName?: string; halaqahName?: string; role?: "supervisor" | "assistant"; email?: string | null };
 
@@ -43,6 +47,11 @@ export default function TeacherSettingsPage() {
         <ClassmatesVisibleSetting />
       </section>
 
+      <section className="space-y-3" aria-labelledby="set-mosque">
+        <h2 id="set-mosque" className="text-sm font-semibold text-muted-foreground">الجامع</h2>
+        <JoinMosqueBox />
+      </section>
+
       <section className="space-y-3" aria-labelledby="set-notify">
         <h2 id="set-notify" className="text-sm font-semibold text-muted-foreground">الإشعارات</h2>
         <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -61,12 +70,6 @@ export default function TeacherSettingsPage() {
           )}
           <ul className="space-y-2">
             <li>
-              <Link href="/forgot-password" className={LINK}>تغيير كلمة المرور (عبر البريد)</Link>
-            </li>
-            <li>
-              <Link href="/join-mosque" className={LINK}>الانضمام إلى جامع برابط الدعوة</Link>
-            </li>
-            <li>
               <Link href="/suggest" className={LINK}>اقتراح / بلاغ</Link>
             </li>
           </ul>
@@ -74,6 +77,13 @@ export default function TeacherSettingsPage() {
             {busy ? "لحظة…" : "تسجيل الخروج من كل الأجهزة"}
           </Button>
         </Card>
+        {me && <ProfileNameForm key={me.teacherName ?? ""} endpoint="/api/teacher/profile" initialName={me.teacherName ?? ""} />}
+        <PasswordChangeForm endpoint="/api/auth/change-password" />
+      </section>
+
+      <section className="space-y-3" aria-labelledby="set-theme">
+        <h2 id="set-theme" className="text-sm font-semibold text-muted-foreground">المظهر</h2>
+        <ThemeToggle />
       </section>
     </div>
   );

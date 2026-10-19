@@ -108,6 +108,23 @@ export async function parentSessionVersion(id: number): Promise<number> {
   return Number(rows[0]?.session_version ?? 0);
 }
 
+/** بصمة كلمة مرور ولي الأمر الحالية — للتحقق من «الحالية» عند تغييرها من الإعدادات فقط */
+export async function parentPasswordHash(id: number): Promise<string | null> {
+  const rows = await db().sql`SELECT password_hash FROM parents WHERE id = ${id}`;
+  return (rows[0]?.password_hash as string | undefined) ?? null;
+}
+
+/** كلمة مرور جديدة + رفع نسخة الجلسة (تسقط جلسات الأجهزة الأخرى) */
+export async function updateParentPassword(id: number, passwordHash: string): Promise<void> {
+  await db().sql`UPDATE parents SET password_hash = ${passwordHash}, session_version = session_version + 1
+    WHERE id = ${id}`;
+}
+
+/** اسم ولي الأمر (للعرض) — المعرّف من جلسته حصراً */
+export async function updateParentName(id: number, name: string): Promise<void> {
+  await db().sql`UPDATE parents SET name = ${name} WHERE id = ${id}`;
+}
+
 // ————— رموز الدعوة —————
 
 export type ParentLinkTokenIssued = { token: string; expiresAt: string };
