@@ -1,5 +1,6 @@
 import { requireAssociationAdmin } from "@/lib/association-gate";
-import { getMosque } from "@/lib/mosque/db";
+import { getMosque, isFeatureEnabled } from "@/lib/mosque/db";
+import { SUPERVISOR_VISITS_FEATURE_KEY } from "@/lib/supervisor-visits";
 import { logServerError } from "@/lib/dev-error-log";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import {
@@ -32,6 +33,10 @@ export async function GET(request: Request, { params }: RouteContext) {
   try {
     const visit = await getVisitForAssociation(auth.admin.associationId, visitId);
     if (!visit) return Response.json({ error: "غير موجود" }, { status: 404 });
+    // الميزة مغلقة لهذا الجامع = 404 (الافتراضي مغلق)
+    if (!(await isFeatureEnabled(visit.mosqueId, SUPERVISOR_VISITS_FEATURE_KEY))) {
+      return Response.json({ error: "غير موجود" }, { status: 404 });
+    }
     const [criteria, scores, mosque] = await Promise.all([
       getVisitCriteria(visit.mosqueId),
       getVisitScores(visit.id),
@@ -54,6 +59,10 @@ export async function PUT(request: Request, { params }: RouteContext) {
   try {
     const visit = await getVisitForAssociation(auth.admin.associationId, visitId);
     if (!visit) return Response.json({ error: "غير موجود" }, { status: 404 });
+    // الميزة مغلقة لهذا الجامع = 404 (الافتراضي مغلق)
+    if (!(await isFeatureEnabled(visit.mosqueId, SUPERVISOR_VISITS_FEATURE_KEY))) {
+      return Response.json({ error: "غير موجود" }, { status: 404 });
+    }
 
     if (!(await checkRateLimit(`visit-write:association_admin:${auth.admin.id}`, 60, 3600))) {
       return rateLimited();

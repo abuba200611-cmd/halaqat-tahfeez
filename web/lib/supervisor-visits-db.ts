@@ -90,7 +90,9 @@ export async function listVisitsForAssociation(associationId: number): Promise<(
     FROM supervisor_visits v
     JOIN halaqahs h ON h.id = v.halaqah_id
     JOIN mosques m ON m.id = v.mosque_id
-    WHERE v.association_id = ${associationId}
+    LEFT JOIN mosque_features mf ON mf.mosque_id = m.id AND mf.feature_key = 'supervisor_visits'
+    WHERE m.association_id = ${associationId} AND v.association_id = ${associationId}
+      AND COALESCE(mf.enabled, false) = true
     ORDER BY v.scheduled_for DESC, v.id DESC
   `;
   return rows.map((r) => ({ ...rowToVisit(r), mosqueName: (r.mosque_name as string) ?? "" }));
