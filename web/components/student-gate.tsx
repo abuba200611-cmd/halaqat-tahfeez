@@ -1,5 +1,7 @@
 "use client";
 
+import { InstallBanner } from "@/components/install-banner";
+
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -118,7 +120,10 @@ export function StudentGate({
 
         <div className="min-w-0 flex-1 pb-20 md:pb-0 md:mr-64">
           <TopBar nav={nav} student={student} onLogout={logout} />
-          <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-8">{children}</main>
+          <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 md:px-8">
+            <InstallBanner />
+            {children}
+          </main>
         </div>
 
         <BottomNav nav={nav} />

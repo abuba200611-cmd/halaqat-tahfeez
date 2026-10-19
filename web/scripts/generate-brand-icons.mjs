@@ -16,6 +16,10 @@ const SIZES = {
   "icon-512.png": 512,
 };
 
+// أيقونة maskable: نفس الشعار كما هو لكن بحاشية أكبر (~20%) ليبقى داخل «المنطقة الآمنة»
+// (دائرة بقطر 80%) حين يقصّها أندرويد بأشكال مختلفة.
+const MASKABLE = { "icon-512-maskable.png": { size: 512, padding: 0.2 } };
+
 async function squareWithPadding(size, paddingRatio = 0.12) {
   const inner = Math.round(size * (1 - paddingRatio * 2));
   const logo = await sharp(SRC).resize(inner, inner, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).toBuffer();
@@ -47,6 +51,10 @@ function pngToIco(png, size) {
 await mkdir(OUT, { recursive: true });
 for (const [name, size] of Object.entries(SIZES)) {
   await writeFile(path.join(OUT, name), await squareWithPadding(size));
+  console.log("✓", name);
+}
+for (const [name, { size, padding }] of Object.entries(MASKABLE)) {
+  await writeFile(path.join(OUT, name), await squareWithPadding(size, padding));
   console.log("✓", name);
 }
 const png32 = await readFile(path.join(OUT, "favicon-32.png"));

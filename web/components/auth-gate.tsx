@@ -1,5 +1,7 @@
 "use client";
 
+import { InstallBanner } from "@/components/install-banner";
+
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -99,7 +101,10 @@ export function AuthGate({ nav, children }: { nav: NavGroup<NavItem>[]; children
       <div className="min-w-0 flex-1 lg:mr-64">
         <TopBar nav={nav} teacher={teacher} onOpenDrawer={() => setDrawerOpen(true)} />
         {!teacher.emailVerified && <VerifyEmailBanner />}
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 lg:px-8">
+          <InstallBanner />
+          {children}
+        </main>
       </div>
     </div>
   );

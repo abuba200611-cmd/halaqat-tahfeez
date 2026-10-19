@@ -1,5 +1,7 @@
 "use client";
 
+import { InstallBanner } from "@/components/install-banner";
+
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -137,6 +139,7 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
         <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6">
           {/* صفحة الدخول فيها «الرجوع للواجهة» الخاص بها */}
           {pathname !== "/parent/login" && <BackButton className="mb-4" />}
+          <InstallBanner />
           {children}
         </main>
       </div>

@@ -397,6 +397,9 @@ export default function WelcomePage() {
             </div>
           </div>
           <nav aria-label="روابط التذييل" className="flex flex-wrap gap-x-7 gap-y-3 text-sm font-semibold text-[#CDB49E]">
+            <Link href="/privacy" className="hover:text-white">
+              سياسة الخصوصية
+            </Link>
             <Link href="/login" className="hover:text-white">
               دخول
             </Link>

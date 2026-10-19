@@ -1,5 +1,7 @@
 "use client";
 
+import { InstallBanner } from "@/components/install-banner";
+
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { RoleSwitcher } from "../role-switcher";
@@ -148,7 +150,10 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">{children}</main>
+        <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+          <InstallBanner />
+          {children}
+        </main>
       </div>
     </div>
   );

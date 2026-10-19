@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Naskh_Arabic, Noto_Sans_Arabic } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import { NavHistoryTracker } from "@/components/nav-history-tracker";
+import { SwRegister } from "@/components/sw-register";
+import { APP_SHORT_NAME, THEME_COLOR } from "@/lib/pwa";
 
 /* خط العلامة — KOMission Black (900): اسم «السلام» والعناوين فقط */
 const display = localFont({
@@ -27,7 +29,11 @@ const naskh = Noto_Naskh_Arabic({
   weight: ["400", "600", "700"],
 });
 
+export const viewport: Viewport = { themeColor: THEME_COLOR };
+
 export const metadata: Metadata = {
+  applicationName: APP_SHORT_NAME,
+  appleWebApp: { capable: true, title: APP_SHORT_NAME, statusBarStyle: "black-translucent" },
   title: "السلام — MOS نظام تشغيل الجامع",
   description: "تسجيل الحفظ، ومطابقة الطلاب للتسميع، وتوليد جدول المراجعة.",
   icons: {
@@ -54,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <NavHistoryTracker />
+        <SwRegister />
         {children}
       </body>
     </html>
