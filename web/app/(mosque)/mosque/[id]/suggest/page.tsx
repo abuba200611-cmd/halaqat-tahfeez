@@ -35,6 +35,7 @@ export default function MosqueSuggestPage() {
   if (!role) {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
+        <BackButton force href="/welcome" className="mb-4 self-start" />
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <Link href="/mosque-login" className="text-sm text-accent-ink hover:underline">
           دخول مدير الجامع

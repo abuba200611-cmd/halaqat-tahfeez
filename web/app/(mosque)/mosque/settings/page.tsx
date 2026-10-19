@@ -7,6 +7,7 @@ import { DashboardShell } from "@/components/mosque/shell";
 import { HomeIcon, SettingsIcon } from "@/components/mosque/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 
+import { BackButton } from "@/components/back-button";
 type Mosque = { id: number; name: string; city: string };
 
 /** إعدادات المشرف العام: الحساب + روابط لإعدادات ومزايا كل جامع (الصفحات القائمة) */
@@ -37,7 +38,8 @@ export default function MosqueRootSettingsPage() {
   if (admin === null) return <Empty title="جارٍ التحقق…" />;
   if (!admin) {
     return (
-      <main className="mx-auto w-full max-w-sm px-4 py-10 text-center text-sm">
+      <main className="mx-auto flex w-full max-w-sm flex-col px-4 py-10 text-center text-sm">
+        <BackButton force href="/welcome" className="mb-4 self-start" />
         <Link href="/mosque" className="text-accent-ink underline">سجّل دخولك أولاً</Link>
       </main>
     );

@@ -58,6 +58,7 @@ export default function JoinPage() {
   if (notFound) {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
+        <BackButton force href="/welcome" className="mb-4 self-start" />
         <p className="text-sm text-destructive">رابط التسجيل غير صحيح.</p>
       </main>
     );

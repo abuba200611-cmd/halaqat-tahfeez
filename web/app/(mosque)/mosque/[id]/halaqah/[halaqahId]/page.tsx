@@ -8,6 +8,7 @@ import { DashboardShell } from "@/components/mosque/shell";
 import { mosqueNavItems } from "@/components/mosque/mosque-nav";
 import { BookIcon, UsersIcon } from "@/components/mosque/icons";
 
+import { BackButton } from "@/components/back-button";
 type Halaqah = { id: number; mosqueId: number; halaqahName: string; teacherName: string };
 type RosterStudent = { name: string; group: string; pages: number; avgMastery: number; active: boolean };
 type Roster = { teacherName: string; halaqahName: string; students: RosterStudent[] };
@@ -64,6 +65,7 @@ export default function HalaqahDetailPage() {
   if (!role) {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
+        <BackButton force href="/welcome" className="mb-4 self-start" />
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <div className="flex justify-center gap-4">
           <Link href="/mosque" className="text-sm text-accent-ink hover:underline">

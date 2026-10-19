@@ -6,6 +6,7 @@ import { DashboardShell } from "@/components/mosque/shell";
 import { Empty } from "@/components/mosque/ui";
 import { BuildingIcon, ClipboardIcon, SettingsIcon } from "@/components/mosque/icons";
 
+import { BackButton } from "@/components/back-button";
 type Me = { admin: { username: string } | null; association: { name: string; city: string } | null };
 
 /**
@@ -40,6 +41,7 @@ export function AssociationPage({
   if (!me) {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
+        <BackButton force href="/welcome" className="mb-4 self-start" />
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <Link href="/association-login" className="text-sm text-accent-ink hover:underline">
           دخول مدير الجمعية

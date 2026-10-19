@@ -9,6 +9,7 @@ import { mosqueNavItems } from "@/components/mosque/mosque-nav";
 import { BrainGraph } from "@/components/mosque/brain-graph";
 import type { MosqueGraph } from "@/lib/mosque/graph-types";
 
+import { BackButton } from "@/components/back-button";
 type Mosque = { id: number; name: string; city: string };
 type Role = "super" | "mosque" | null;
 
@@ -61,6 +62,7 @@ export default function BrainPage() {
   if (!role) {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10 text-center">
+        <BackButton force href="/welcome" className="mb-4 self-start" />
         <p className="mb-3 text-sm text-muted-foreground">سجّل دخولك أولاً.</p>
         <div className="flex justify-center gap-4">
           <Link href="/mosque" className="text-sm text-accent-ink hover:underline">
