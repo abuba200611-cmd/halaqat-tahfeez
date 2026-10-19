@@ -1,6 +1,8 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { deleteStudent, listStudents, replaceStudents, upsertStudent } from "@/lib/db";
 import { guardImpersonation } from "@/lib/dev-impersonation";
+import { logServerError } from "@/lib/dev-error-log";
+import { onSeatFreed } from "@/lib/mosque/enrollment-db";
 import { TOTAL_JUZ, TOTAL_PAGES } from "@/lib/quran";
 import type { MemorizedRange, Student } from "@/lib/types";
 
@@ -52,6 +54,15 @@ function parseStudent(input: unknown): Student {
   };
 }
 
+/** يرقّي أول منتظر مطابق بعد شغور مقعد؛ أفضل جهد: أي خطأ يُسجَّل ولا يكسر الطلب الأصلي */
+async function promoteAfterSeatFreed(halaqahId: number): Promise<void> {
+  try {
+    await onSeatFreed(halaqahId);
+  } catch (error) {
+    await logServerError("students:seat-freed", error);
+  }
+}
+
 export async function GET() {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
@@ -66,7 +77,10 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as { student?: unknown };
-    await upsertStudent(teacher.halaqahId, parseStudent(body.student));
+    const student = parseStudent(body.student);
+    await upsertStudent(teacher.halaqahId, student);
+    // إيقاف طالب يُفرِّغ مقعده (التوزيع الآلي) — فشل الترقية لا يُفشل الحفظ
+    if (!student.active) await promoteAfterSeatFreed(teacher.halaqahId);
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json(
@@ -110,5 +124,6 @@ export async function DELETE(request: Request) {
   if (!(await deleteStudent(teacher.halaqahId, id))) {
     return Response.json({ error: "الطالب غير موجود" }, { status: 404 });
   }
+  await promoteAfterSeatFreed(teacher.halaqahId);
   return Response.json({ ok: true });
 }

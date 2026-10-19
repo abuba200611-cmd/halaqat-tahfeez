@@ -13,9 +13,12 @@ export default function JoinPage() {
   const [notFound, setNotFound] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [level, setLevel] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [waitlisted, setWaitlisted] = useState(false);
 
   useEffect(() => {
     fetch(`/api/mosques/${mosqueId}/public`)
@@ -35,13 +38,14 @@ export default function JoinPage() {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mosqueId, name, phone }),
+        body: JSON.stringify({ mosqueId, name, phone, birthYear: birthYear.trim() || null, level: level || null }),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; waitlisted?: boolean };
       if (!res.ok) {
         setError(data.error ?? "تعذّر التسجيل");
         return;
       }
+      setWaitlisted(data.waitlisted === true);
       setDone(true);
     } catch {
       setError("تعذّر الاتصال بالخادم");
@@ -73,7 +77,9 @@ export default function JoinPage() {
       <Card className="p-5">
         {done ? (
           <p className="text-center text-sm text-success">
-            تم استلام تسجيلك ✓ راح يتواصلون معك بعد ما يوزّعونك على حلقة.
+            {waitlisted
+              ? "تم استلام تسجيلك ✓ الحلقات ممتلئة حالياً وأُضفت لقائمة الانتظار، وراح يتواصلون معك عند توفّر مقعد."
+              : "تم استلام تسجيلك ✓ راح يتواصلون معك بعد ما يوزّعونك على حلقة."}
           </p>
         ) : (
           <form onSubmit={submit} className="space-y-3">
@@ -96,6 +102,26 @@ export default function JoinPage() {
                 type="tel"
                 className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs text-muted-foreground">سنة الميلاد (اختياري)</span>
+              <input
+                value={birthYear}
+                onChange={(e) => setBirthYear(e.target.value)}
+                placeholder="2014"
+                inputMode="numeric"
+                maxLength={4}
+                className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-xs text-muted-foreground">المستوى (اختياري)</span>
+              <select value={level} onChange={(e) => setLevel(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                <option value="">غير محدد</option>
+                <option value="beginner">مبتدئ</option>
+                <option value="intermediate">متوسط</option>
+                <option value="advanced">متقدم</option>
+              </select>
             </label>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={busy || !mosqueName} className="w-full">
