@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 
 /*
   مجموعة مسارات مستوى الجمعية (/association، /association-login). جلسة مدير
-  الجمعية كوكي مستقل (lib/association-auth.ts) بصلاحية قراءة فقط لجوامع
-  جمعيته — لا يمرّ بأي حارس مدير جامع أو معلّم.
+  الجمعية كوكي مستقل (lib/association-auth.ts) بصلاحية قراءة لجوامع جمعيته
+  (وزيارات المشرف التربوي جدولةً وتسجيلاً — B4) — لا يمرّ بأي حارس مدير
+  جامع أو معلّم.
 */
 
 export const metadata: Metadata = {

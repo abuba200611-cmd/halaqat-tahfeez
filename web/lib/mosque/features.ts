@@ -162,6 +162,14 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: true,
     status: "ready",
   },
+  {
+    key: "supervisor_visits",
+    nameAr: "زيارات المشرف التربوي",
+    descriptionAr:
+      "جدولة زيارات المشرفين لحلقات الجامع وتسجيلها: تقييم بمعايير يضبطها الجامع، درجة كلية، ملاحظات وتوصيات، وتقرير قابل للطباعة يراه معلّم الحلقة.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

@@ -140,6 +140,8 @@ export default function MosqueDetailPage() {
       <div className="space-y-5">
         {data.features.stats && <MosqueStatsSection mosqueId={mosqueId} />}
 
+        {data.features.supervisor_visits && <VisitAveragesCard mosqueId={mosqueId} />}
+
         {data.features.agent && <AgentChatPanel mosqueId={mosqueId} />}
 
         {role === "super" && <MosqueAdminAccountCard mosqueId={mosqueId} />}
@@ -241,7 +243,47 @@ export default function MosqueDetailPage() {
   );
 }
 
-/** رابط واحد يشاركه المدير مع المعلّمين: كل معلّم يفتحه من تطبيقه ويضغط "انضم" فتُضاف حلقته تلقائياً */
+/** زيارات المشرف التربوي — متوسط درجة كل حلقة خلال آخر ٩٠ يوماً (بطاقة بسيطة) */
+function VisitAveragesCard({ mosqueId }: { mosqueId: number }) {
+  const [data, setData] = useState<
+    { halaqat: { halaqahId: number; halaqahName: string; visits: number; avgScore: number | null }[]; overall: number | null } | null | undefined
+  >(undefined);
+
+  useEffect(() => {
+    fetch(`/api/mosques/${mosqueId}/supervisor-visits/summary`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setData)
+      .catch(() => setData(null));
+  }, [mosqueId]);
+
+  if (data === undefined) return null;
+  const withScore = data?.halaqat.filter((h) => h.avgScore !== null) ?? [];
+
+  return (
+    <Card className="p-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">زيارات المشرف التربوي</h2>
+        {data?.overall !== null && data?.overall !== undefined && (
+          <Badge tone="good">متوسط الجامع {data.overall}٪</Badge>
+        )}
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">متوسط درجات الزيارات المنجزة لكل حلقة خلال آخر ٩٠ يوماً.</p>
+      {withScore.length === 0 ? (
+        <p className="text-xs text-muted-foreground">لا زيارات منجزة خلال الفترة — <Link href={`/mosque/${mosqueId}/supervisor-visits`} className="text-accent-ink hover:underline">جدولة زيارة</Link>.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {withScore.map((h) => (
+            <Badge key={h.halaqahId} tone={h.avgScore !== null && h.avgScore >= 70 ? "good" : "warn"}>
+              {h.halaqahName}: {h.avgScore}٪ ({h.visits})
+            </Badge>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** لينك واحد يشاركه المدير مع المعلّمين: كل معلّم يفتحه من تطبيقه ويضغط "انضم" فتُضاف حلقته تلقائياً */
 function TeacherJoinLinkCard({ mosqueId }: { mosqueId: number }) {
   const [link, setLink] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
