@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDevConsoleHost, requestHost } from "@/lib/hosts";
+import { INTRO_COOKIE, SESSION_COOKIES, WELCOME_PATH, isRegistrationPath } from "@/lib/landing";
 
 /*
   dev split — فصل لوحة المطوّر عن المنصة العامة بالمستضيج (Next 16:
   proxy.ts هي middleware السابقة). قاعدة واحدة بسيطة:
 
-  - مستضيف عام (المنصة): مسارات اللوحة (/dev، /admin، /api/dev/*،
+  - مستضيج عام (المنصة): مسارات اللوحة (/dev، /admin، /api/dev/*،
     /api/admin/*) تُعاد كتابتها لمسار غير موجود → صفحة 404 عادية، فلا
     تكشف المنصة أن اللوحة موجودة أصلاً.
   - مستضيج اللوحة (ملك المطوّر): كل شيء مسموح، و"/" وحدها تحوّل لـ/dev
@@ -14,6 +15,13 @@ import { isDevConsoleHost, requestHost } from "@/lib/hosts";
 
   هذا الطبقة الأولى؛ الحرّاس الخادمية (lib/host-gate.ts وdevConsoleGate
   وفحوص جلسة الأدمن) ترفض مستضيفياً غير المصرّح حتى لو التُحمت هذه.
+
+  بوابة الترحيب (مستضيج المنصة فقط — اللوحة لا تمر بها):
+  1. "/" بلا جلسة أي دور → إعادة كتابة (لا تحويل) إلى /welcome، فيبقى
+     الرابط "/" والمسجّلون يبقون على لوحاتهم.
+  2. مسارات التسجيل العامة بلا كوكي mos_intro → تحويل إلى
+     /welcome?next=<المسار الأصلي بمعاملاته>؛ الصفحة الترحيبية تضبط
+     الكوكي وتعرض «متابعة التسجيل» عائدة بالمسار نفسه.
 */
 
 /** مسار غير موجود بأي مجموعة routes — إعادة الكتابة إليه تنتج 404 عادي */
@@ -32,21 +40,60 @@ function isConsolePath(pathname: string): boolean {
   );
 }
 
+/** هل مع الطلب كوكي جلسة لأي دور؟ (فحص وجود متفائل فقط — التحقق الكامل خادمي) */
+function hasSessionCookie(request: NextRequest): boolean {
+  return SESSION_COOKIES.some((name) => request.cookies.get(name) !== undefined);
+}
+
 export function proxy(request: NextRequest) {
   const devHost = isDevConsoleHost(requestHost(request.headers));
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   if (!devHost && isConsolePath(pathname)) {
     return NextResponse.rewrite(new URL(NOT_FOUND_PATH, request.url));
   }
 
-  if (devHost && pathname === "/" && !request.cookies.get("dev_imp")) {
-    return NextResponse.redirect(new URL("/dev", request.url));
+  if (devHost) {
+    // مستضيج اللوحة ملك المطوّر: لا ترحيب ولا بوابة تسجيل هنا
+    if (pathname === "/" && !request.cookies.get("dev_imp")) {
+      return NextResponse.redirect(new URL("/dev", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // ————— المنصة العامة —————
+
+  // الهبوط على "/" بلا جلسة → الترحيب. استثناء: روابط قديمة تحمل
+  // معاملات (دعوة معلّم زميل /?join=، وخطأ جوجل /?googleError=) يضيع
+  // معناها بالإعادة الكاتبة، فتوجَّه لصفحة التسجيل نفسها بمعاملاتها.
+  if (pathname === "/" && !hasSessionCookie(request)) {
+    if (search) {
+      return NextResponse.redirect(new URL(`/signup${search}`, request.url));
+    }
+    return NextResponse.rewrite(new URL(WELCOME_PATH, request.url));
+  }
+
+  if (isRegistrationPath(pathname) && !request.cookies.get(INTRO_COOKIE)) {
+    const welcome = new URL(WELCOME_PATH, request.url);
+    welcome.searchParams.set("next", `${pathname}${search}`);
+    return NextResponse.redirect(welcome);
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/dev/:path*", "/admin/:path*", "/api/dev/:path*", "/api/admin/:path*"],
+  matcher: [
+    "/",
+    "/dev/:path*",
+    "/admin/:path*",
+    "/api/dev/:path*",
+    "/api/admin/:path*",
+    "/signup",
+    "/student-join",
+    "/student-link",
+    "/join-mosque",
+    "/parent/join",
+    "/j/:path*",
+  ],
 };
