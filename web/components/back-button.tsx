@@ -59,7 +59,7 @@ export function BackButton({
       type="button"
       onClick={onClick}
       data-back-button
-      className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold leading-normal transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring print:hidden ${colors} ${className}`}
+      className={`relative z-20 inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border px-3 text-sm font-semibold leading-normal transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring print:hidden ${colors} ${className}`}
     >
       <span aria-hidden>→</span>
       {label}
