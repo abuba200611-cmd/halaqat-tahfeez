@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card, Empty } from "@/components/ui";
+import { QrCheckinPanel } from "@/components/qr-checkin-panel";
 import {
   ATTENDANCE_LABEL,
   ATTENDANCE_NOTE_MAX,
@@ -41,6 +42,31 @@ export default function AttendancePage() {
   const [failed, setFailed] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [qrEnabled, setQrEnabled] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+
+  // هل ميزة «حضور بالرمز» مفعّلة لجامع الحلقة؟ (تظهر الزر فقط حينها)
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/attendance/qr?probe=1")
+      .then((res) => (res.ok ? res.json() : { enabled: false }))
+      .then((data: { enabled?: boolean }) => {
+        if (!cancelled) setQrEnabled(data.enabled === true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const qrLive = qrEnabled && qrOpen && date === today;
+
+  // القائمة الحيّة: أثناء فتح اللوحة نعيد جلب حضور اليوم كل ٥ ثوانٍ
+  useEffect(() => {
+    if (!qrLive) return;
+    const id = setInterval(() => setReload((n) => n + 1), 5000);
+    return () => clearInterval(id);
+  }, [qrLive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +150,16 @@ export default function AttendancePage() {
             aria-label="تاريخ الحضور"
             className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
+          {qrEnabled && date === today && (
+            <button
+              type="button"
+              onClick={() => setQrOpen((v) => !v)}
+              aria-pressed={qrOpen}
+              className="min-h-11 cursor-pointer rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-semibold transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              حضور بالرمز
+            </button>
+          )}
           <button
             type="button"
             onClick={markAll}
@@ -134,6 +170,8 @@ export default function AttendancePage() {
           </button>
         </div>
       </div>
+
+      {qrLive && <QrCheckinPanel rows={rows} onClose={() => setQrOpen(false)} />}
 
       {error && <p role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive">{error}</p>}
 
@@ -188,6 +226,7 @@ function AttendanceItem({
         <div className="flex items-center justify-between gap-2">
           <span className="font-semibold">{row.name}</span>
           {row.implicit && <span className="text-xs text-muted-foreground">حاضر — أرسل ورده</span>}
+          {row.viaQr && <span className="text-xs text-success">سجّل بالرمز</span>}
         </div>
         <div className="grid grid-cols-4 gap-2">
           {ATTENDANCE_STATUSES.map((s) => (

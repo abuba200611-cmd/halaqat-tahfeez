@@ -3,6 +3,7 @@
 import { canEditWard } from "@/lib/ward-ayah";
 import { hifzRangeText, reviewRangeText, statusTone, STATUS_LABEL } from "@/lib/student-ward-display";
 import { reviewTextWithTracks } from "@/lib/review-tracks";
+import { formatScore } from "@/lib/error-grading";
 import type { WardLog } from "@/lib/types";
 
 /**
@@ -60,6 +61,12 @@ export function WardListItem({
         )}
         {log.note && <p className="text-stone-700">{log.note}</p>}
       </div>
+
+      {log.errorScore !== undefined && log.errorBand && (
+        <p className="tabular mt-2 text-sm font-semibold text-accent-ink">
+          الدرجة {formatScore(log.errorScore)} · {log.errorBand}
+        </p>
+      )}
 
       {log.status === "approved" && (
         <p className="mt-2 flex items-center gap-1 text-xs text-stone-400">🔒 اعتمده المعلّم — للتعديل تواصل مع معلّمك</p>

@@ -61,6 +61,7 @@ export function mosqueNavItems(opts: {
   feature("fees", "fees", "الرسوم والاشتراكات", <ClipboardIcon />);
   feature("auto_assign", "enrollment", "التوزيع الآلي والانتظار", <UsersIcon />);
   feature("student_import", "import", "استيراد الطلاب", <ClipboardIcon />);
+  feature("error_grading", "error-grading", "تقييم الورد بالنقاط", <StarIcon />);
 
   if (features.messaging) {
     const href = `/mosque/${mosqueId}/messages`;

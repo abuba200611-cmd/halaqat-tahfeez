@@ -30,7 +30,7 @@ export async function getDayAttendanceData(halaqahId: number, date: string): Pro
       WHERE teacher_id = ${halaqahId} AND active AND deleted_at IS NULL
       ORDER BY sort_order, name
     `,
-    db().sql`SELECT student_id, status, note FROM attendance WHERE halaqah_id = ${halaqahId} AND date = ${date}`,
+    db().sql`SELECT student_id, status, note, checkin_source, updated_at FROM attendance WHERE halaqah_id = ${halaqahId} AND date = ${date}`,
     db().sql`SELECT DISTINCT student_id FROM ward_logs WHERE teacher_id = ${halaqahId} AND date = ${date}`,
   ]);
   return {
@@ -39,6 +39,8 @@ export async function getDayAttendanceData(halaqahId: number, date: string): Pro
       studentId: r.student_id as string,
       status: r.status as AttendanceStatus,
       note: (r.note as string | null) ?? null,
+      source: (r.checkin_source as string | null) ?? null,
+      at: r.updated_at ? new Date(r.updated_at as string | Date).toISOString() : null,
     })),
     wardStudentIds: wards.map((r) => r.student_id as string),
   };
@@ -71,6 +73,7 @@ export async function setAttendance(
       FROM students s
       WHERE s.teacher_id = ${halaqahId} AND s.id = ${studentId} AND s.active AND s.deleted_at IS NULL
       ON CONFLICT (halaqah_id, student_id, date) DO UPDATE SET
+        checkin_source = CASE WHEN excluded.status = attendance.status THEN attendance.checkin_source ELSE NULL END,
         status = excluded.status,
         note = CASE WHEN ${keepNote}::boolean THEN attendance.note ELSE excluded.note END,
         recorded_by = excluded.recorded_by,
@@ -140,4 +143,36 @@ export async function getAttendanceSummaries(
     result[id] = summarizeAttendance(storedBy.get(id) ?? [], wardsBy.get(id) ?? [], today);
   }
   return result;
+}
+
+export type QrCheckinResult =
+  | { found: false }
+  | { found: true; alreadyRecorded: boolean; status: AttendanceStatus };
+
+/**
+ * تسجيل حضور طالب بمسح الرمز — نفس جدول الحضور القائم. الإدراج بـ
+ * ON CONFLICT DO NOTHING: لا يمسّ أبداً قراراً سبق تسجيله (يدوياً أو بمسح
+ * سابق)، فالعملية متكررة الأمان (idempotent) ولا تطغى على قرار المعلّم.
+ * شرط الطالب (بنفس الحلقة، فعّال، غير محذوف) داخل الاستعلام نفسه.
+ * halaqahId/studentId من جلسة الطالب فقط.
+ */
+export async function recordQrCheckin(halaqahId: number, studentId: string, date: string): Promise<QrCheckinResult> {
+  const inserted = await db().sql`
+    INSERT INTO attendance (halaqah_id, student_id, date, status, checkin_source, recorded_by, updated_at)
+    SELECT s.teacher_id, s.id, ${date}::text, 'present', 'qr', NULL, now()
+    FROM students s
+    WHERE s.teacher_id = ${halaqahId} AND s.id = ${studentId} AND s.active AND s.deleted_at IS NULL
+    ON CONFLICT (halaqah_id, student_id, date) DO NOTHING
+    RETURNING status
+  `;
+  if (inserted.length > 0) return { found: true, alreadyRecorded: false, status: "present" };
+
+  const existing = await db().sql`
+    SELECT a.status FROM attendance a
+    JOIN students s ON s.teacher_id = a.halaqah_id AND s.id = a.student_id
+    WHERE a.halaqah_id = ${halaqahId} AND a.student_id = ${studentId} AND a.date = ${date}
+      AND s.active AND s.deleted_at IS NULL
+  `;
+  if (existing.length === 0) return { found: false };
+  return { found: true, alreadyRecorded: true, status: existing[0].status as AttendanceStatus };
 }

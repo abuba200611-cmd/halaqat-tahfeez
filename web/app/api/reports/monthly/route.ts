@@ -1,12 +1,15 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
 import { listApprovedWardLogs, listStudentLinks } from "@/lib/db";
 import { listWardsForUsernames } from "@/lib/tasjeel-db";
+import { averageScore } from "@/lib/error-grading";
 
 type MonthlyReport = {
   key: string;
   hifzPages: number;
   reviewPages: number;
   activeStudents: number;
+  /** متوسط درجات تقييم نقاط الأخطاء للأوراد المعتمدة المُقيَّمة بالشهر — null بلا أي ورد مُقيَّم */
+  avgScore: number | null;
 };
 
 function monthKey(date: string): string {
@@ -33,11 +36,11 @@ export async function GET() {
     listApprovedWardLogs(teacher.halaqahId),
   ]);
 
-  const byMonth = new Map<string, { hifzPages: number; reviewPages: number; active: Set<string> }>();
+  const byMonth = new Map<string, { hifzPages: number; reviewPages: number; active: Set<string>; scores: number[] }>();
   const entry = (key: string) => {
     let e = byMonth.get(key);
     if (!e) {
-      e = { hifzPages: 0, reviewPages: 0, active: new Set() };
+      e = { hifzPages: 0, reviewPages: 0, active: new Set(), scores: [] };
       byMonth.set(key, e);
     }
     return e;
@@ -59,10 +62,17 @@ export async function GET() {
     // على حدة، ويتوافق مع الأوراد القديمة بمقطع واحد تلقائياً (نفس القيمة).
     e.reviewPages += w.reviewPagesTotal;
     e.active.add(`l:${w.studentId}`);
+    if (w.errorScore !== undefined) e.scores.push(w.errorScore);
   }
 
   const months: MonthlyReport[] = [...byMonth.entries()]
-    .map(([key, v]) => ({ key, hifzPages: v.hifzPages, reviewPages: v.reviewPages, activeStudents: v.active.size }))
+    .map(([key, v]) => ({
+      key,
+      hifzPages: v.hifzPages,
+      reviewPages: v.reviewPages,
+      activeStudents: v.active.size,
+      avgScore: averageScore(v.scores),
+    }))
     .sort((a, b) => (a.key < b.key ? 1 : -1));
 
   return Response.json({ months });

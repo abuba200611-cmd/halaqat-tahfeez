@@ -3,8 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card, Empty, Stat } from "@/components/ui";
 import { MONTH_NAMES } from "@/lib/schedule";
+import { formatScore } from "@/lib/error-grading";
 
-type MonthlyReport = { key: string; hifzPages: number; reviewPages: number; activeStudents: number };
+type MonthlyReport = {
+  key: string;
+  hifzPages: number;
+  reviewPages: number;
+  activeStudents: number;
+  avgScore?: number | null;
+};
 
 function monthLabel(key: string): string {
   const [year, month] = key.split("-").map(Number);
@@ -55,6 +62,7 @@ export default function ReportsPage() {
                   <Stat label="صفحات المراجعة" value={m.reviewPages} />
                   <Stat label="مجموع الصفحات" value={m.hifzPages + m.reviewPages} />
                   <Stat label="طلاب نشطون" value={m.activeStudents} />
+                  {m.avgScore != null && <Stat label="متوسط الدرجة" value={formatScore(m.avgScore)} hint="تقييم نقاط الأخطاء" />}
                 </div>
               </Card>
             </li>

@@ -187,11 +187,27 @@ export const FEATURES: readonly Feature[] = [
     status: "ready",
   },
   {
+    key: "error_grading",
+    nameAr: "تقييم الورد بنقاط الأخطاء",
+    descriptionAr:
+      "المعلّم يعدّ أخطاء الورد بأنواعها (حفظ، تردد/تلقين، تجويد، تشكيل) فتُحسب الدرجة والتقدير فورياً من خصومات يضبطها الجامع، وتظهر للطالب وولي الأمر ومتوسطها في تقرير الحلقة الشهري.",
+    defaultEnabled: false,
+    status: "ready",
+  },
+  {
     key: "student_import",
     nameAr: "استيراد الطلاب من Excel/CSV",
     descriptionAr:
       "رفع ملف .xlsx أو .csv لإضافة طلاب دفعة واحدة: معاينة بأخطاء كل صف، كشف التكرار، ثم تأكيد. لمدير الجامع ولمعلّم حلقته.",
     defaultEnabled: true,
+    status: "ready",
+  },
+  {
+    key: "qr_attendance",
+    nameAr: "الحضور بالرمز",
+    descriptionAr:
+      "المعلّم يعرض رمز QR دوّاراً (يتجدد كل ٣٠ ثانية) والطلاب يمسحونه من جوالهم لتسجيل حضورهم في سجل الحضور نفسه — بلا تحديد موقع، ويبقى التعديل اليدوي متاحاً.",
+    defaultEnabled: false,
     status: "ready",
   },
 ];
