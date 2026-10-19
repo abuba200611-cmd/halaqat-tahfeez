@@ -74,6 +74,12 @@ function AdminLogin({ onIn }: { onIn: () => void }) {
       <Link href="/mosque-login" className="mt-4 text-center text-xs text-muted-foreground hover:text-foreground">
         مدير جامع؟ سجّل دخولك من هنا
       </Link>
+      <Link href="/register-mosque" className="mt-2 text-center text-xs text-muted-foreground hover:text-foreground">
+        جامع جديد؟ سجّل جامعك
+      </Link>
+      <Link href="/welcome" className="mt-2 text-center text-xs text-muted-foreground hover:text-foreground">
+        → الرجوع للواجهة
+      </Link>
     </main>
   );
 }

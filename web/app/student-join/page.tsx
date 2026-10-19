@@ -38,7 +38,7 @@ function PageShell({ title, subtitle, children }: { title: string; subtitle?: st
   return (
     <AuthShell>
       <div className="mb-4 flex justify-center">
-        <BrandLockup tone="onDark" />
+        <BrandLockup tone="onDark" href="/welcome" />
       </div>
       <h1 className="font-display mb-1 text-center text-2xl font-black text-white">{title}</h1>
       {subtitle && <p className="mb-6 text-center text-sm text-white/60">{subtitle}</p>}

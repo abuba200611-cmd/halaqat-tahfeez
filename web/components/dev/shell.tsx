@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RoleSwitcher } from "../role-switcher";
@@ -14,6 +14,7 @@ import { BrandLockup } from "../brand";
 const NAV = [
   { href: "/dev", label: "نظرة عامة", icon: "📊" },
   { href: "/dev/mosques", label: "الجوامع", icon: "🕌" },
+  { href: "/dev/mosque-requests", label: "طلبات الجوامع", icon: "📝" },
   { href: "/dev/associations", label: "الجمعيات", icon: "🏛️" },
   { href: "/dev/users", label: "المستخدمون", icon: "👥" },
   { href: "/dev/reports", label: "البلاغات", icon: "📮" },
@@ -30,6 +31,21 @@ const SETTINGS = { href: "/dev/settings", label: "الإعدادات", icon: "�
 export function DevShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [busy, setBusy] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(0);
+
+  // شارة طلبات تسجيل الجوامع المعلّقة — فشل الجلب يخفيها فقط
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/dev/mosque-requests?count=1")
+      .then((res) => (res.ok ? res.json() : { pending: 0 }))
+      .then((data: { pending?: number }) => {
+        if (!cancelled) setPendingRequests(Number(data.pending ?? 0));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   async function logout() {
     setBusy(true);
@@ -54,6 +70,14 @@ export function DevShell({ children }: { children: ReactNode }) {
         >
           <span aria-hidden>{item.icon}</span>
           <span className={vertical ? "" : "md:hidden"}>{item.label}</span>
+          {item.href === "/dev/mosque-requests" && pendingRequests > 0 && (
+            <span
+              className="tabular rounded-full bg-secondary px-1.5 text-[11px] font-bold leading-normal text-on-secondary"
+              aria-label={`${pendingRequests} طلب معلّق`}
+            >
+              {pendingRequests}
+            </span>
+          )}
         </Link>
       );
     });

@@ -461,7 +461,7 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
   return (
     <AuthShell>
       <div className="mb-4 flex justify-center">
-        <BrandLockup tone="onDark" href="/student" />
+        <BrandLockup tone="onDark" href="/welcome" />
       </div>
       <h1 className="font-display mb-1 text-center text-2xl font-black text-white">وردي</h1>
       <p className="mb-6 text-center text-sm text-white/60">

@@ -1,3 +1,5 @@
+import { AuthBackLink } from "./auth-back-link";
+
 /**
  * الغلاف البصري المشترك لصفحات الدخول/إنشاء الحساب/استرجاع كلمة المرور
  * — هوية «السلام»: بطاقة زجاجية فوق خلفية سوداء بكرات بيج/رمل متدرّجة.
@@ -7,7 +9,12 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-10" style={{ backgroundColor: "#000000" }}>
       <AuthBackground />
-      <div className="relative z-10 w-full max-w-sm">{children}</div>
+      <div className="relative z-10 w-full max-w-sm">
+        <div className="mb-3">
+          <AuthBackLink />
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

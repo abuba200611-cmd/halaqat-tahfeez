@@ -24,6 +24,8 @@ const ACTION_LABEL: Record<string, string> = {
   unlink_parent: "فكّ ربط ولي أمر",
   admin_account_change: "تغيير حساب مدير جامع",
   whatsapp_resend: "إعادة إرسال واتساب",
+  "mosque_request.approve": "قبول طلب تسجيل جامع",
+  "mosque_request.reject": "رفض طلب تسجيل جامع",
 };
 
 const TARGET_LABEL: Record<string, string> = {
@@ -33,6 +35,7 @@ const TARGET_LABEL: Record<string, string> = {
   mosque: "جامع",
   mosque_admin: "مدير جامع",
   outbox: "صادر واتساب",
+  mosque_request: "طلب تسجيل جامع",
 };
 
 export default function DevAuditPage() {

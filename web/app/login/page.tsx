@@ -76,7 +76,7 @@ function UnifiedLoginForm() {
   return (
     <AuthShell>
       <div className="mb-4 flex justify-center">
-        <BrandLockup tone="onDark" />
+        <BrandLockup tone="onDark" href="/welcome" />
       </div>
       <p className="mb-6 text-center text-sm text-white/60">دخول واحد لكل أدوارك</p>
 
@@ -154,7 +154,23 @@ function UnifiedLoginForm() {
           الدخول بحساب جوجل (معلّم)
         </a>
 
-        <div className="mt-4 space-y-1 text-center text-xs text-white/60">
+        <div className="mt-4 space-y-1.5 text-center text-xs leading-relaxed text-white/60">
+          <p>
+            مدير جامع؟{" "}
+            <Link href="/mosque-login" className="font-semibold text-white hover:underline">
+              دخول مدير الجامع
+            </Link>
+            {" · "}
+            <Link href="/register-mosque" className="font-semibold text-white hover:underline">
+              سجّل جامعك
+            </Link>
+          </p>
+          <p>
+            معلّم جديد؟{" "}
+            <Link href="/signup" className="font-semibold text-white hover:underline">
+              أنشئ حساباً
+            </Link>
+          </p>
           <p>
             أنت طالب؟{" "}
             <Link href="/student" className="font-semibold text-white hover:underline">
