@@ -1908,6 +1908,30 @@ export async function setHalaqahBuddyResetOnEdit(halaqahId: number, enabled: boo
   await db().sql`UPDATE halaqahs SET buddy_reset_on_edit = ${enabled} WHERE id = ${halaqahId}`;
 }
 
+/** خيار الحلقة: إظهار زملاء الحلقة للطلاب — الافتراض مخفي */
+export async function halaqahClassmatesVisible(halaqahId: number): Promise<boolean> {
+  const rows = await db().sql`SELECT classmates_visible FROM halaqahs WHERE id = ${halaqahId}`;
+  return rows[0]?.classmates_visible === true;
+}
+
+/** يغيّر إظهار الزملاء — المسار يقصر الاستدعاء على معلّم الحلقة من جلسته */
+export async function setHalaqahClassmatesVisible(halaqahId: number, enabled: boolean): Promise<void> {
+  await db().sql`UPDATE halaqahs SET classmates_visible = ${enabled} WHERE id = ${halaqahId}`;
+}
+
+/**
+ * أسماء طلاب الحلقة فقط، مرتّبة بالاسم — لا أي عمود آخر عمداً (لا هاتف ولا
+ * ولي أمر ولا درجات). يقرأ حلقة الطالب من جلسته فلا يوجد معامل عميل.
+ */
+export async function listClassmateNames(halaqahId: number): Promise<string[]> {
+  const rows = await db().sql`
+    SELECT name FROM students
+    WHERE teacher_id = ${halaqahId} AND deleted_at IS NULL
+    ORDER BY name
+  `;
+  return rows.map((row) => String(row.name));
+}
+
 export async function findHalaqahByInviteCode(
   code: string,
 ): Promise<{ id: number; teacherName: string; halaqahName: string } | null> {

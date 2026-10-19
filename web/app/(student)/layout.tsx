@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MessagesBadge } from "@/components/messages-badge";
 import { StudentGate } from "@/components/student-gate";
-import { BookIcon, ChartIcon, ClipboardIcon, HomeIcon, MessageIcon, MicIcon, SettingsIcon, StarIcon } from "@/components/icons";
+import { BookIcon, UsersIcon, ChartIcon, ClipboardIcon, HomeIcon, MessageIcon, MicIcon, SettingsIcon, StarIcon } from "@/components/icons";
 
 /** يستبدل عنوان التبويب الموروث من الجذر لكل صفحات الطالب — اسم القسم يبقى مع وسم MOS (M5) */
 export const metadata: Metadata = { title: "وردي — السلام" };
@@ -18,6 +18,8 @@ const NAV = [
   { href: "/student/settings", label: "الإعدادات", desc: "التذكير اليومي وحسابك", icon: <SettingsIcon size={19} /> },
 ];
 
+const CLASSMATES_ITEM = { href: "/student/classmates", label: "زملائي في الحلقة", desc: "أسماء طلاب حلقتك", icon: <UsersIcon size={19} /> };
+
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
-  return <StudentGate nav={NAV}>{children}</StudentGate>;
+  return <StudentGate nav={NAV} classmatesItem={CLASSMATES_ITEM}>{children}</StudentGate>;
 }
