@@ -1,0 +1,26 @@
+import { currentStudent, studentUnauthorized } from "@/lib/auth";
+import { listAllWardLogsForStudent } from "@/lib/db";
+import { computeJuzProgress } from "@/lib/juz-progress";
+import { countReviewTrackPages } from "@/lib/review-tracks";
+import { riyadhTodayISO } from "@/lib/riyadh-date";
+
+/**
+ * B3 — تقدّم الحفظ بالأجزاء وعدّادات المراجعة لكل مسار للطالب نفسه، من
+ * تاريخه الكامل (لا آخر ٣٠ ورداً). القراءة محصورة بجلسة الطالب نفسه:
+ * المعرّفان من الجلسة حصراً، والطالب لا يرى إلا بياناته.
+ */
+export async function GET() {
+  const student = await currentStudent();
+  if (!student) return studentUnauthorized();
+
+  const logs = await listAllWardLogsForStudent(student.teacherId, student.id);
+  const today = riyadhTodayISO();
+
+  return Response.json({
+    progress: computeJuzProgress(logs.map((l) => l.hifz)),
+    trackCounts: {
+      days7: countReviewTrackPages(logs, 7, today),
+      days30: countReviewTrackPages(logs, 30, today),
+    },
+  });
+}

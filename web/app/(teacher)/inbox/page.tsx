@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
+import { ReviewTrackSelect } from "@/components/review-track-bits";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
 import { formatAyahRange, formatReviewSegments } from "@/lib/ward-ayah";
-import type { AyahRange, PageRange, WardLog, WardStatus } from "@/lib/types";
+import { reviewTextWithTracks } from "@/lib/review-tracks";
+import type { AyahRange, PageRange, ReviewTrack, WardLog, WardStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<WardStatus, string> = {
   new: "جديد",
@@ -129,6 +131,11 @@ export default function InboxPage() {
   const [revisionBusy, setRevisionBusy] = useState(false);
   const [revisionError, setRevisionError] = useState<string | null>(null);
 
+  // B3: مسوّدة تصنيف المقاطع (سبقي/منزل) — معرّف الورد ← قيمة كل مقطع
+  const [trackDrafts, setTrackDrafts] = useState<Record<number, (ReviewTrack | null)[]>>({});
+  const [trackBusyId, setTrackBusyId] = useState<number | null>(null);
+  const [trackError, setTrackError] = useState<string | null>(null);
+
   const load = useCallback(() => {
     fetch("/api/wards")
       .then((res) => (res.ok ? res.json() : null))
@@ -170,6 +177,46 @@ export default function InboxPage() {
     setRevisionOpenId(null);
     setRevisionNote("");
     setRevisionError(null);
+  }
+
+  /** B3: يفتح مسوّدة تصنيف المقاطع من قيم الورد الحالية (null لغير المصنَّف) */
+  function openTrackDraft(ward: WardLog) {
+    const count = ward.reviewSegments?.length ?? 0;
+    setTrackDrafts((prev) => ({
+      ...prev,
+      [ward.id]: Array.from({ length: count }, (_, i) => ward.reviewSegmentTracks?.[i] ?? null),
+    }));
+    setTrackError(null);
+  }
+
+  /** B3: يحفظ التصنيفات — مسموح فقط قبل قرار المعلّم، والخطأ يظهر ولا يغيّر شيء */
+  async function saveTrackDraft(id: number) {
+    const draft = trackDrafts[id];
+    if (!draft) return;
+    setTrackBusyId(id);
+    setTrackError(null);
+    try {
+      const res = await fetch("/api/wards/track", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, tracks: draft }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setTrackError(data.error ?? "تعذّر حفظ التصنيف");
+        return;
+      }
+      setWards((prev) => prev.map((w) => (w.id === id ? { ...w, reviewSegmentTracks: draft } : w)));
+      setTrackDrafts((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch {
+      setTrackError("تعذّر الاتصال بالخادم");
+    } finally {
+      setTrackBusyId(null);
+    }
   }
 
   /** طلب إعادة له تدفق خاص (يتطلّب ملاحظة، ويعرض الخطأ صراحة) — لا يشارك setStatus أعلاه */
@@ -278,7 +325,9 @@ export default function InboxPage() {
 
               <div className="mt-2 space-y-0.5 text-sm text-muted-foreground">
                 {rangeText(ward.hifz, ward.hifzAyah) && <p>حفظ: {rangeText(ward.hifz, ward.hifzAyah)}</p>}
-                {reviewRangeText(ward) && <p>مراجعة: {reviewRangeText(ward)}</p>}
+                {reviewTextWithTracks(ward, reviewRangeText(ward)) && (
+                  <p>مراجعة: {reviewTextWithTracks(ward, reviewRangeText(ward))}</p>
+                )}
                 {ward.note && <p className="text-foreground">«{ward.note}»</p>}
                 {ward.status === "needs_revision" && ward.reviewNote && (
                   <p className="text-accent-ink">سبب طلب الإعادة: «{ward.reviewNote}»</p>
@@ -310,6 +359,68 @@ export default function InboxPage() {
                       طلب إعادة
                     </Button>
                   </div>
+
+                  {(ward.reviewSegments?.length ?? 0) > 0 && !trackDrafts[ward.id] && (
+                    <Button variant="ghost" onClick={() => openTrackDraft(ward)} className="text-xs">
+                      تصنيف المراجعة (سبقي/منزل)
+                    </Button>
+                  )}
+
+                  {trackDrafts[ward.id] && (
+                    <div className="space-y-2 rounded-md border border-border bg-surface p-3">
+                      <p className="text-xs text-muted-foreground">
+                        صنّف كل مقطع: سبقي (مراجعة قريبة على آخر ما حُفظ) أو منزل (مراجعة المحفوظ القديم) — الحفظ
+                        الجديد نفسه «سبق» بلا تصنيف.
+                      </p>
+                      <ul className="space-y-1.5">
+                        {ward.reviewSegments!.map((segment, i) => (
+                          <li key={i} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="min-w-0 truncate">{formatReviewSegments([segment])}</span>
+                            <ReviewTrackSelect
+                              id={`inbox-track-${ward.id}-${i}`}
+                              value={trackDrafts[ward.id][i] ?? null}
+                              onChange={(next) =>
+                                setTrackDrafts((prev) => ({
+                                  ...prev,
+                                  [ward.id]: prev[ward.id].map((t, k) => (k === i ? next : t)),
+                                }))
+                              }
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="flex items-center justify-between gap-2">
+                        {trackError ? (
+                          <p className="text-xs text-destructive">{trackError}</p>
+                        ) : (
+                          <span />
+                        )}
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            onClick={() =>
+                              setTrackDrafts((prev) => {
+                                const next = { ...prev };
+                                delete next[ward.id];
+                                return next;
+                              })
+                            }
+                            className="text-xs"
+                            disabled={trackBusyId === ward.id}
+                          >
+                            إلغاء
+                          </Button>
+                          <Button
+                            onClick={() => saveTrackDraft(ward.id)}
+                            className="text-xs"
+                            disabled={trackBusyId === ward.id}
+                          >
+                            {trackBusyId === ward.id ? "يُحفظ…" : "حفظ التصنيف"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {revisionOpenId === ward.id && (
                     <div className="space-y-1 rounded-md border border-border bg-surface p-3">

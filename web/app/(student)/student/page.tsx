@@ -14,8 +14,12 @@ import { MonthlyPlanCard } from "@/components/monthly-plan-card";
 import type { PlanView } from "@/lib/monthly-plan";
 import { canEditWard } from "@/lib/ward-ayah";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
-import { surahName, TOTAL_MUSHAF_PAGES } from "@/lib/quran-surahs";
-import { computeStreak, hifzPagesCovered, latestHifzProgress, STATUS_LABEL } from "@/lib/student-ward-display";
+import { surahName } from "@/lib/quran-surahs";
+import { computeStreak, latestHifzProgress, STATUS_LABEL } from "@/lib/student-ward-display";
+import { JuzProgressCard } from "@/components/juz-progress";
+import { ReviewTrackCountsCard } from "@/components/review-track-bits";
+import type { JuzProgress } from "@/lib/juz-progress";
+import type { ReviewTrackCounts } from "@/lib/review-tracks";
 import type { BuddyRequest } from "@/lib/types";
 
 const MOTIVATIONS = [
@@ -159,6 +163,27 @@ function useMyPlan(): PlanView | null {
   return plan;
 }
 
+/**
+ * B3 — تقدّم الأجزاء وعدّادات المسارات من التاريخ الكامل (لا آخر ٣٠
+ * ورداً) — صامتة عند أي فشل، فتختفي البطاقتان فقط ولا تتعطل اللوحة.
+ */
+function useMyProgress(): { progress: JuzProgress; trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts } } | null {
+  const [data, setData] = useState<{ progress: JuzProgress; trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts } } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/student/progress")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: { progress?: JuzProgress; trackCounts?: { days7: ReviewTrackCounts; days30: ReviewTrackCounts } } | null) => {
+        if (!cancelled && json?.progress && json.trackCounts) setData({ progress: json.progress, trackCounts: json.trackCounts });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return data;
+}
+
 export default function StudentDashboardPage() {
   const router = useRouter();
   const student = useStudentSession();
@@ -170,11 +195,11 @@ export default function StudentDashboardPage() {
   const today = riyadhTodayISO();
   const thisMonthKey = today.slice(0, 7);
   const thisMonth = months.find((m) => m.key === thisMonthKey) ?? null;
+  const myProgress = useMyProgress();
 
   const streak = useMemo(() => computeStreak(logs.map((l) => l.date), today), [logs, today]);
   const loggedToday = logs.some((l) => l.date === today);
   const lastLog = logs[0] ?? null;
-  const pagesCovered = useMemo(() => hifzPagesCovered(logs), [logs]);
   const lastHifz = useMemo(() => latestHifzProgress(logs), [logs]);
   const editableLastLogs = logs.slice(0, 5);
 
@@ -250,29 +275,24 @@ export default function StudentDashboardPage() {
             </div>
           </div>
 
-          {pagesCovered > 0 && (
-            <div className="rounded-2xl border border-stone-200 bg-white p-4">
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <h2 className="text-sm font-semibold text-stone-700">تقدّم الحفظ</h2>
-                <span className="tabular text-xs text-stone-500">
-                  {pagesCovered} من {TOTAL_MUSHAF_PAGES} صفحة
-                </span>
-              </div>
-              <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.min(100, (pagesCovered / TOTAL_MUSHAF_PAGES) * 100)}%`,
-                    background: "linear-gradient(90deg, #AD7D56, #8A6242)",
-                  }}
-                />
-              </div>
-              {lastHifz && (
-                <p className="mt-1.5 text-xs text-stone-500">
-                  آخر ما وصلت: سورة {surahName(lastHifz.surah)} (صفحة {lastHifz.page})
-                </p>
-              )}
-            </div>
+          {myProgress && (
+            <JuzProgressCard
+              progress={myProgress.progress}
+              footer={
+                lastHifz && (
+                  <p>
+                    آخر ما وصلت: سورة {surahName(lastHifz.surah)} (صفحة {lastHifz.page})
+                  </p>
+                )
+              }
+            />
+          )}
+
+          {myProgress && (
+            <ReviewTrackCountsCard
+              days7={myProgress.trackCounts.days7}
+              days30={myProgress.trackCounts.days30}
+            />
           )}
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">

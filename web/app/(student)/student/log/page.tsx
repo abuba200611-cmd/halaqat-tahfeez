@@ -9,7 +9,8 @@ import { WardListItem } from "@/components/ward-list";
 import { useStudentWards } from "@/components/use-student-wards";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
-import type { AyahRange, HalaqahMate, WardLog } from "@/lib/types";
+import { recentReviewStartPage, suggestReviewTrack } from "@/lib/review-tracks";
+import type { AyahRange, HalaqahMate, ReviewTrack, WardLog } from "@/lib/types";
 
 const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
 
@@ -79,6 +80,8 @@ export default function StudentLogPage() {
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [hifz, setHifz] = useState<AyahRangeInput>(EMPTY_RANGE);
   const [reviewSegments, setReviewSegments] = useState<AyahRangeInput[]>([]);
+  // B3: تصنيف سبقي/منزل لكل مقطع — محاذٍ لreviewSegments دائماً
+  const [reviewTracks, setReviewTracks] = useState<(ReviewTrack | null)[]>([]);
   const [note, setNote] = useState("");
   const [buddyId, setBuddyId] = useState("");
   const [mates, setMates] = useState<HalaqahMate[]>([]);
@@ -103,10 +106,15 @@ export default function StudentLogPage() {
     setHifz(log.hifzAyah ? ayahRangeToInput(log.hifzAyah) : EMPTY_RANGE);
     if (log.reviewSegments && log.reviewSegments.length > 0) {
       setReviewSegments(log.reviewSegments.map(ayahRangeToInput));
+      setReviewTracks(
+        log.reviewSegments.map((_, i) => log.reviewSegmentTracks?.[i] ?? null),
+      );
     } else if (log.reviewAyah) {
       setReviewSegments([ayahRangeToInput(log.reviewAyah)]);
+      setReviewTracks([null]);
     } else {
       setReviewSegments([]);
+      setReviewTracks([]);
     }
     setNote(log.note);
     setBuddyId(log.buddy?.studentId ?? "");
@@ -163,9 +171,26 @@ export default function StudentLogPage() {
     setEditingDate(null);
     setHifz(EMPTY_RANGE);
     setReviewSegments([]);
+    setReviewTracks([]);
     setNote("");
     setBuddyId("");
     setError(null);
+  }
+
+  // B3: حدّ «سبقي» = بداية الجزء الذي فيه آخر صفحة حفظها الطالب (آخر جزء
+  // افتراضياً) — من آخر أوراده المحمَّلة، فالاقتراح يتجدّد مع تقدّم الحفظ
+  const sabqiFromPage = useMemo(() => recentReviewStartPage(logs.map((l) => l.hifz)), [logs]);
+
+  /** اقتراح تصنيف مقطع من نطاقه — null للمقطع الفارغ/غير المكتمل بعد */
+  function suggestTrackFor(index: number): ReviewTrack | null {
+    const segment = reviewSegments[index];
+    if (!segment) return null;
+    try {
+      const parsed = parseAyahRange(segment, "المراجعة");
+      return parsed ? suggestReviewTrack(parsed.pages, sabqiFromPage) : null;
+    } catch {
+      return null;
+    }
   }
 
   const editingBuddy = useMemo(
@@ -187,6 +212,7 @@ export default function StudentLogPage() {
       const body: Record<string, unknown> = {
         hifz: isRangeTouched(hifz) ? hifz : null,
         review: reviewSegments.length > 0 ? reviewSegments : null,
+        reviewTracks: reviewSegments.length > 0 ? reviewTracks : null,
         note: note.trim(),
         buddyStudentId: buddyId || null,
       };
@@ -251,6 +277,9 @@ export default function StudentLogPage() {
             onChange={setReviewSegments}
             segmentErrors={reviewInfo.errors}
             pagesTotal={reviewInfo.pagesTotal}
+            tracks={reviewTracks}
+            onTracksChange={setReviewTracks}
+            suggestFor={suggestTrackFor}
           />
 
           <label className="block">

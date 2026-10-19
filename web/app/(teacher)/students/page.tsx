@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Badge, Button, Card, Empty } from "@/components/ui";
 import { LinkPanel } from "@/components/link-button";
 import { ParentInviteLink } from "@/components/parent-invite-link";
@@ -259,7 +260,9 @@ export default function StudentsPage() {
               return (
                 <tr key={student.id} className="transition-colors duration-200 hover:bg-muted/40">
                   <td className="px-3 py-2">
-                    {student.name}
+                    <Link href={`/students/${encodeURIComponent(student.id)}`} className="font-medium hover:underline">
+                      {student.name}
+                    </Link>
                     {usernames[student.id] && (
                       <span className="mr-2">
                         <Badge tone="good">حساب</Badge>

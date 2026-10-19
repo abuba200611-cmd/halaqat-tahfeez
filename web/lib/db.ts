@@ -11,6 +11,7 @@ import type {
   HalaqahMate,
   MemorizedRange,
   PushSubscriptionData,
+  ReviewTrack,
   Student,
   StudentAccount,
   WardLog,
@@ -947,6 +948,8 @@ export type NewWardLog = {
   reviewAyah: AyahRange | null;
   /** مقاطع المراجعة الجديدة (STEP 52، ١ إلى ١٠) — null لعدم وجود مراجعة اليوم */
   reviewSegments: NewReviewSegment[] | null;
+  /** تصنيف كل مقطع سبقي/منزل (B3) — محاذٍ لreviewSegments (أقصر يعني الباقي بلا تصنيف)، null/غائب = بلا تصنيفات */
+  reviewSegmentTracks?: (ReviewTrack | null)[] | null;
   note: string;
   /** زميل المراجعة المختار (STEP 56) — undefined/null لعدم اختيار زميل */
   buddyStudentId?: string | null;
@@ -969,7 +972,15 @@ function ayahRangeFromRow(
 }
 
 /** صف مقطع مراجعة كما يرجع من json_agg (نصاً — نحوّله صراحة، بلا اعتماد على تفسير السائق التلقائي لعمود json) */
-type ReviewSegmentJson = { fromSurah: number; fromAyah: number; toSurah: number; toAyah: number; fromPage: number; toPage: number };
+type ReviewSegmentJson = {
+  fromSurah: number;
+  fromAyah: number;
+  toSurah: number;
+  toAyah: number;
+  fromPage: number;
+  toPage: number;
+  track?: ReviewTrack | null;
+};
 
 function rowToWard(row: Record<string, unknown>): WardLog {
   const hifzFrom = row.hifz_from as number | null;
@@ -987,6 +998,14 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     : reviewFrom !== null && reviewTo !== null
       ? reviewTo - reviewFrom + 1
       : 0;
+  // B3: التصنيفات وصفحات المقاطع تُقرأ فقط لو طابقت عدد المقاطع — ورد
+  // قديم أو صفوف غير متسقة (لا ينبغي) تُعامَل كبلا تصنيف، لا تُفجّر العرض
+  const aligned = segmentsRaw !== null && segmentsRaw.length > 0;
+  const reviewSegmentTracks: (ReviewTrack | null)[] | null = aligned
+    ? segmentsRaw!.map((s) => (s.track === "sabqi" || s.track === "manzil" ? s.track : null))
+    : null;
+  const reviewSegmentPages =
+    aligned ? segmentsRaw!.map(({ fromPage, toPage }) => ({ from: fromPage, to: toPage })) : null;
 
   return {
     id: row.id as number,
@@ -999,6 +1018,8 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     reviewAyah: ayahRangeFromRow(row, "review_from_surah", "review_from_ayah", "review_to_surah", "review_to_ayah"),
     reviewSegments,
     reviewPagesTotal,
+    reviewSegmentTracks,
+    reviewSegmentPages,
     note: row.note as string,
     status: row.status as WardStatus,
     createdAt: row.created_at as string,
@@ -1063,7 +1084,7 @@ export async function createWardLog(
       ],
     );
     const id = Number(inserted.rows[0].id);
-    await insertReviewSegments(client, id, log.reviewSegments);
+    await insertReviewSegments(client, id, log.reviewSegments, log.reviewSegmentTracks);
     await insertBuddy(client, id, teacherId, studentId, log.buddyStudentId ?? null);
     await client.query("COMMIT");
     return { id, previousAttemptId };
@@ -1075,20 +1096,20 @@ export async function createWardLog(
   }
 }
 
-/** يُدرج مقاطع مراجعة ورد — يُستدعى داخل ترانزاكشن قائمة فقط (createWardLog/updateWardLog) */
+/** يُدرج مقاطع مراجعة ورد — يُستدعى داخل ترانزاكشن قائمة فقط (createWardLog/updateWardLog). تصنيف كل مقطع (B3) اختياري: أقصر من المقاطع أو غائب = بلا تصنيف */
 async function insertReviewSegments(
   client: { query: (text: string, params?: unknown[]) => Promise<unknown> },
   wardLogId: number,
   segments: NewReviewSegment[] | null,
+  tracks?: (ReviewTrack | null)[] | null,
 ): Promise<void> {
   if (!segments) return;
-  let order = 1;
-  for (const seg of segments) {
+  for (const [i, seg] of segments.entries()) {
     await client.query(
       `INSERT INTO ward_review_segments
-        (ward_log_id, segment_order, from_surah, from_ayah, to_surah, to_ayah, from_page, to_page)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [wardLogId, order++, seg.fromSurah, seg.fromAyah, seg.toSurah, seg.toAyah, seg.fromPage, seg.toPage],
+        (ward_log_id, segment_order, from_surah, from_ayah, to_surah, to_ayah, from_page, to_page, track)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [wardLogId, i + 1, seg.fromSurah, seg.fromAyah, seg.toSurah, seg.toAyah, seg.fromPage, seg.toPage, tracks?.[i] ?? null],
     );
   }
 }
@@ -1198,7 +1219,7 @@ export async function updateWardLog(
     }
     // استبدال كامل للمقاطع — أبسط وأصحّ من محاولة مطابقة/تحديث جزئي لقائمة أعيد إرسالها كاملة من الواجهة
     await client.query(`DELETE FROM ward_review_segments WHERE ward_log_id = $1`, [id]);
-    await insertReviewSegments(client, id, log.reviewSegments);
+    await insertReviewSegments(client, id, log.reviewSegments, log.reviewSegmentTracks);
     // STEP 56 (تصحيح): الزميل نفسه بلا تغيير → لا حذف ولا إدراج، تبقى
     // حالته كما هي (confirmed تبقى confirmed) — إعادة الإدراج لأي سبب
     // آخر (حتى لو نفس الزميل) كانت تصفّر تأكيداً سابقاً بلا داعٍ.
@@ -1346,7 +1367,7 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
                 'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
-                'fromPage', rs.from_page, 'toPage', rs.to_page
+                'fromPage', rs.from_page, 'toPage', rs.to_page, 'track', rs.track
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
@@ -1370,7 +1391,7 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
                 'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
-                'fromPage', rs.from_page, 'toPage', rs.to_page
+                'fromPage', rs.from_page, 'toPage', rs.to_page, 'track', rs.track
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
@@ -1399,7 +1420,7 @@ export async function listApprovedWardLogs(teacherId: number): Promise<WardLog[]
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
                 'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
-                'fromPage', rs.from_page, 'toPage', rs.to_page
+                'fromPage', rs.from_page, 'toPage', rs.to_page, 'track', rs.track
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
@@ -1424,7 +1445,7 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
                 'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
-                'fromPage', rs.from_page, 'toPage', rs.to_page
+                'fromPage', rs.from_page, 'toPage', rs.to_page, 'track', rs.track
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
@@ -1458,7 +1479,7 @@ export async function listAllWardLogsForStudent(teacherId: number, studentId: st
               json_build_object(
                 'fromSurah', rs.from_surah, 'fromAyah', rs.from_ayah,
                 'toSurah', rs.to_surah, 'toAyah', rs.to_ayah,
-                'fromPage', rs.from_page, 'toPage', rs.to_page
+                'fromPage', rs.from_page, 'toPage', rs.to_page, 'track', rs.track
               ) ORDER BY rs.segment_order
             )::text
             FROM ward_review_segments rs WHERE rs.ward_log_id = w.id
@@ -1520,6 +1541,59 @@ export async function countNewWards(teacherId: number): Promise<number> {
     SELECT COUNT(*) AS n FROM ward_logs WHERE teacher_id = ${teacherId} AND status = 'new'
   `;
   return Number(rows[0].n);
+}
+
+/**
+ * يعيد المعلّم تصنيف مقاطع مراجعة ورد قائم (B3) — مصفوفة كاملة بعدد
+ * المقاطع نفسه، كل عنصر سبقي/منزل أو null للمقطع بلا تصنيف. مسموح فقط
+ * ما دام الورد لم يُتّخذ فيه قرار بعد (new/seen — نفس قفل تعديل الطالب):
+ * التصنيف جزء من محتوى الورد قبل الاعتماد. يعيد "not_found" لورد غير
+ * مملوك لهذه الحلقة، و"locked" لو اكتمل/رُفض، و"count_mismatch" لو لم
+ * يطابق العددُ مقاطع الورد الفعلية، و"ok" عند النجاح.
+ */
+export async function setWardReviewTracks(
+  teacherId: number,
+  id: number,
+  tracks: (ReviewTrack | null)[],
+): Promise<"ok" | "not_found" | "locked" | "count_mismatch"> {
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    const ward = await client.query<{ status: string }>(
+      `SELECT status FROM ward_logs WHERE id = $1 AND teacher_id = $2`,
+      [id, teacherId],
+    );
+    if (ward.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return "not_found";
+    }
+    if (ward.rows[0].status !== "new" && ward.rows[0].status !== "seen") {
+      await client.query("ROLLBACK");
+      return "locked";
+    }
+    const existing = await client.query<{ segment_order: number }>(
+      `SELECT segment_order FROM ward_review_segments WHERE ward_log_id = $1 ORDER BY segment_order`,
+      [id],
+    );
+    if (existing.rows.length !== tracks.length) {
+      await client.query("ROLLBACK");
+      return "count_mismatch";
+    }
+    for (const [i, track] of tracks.entries()) {
+      await client.query(`UPDATE ward_review_segments SET track = $1 WHERE ward_log_id = $2 AND segment_order = $3`, [
+        track,
+        id,
+        i + 1,
+      ]);
+    }
+    await client.query("COMMIT");
+    return "ok";
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 // ————— اشتراكات الإشعارات + مفاتيح VAPID —————

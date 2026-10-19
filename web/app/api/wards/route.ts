@@ -14,8 +14,9 @@ import {
 import { sendPushToHalaqah, sendPushToParentsOfStudent, sendPushToStudent } from "@/lib/push";
 import { sendWhatsappToParentsOfStudent } from "@/lib/notify/outbox";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
+import { parseReviewTracks } from "@/lib/review-tracks";
 import { logServerError } from "@/lib/dev-error-log";
-import type { WardStatus } from "@/lib/types";
+import type { ReviewTrack, WardStatus } from "@/lib/types";
 
 /** يقرأ موضع سورة/آية من الجسم بأمان — null لأي قيمة غير رقمية */
 function readPos(input: unknown): { surah: number | null; ayah: number | null } {
@@ -62,6 +63,7 @@ function buildLog(
   date: string,
   hifz: ReturnType<typeof parseAyahRange>,
   review: ReturnType<typeof parseReviewSegments>,
+  reviewTracks: (ReviewTrack | null)[] | null,
   note: string,
   buddyStudentId: string | null,
 ): NewWardLog {
@@ -81,6 +83,8 @@ function buildLog(
     // STEP 52: المراجعة الجديدة دائماً مقاطع (0 أو أكثر)، لا نطاق واحد قديم
     reviewAyah: null,
     reviewSegments,
+    // B3: تصنيف سبقي/منزل لكل مقطع — اختياري، بلا قيمة لأي ورد قديم
+    reviewSegmentTracks: reviewTracks ?? undefined,
     note,
     buddyStudentId,
   };
@@ -104,6 +108,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as Record<string, unknown>;
     const hifz = parseRange(body.hifz, "الحفظ");
     const review = parseReviewBody(body.review);
+    const reviewTracks = parseReviewTracks(body.reviewTracks, review?.segments.length ?? 0);
+    if (!review && reviewTracks) throw new Error("تصنيف المراجعة بلا مقاطع مراجعة");
     const note = String(body.note ?? "").trim().slice(0, 500);
     const buddyStudentId = readBuddyId(body.buddyStudentId);
 
@@ -111,7 +117,7 @@ export async function POST(request: Request) {
       throw new Error("سجّل حفظاً أو مراجعة قبل الإرسال");
     }
 
-    const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, note, buddyStudentId);
+    const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, reviewTracks, note, buddyStudentId);
     const { previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
 
     // إشعار المعلّم — لا يُفشل الحفظ إن تعذّر. عنوان مختلف لو كانت هذي
@@ -177,6 +183,8 @@ export async function PUT(request: Request) {
 
     const hifz = parseRange(body.hifz, "الحفظ");
     const review = parseReviewBody(body.review);
+    const reviewTracks = parseReviewTracks(body.reviewTracks, review?.segments.length ?? 0);
+    if (!review && reviewTracks) throw new Error("تصنيف المراجعة بلا مقاطع مراجعة");
     const note = String(body.note ?? "").trim().slice(0, 500);
     const buddyStudentId = readBuddyId(body.buddyStudentId);
 
@@ -184,7 +192,7 @@ export async function PUT(request: Request) {
       throw new Error("سجّل حفظاً أو مراجعة قبل الحفظ");
     }
 
-    const log = buildLog(date, hifz, review, note, buddyStudentId);
+    const log = buildLog(date, hifz, review, reviewTracks, note, buddyStudentId);
     const result = await updateWardLog(student.teacherId, student.id, id, log);
     if (!result.updated) {
       return Response.json(

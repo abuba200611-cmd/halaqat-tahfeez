@@ -2,6 +2,7 @@
 
 import { canEditWard } from "@/lib/ward-ayah";
 import { hifzRangeText, reviewRangeText, statusTone, STATUS_LABEL } from "@/lib/student-ward-display";
+import { reviewTextWithTracks } from "@/lib/review-tracks";
 import type { WardLog } from "@/lib/types";
 
 /**
@@ -54,7 +55,9 @@ export function WardListItem({
 
       <div className="mt-1 space-y-0.5 text-sm text-stone-500">
         {hifzRangeText(log.hifz, log.hifzAyah) && <p>حفظ: {hifzRangeText(log.hifz, log.hifzAyah)}</p>}
-        {reviewRangeText(log) && <p>مراجعة: {reviewRangeText(log)}</p>}
+        {reviewTextWithTracks(log, reviewRangeText(log)) && (
+          <p>مراجعة: {reviewTextWithTracks(log, reviewRangeText(log))}</p>
+        )}
         {log.note && <p className="text-stone-700">{log.note}</p>}
       </div>
 

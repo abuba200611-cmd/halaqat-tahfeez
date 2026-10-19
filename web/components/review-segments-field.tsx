@@ -1,8 +1,10 @@
 "use client";
 
 import { AyahRangeInputs } from "./ayah-range-field";
+import { ReviewTrackSelect } from "./review-track-bits";
 import { CloseIcon, PlusIcon } from "./icons";
 import { MAX_REVIEW_SEGMENTS, type AyahRangeInput } from "@/lib/ward-ayah";
+import type { ReviewTrack } from "@/lib/types";
 
 const EMPTY_SEGMENT: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
 
@@ -12,7 +14,12 @@ export { EMPTY_SEGMENT };
  * قائمة مقاطع المراجعة (STEP 52) — كل مقطع نطاق سورة/آية مستقل بنفس
  * مكوّن STEP 49 (AyahRangeInputs)، مع زر "+ أضف مقطع" (حتى ١٠) وزر
  * حذف لكل مقطع. رسالة الخطأ لكل مقطع تصل جاهزة من الأب (محسوبة عبر
- * lib/ward-ayah.ts: parseReviewSegments، فلا تتكرر قواعد التحقّق هنا).
+ * lib/ward-ayah.ts: parseReviewSegments، فلا تتكرر قواعد التحقق هنا).
+ *
+ * B3: تصنيف سبقي/منزل لكل مقطع — اختياري بالكامل. المقاطع غير
+ * المصنَّفة (null) تُقترح تلقائياً من الأب عبر suggestFor عند إضافة
+ * المقطع أو تغيير نطاقه؛ اختيار المستخدم الصريح (سبقي/منزل) لا يُمس،
+ * و«بلا تصنيف» يعني تركه فارغاً حتى يتغيّر النطاق من جديد.
  */
 export function ReviewSegmentsField({
   label,
@@ -22,6 +29,9 @@ export function ReviewSegmentsField({
   onChange,
   segmentErrors,
   pagesTotal,
+  tracks,
+  onTracksChange,
+  suggestFor,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -31,18 +41,30 @@ export function ReviewSegmentsField({
   /** رسالة خطأ لكل مقطع بنفس الفهرس، أو null لو المقطع صحيح/فارغ بعد */
   segmentErrors: (string | null)[];
   pagesTotal: number | null;
+  /** تصنيف كل مقطع (B3) — محاذٍ لsegments؛ لا تُمرَّر = بلا تصنيف إطلاقاً */
+  tracks?: (ReviewTrack | null)[];
+  /** تحديث التصنيفات — يُستدعى فقط لو tracks مُمرَّرة */
+  onTracksChange?: (next: (ReviewTrack | null)[]) => void;
+  /** اقتراح تصنيف مقطع (سبقي/منزل) من نطاقه — null لعدم اقتراح شيء */
+  suggestFor?: (index: number) => ReviewTrack | null;
 }) {
   function updateSegment(index: number, next: AyahRangeInput) {
     onChange(segments.map((s, i) => (i === index ? next : s)));
+    if (onTracksChange && tracks && tracks[index] == null) {
+      const suggestion = suggestFor?.(index) ?? null;
+      if (suggestion !== null) onTracksChange(tracks.map((t, i) => (i === index ? suggestion : t)));
+    }
   }
 
   function removeSegment(index: number) {
     onChange(segments.filter((_, i) => i !== index));
+    if (onTracksChange && tracks) onTracksChange(tracks.filter((_, i) => i !== index));
   }
 
   function addSegment() {
     if (segments.length >= MAX_REVIEW_SEGMENTS) return;
     onChange([...segments, EMPTY_SEGMENT]);
+    if (onTracksChange) onTracksChange([...(tracks ?? []), suggestFor?.(segments.length) ?? null]);
   }
 
   return (
@@ -52,6 +74,12 @@ export function ReviewSegmentsField({
         {label}
       </legend>
 
+      {tracks && (
+        <p className="text-xs text-stone-400">
+          «سبق» هو الحفظ الجديد أعلاه؛ «سبقي» مراجعة آخر ما حفظت، و«منزل» مراجعة المحفوظ القديم — التصنيف اختياري.
+        </p>
+      )}
+
       {segments.length === 0 && (
         <p className="text-xs text-stone-400">لا مراجعة اليوم — اضغط «أضف مقطع مراجعة» لو راجعت.</p>
       )}
@@ -59,8 +87,17 @@ export function ReviewSegmentsField({
       <div className="space-y-3">
         {segments.map((segment, i) => (
           <div key={i} className="rounded-xl border border-stone-100 bg-stone-50/50 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-stone-500">مقطع {i + 1}</span>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-stone-500">مقطع {i + 1}</span>
+                {tracks && onTracksChange && (
+                  <ReviewTrackSelect
+                    id={`review-track-${i}`}
+                    value={tracks[i] ?? null}
+                    onChange={(next) => onTracksChange(tracks.map((t, k) => (k === i ? next : t)))}
+                  />
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => removeSegment(i)}

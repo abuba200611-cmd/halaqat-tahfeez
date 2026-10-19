@@ -154,6 +154,14 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "juz_progress",
+    nameAr: "تقدّم الأجزاء وتصنيف المراجعة",
+    descriptionAr:
+      "شريط تقدّم الحفظ بالأجزاء (شبكة ٣٠ جزءاً) في لوحات الطالب وولي الأمر والمعلّم، مع تصنيف المراجعة اليومية: سبق وسبقي ومنزل، وعدّادات لآخر ٧ و٣٠ يوماً. عرض قراءة فقط.",
+    defaultEnabled: true,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

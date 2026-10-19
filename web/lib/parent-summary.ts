@@ -1,4 +1,6 @@
 import { surahName, TOTAL_MUSHAF_PAGES } from "./quran-surahs";
+import { computeJuzProgress, type JuzProgress } from "./juz-progress";
+import { countReviewTrackPages, type ReviewTrackCounts } from "./review-tracks";
 import {
   computeStreak,
   hifzPagesCovered,
@@ -29,6 +31,10 @@ export type ParentChildSummary = {
   totalPages: number;
   lastHifz: { surah: string; page: number } | null;
   wards: ParentWardRow[];
+  /** B3: شبكة الثلاثين جزءاً من نفس أوراد الحفظ — حقول محسوبة فقط كالبقية */
+  juzProgress: JuzProgress;
+  /** B3: صفحات مراجعة كل مسار لآخر ٧ و٣٠ يوماً */
+  trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts };
 };
 
 /** تاريخ YYYY-MM-DD قبل `days` يوماً من `today` (حساب تقويمي بـUTC، بلا أثر للتوقيت الصيفي) */
@@ -59,5 +65,10 @@ export function buildParentChildSummary(logs: WardLog[], today: string): ParentC
     totalPages: TOTAL_MUSHAF_PAGES,
     lastHifz: progress ? { surah: surahName(progress.surah), page: progress.page } : null,
     wards,
+    juzProgress: computeJuzProgress(logs.map((l) => l.hifz)),
+    trackCounts: {
+      days7: countReviewTrackPages(logs, 7, today),
+      days30: countReviewTrackPages(logs, 30, today),
+    },
   };
 }

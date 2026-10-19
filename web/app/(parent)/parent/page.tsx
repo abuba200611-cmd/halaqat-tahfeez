@@ -14,6 +14,8 @@ import { ParentDisciplineCard } from "@/components/parent-discipline-card";
 import type { RecitationView } from "@/lib/recitations";
 import type { PlanView } from "@/lib/monthly-plan";
 import type { ParentChildSummary } from "@/lib/parent-summary";
+import { JuzProgressCard } from "@/components/juz-progress";
+import { ReviewTrackCountsCard } from "@/components/review-track-bits";
 import { STATUS_LABEL, statusTone } from "@/lib/student-ward-display";
 
 type Child = { halaqahId: number; studentId: string; studentName: string; halaqahName: string };
@@ -216,7 +218,6 @@ function ChildPanel({ child }: { child: Child }) {
   if (detail === "error") return <p className="text-sm text-destructive">تعذّر تحميل البيانات.</p>;
 
   const { summary } = detail;
-  const pct = Math.min(100, (summary.pagesCovered / summary.totalPages) * 100);
 
   return (
     <div className="space-y-4">
@@ -236,22 +237,16 @@ function ChildPanel({ child }: { child: Child }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-stone-200 bg-white p-4">
-        <div className="mb-1.5 flex items-baseline justify-between">
-          <h2 className="text-sm font-semibold text-stone-700">تقدّم الحفظ</h2>
-          <span className="tabular text-xs text-stone-500">
-            {summary.pagesCovered} من {summary.totalPages} صفحة
-          </span>
-        </div>
-        <div className="h-2.5 w-full overflow-hidden rounded-full bg-stone-100">
-          <div className="h-full rounded-full bg-success" style={{ width: `${pct}%` }} />
-        </div>
-        {summary.lastHifz && (
-          <p className="mt-1.5 text-xs text-stone-500">
-            آخر ما وصل إليه: سورة {summary.lastHifz.surah} (صفحة {summary.lastHifz.page})
-          </p>
-        )}
-      </div>
+      <JuzProgressCard
+        progress={summary.juzProgress}
+        footer={
+          summary.lastHifz && (
+            <p>آخر ما وصل إليه: سورة {summary.lastHifz.surah} (صفحة {summary.lastHifz.page})</p>
+          )
+        }
+      />
+
+      <ReviewTrackCountsCard days7={summary.trackCounts.days7} days30={summary.trackCounts.days30} />
 
       <MonthlyPlanCard view={monthlyPlan} title="خطة هذا الشهر" />
 
