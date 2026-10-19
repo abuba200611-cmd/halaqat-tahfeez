@@ -36,8 +36,15 @@ vi.mock("@netlify/database", () => ({
   }),
 }));
 
-const { createWardLog, updateWardLog, listHalaqahMates, listPendingBuddyRequestsForStudent, respondToBuddyRequest } =
-  await import("./db");
+const {
+  carryOverReviewTracks,
+  createWardLog,
+  updateWardLog,
+  setWardReviewTracks,
+  listHalaqahMates,
+  listPendingBuddyRequestsForStudent,
+  respondToBuddyRequest,
+} = await import("./db");
 
 const sampleLog: NewWardLog = {
   date: "2026-09-27",
@@ -589,5 +596,100 @@ describe("findOrCreateTeacherByEmail — الحساب الموقوف (STEP 60)",
 
     await expect(findOrCreateTeacherByEmail("a@b.c")).rejects.toThrow("تم إيقاف حسابك من مشرف الحلقة");
     expect(sqlMock).toHaveBeenCalledTimes(1); // لا UPDATE إطلاقاً بعد الرفض
+  });
+});
+
+describe("updateWardLog — حفظ تصنيفات المقاطع عند غياب reviewTracks (B3)", () => {
+  beforeEach(() => {
+    connectMock.mockReset();
+  });
+
+  const prior = [
+    { segment_order: 1, from_surah: 1, from_ayah: 1, to_surah: 1, to_ayah: 7, track: "sabqi" as const },
+    { segment_order: 2, from_surah: 2, from_ayah: 1, to_surah: 2, to_ayah: 5, track: "manzil" as const },
+  ];
+
+  it("carryOverReviewTracks: يحمل التصنيف للمقطع الباقي بموضعه ونطاقه، وصفراً لما تغيّر", () => {
+    const next = [
+      { fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, fromPage: 1, toPage: 1 },
+      { fromSurah: 2, fromAyah: 1, toSurah: 2, toAyah: 9, fromPage: 2, toPage: 2 }, // نطاق تغيّر
+      { fromSurah: 3, fromAyah: 1, toSurah: 3, toAyah: 2, fromPage: 50, toPage: 50 }, // مقطع جديد
+    ];
+    expect(carryOverReviewTracks(prior, next)).toEqual(["sabqi", null, null]);
+  });
+
+  it("carryOverReviewTracks: تغيّر الموضع = لا حمل", () => {
+    const swapped = [
+      { fromSurah: 2, fromAyah: 1, toSurah: 2, toAyah: 5, fromPage: 2, toPage: 2 },
+      { fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, fromPage: 1, toPage: 1 },
+    ];
+    expect(carryOverReviewTracks(prior, swapped)).toEqual([null, null]);
+  });
+
+  function clientWithPrior() {
+    const client = makeFakeClient(1);
+    client.query.mockImplementation(async (text: string, params?: unknown[]) => {
+      client.calls.push({ text, params });
+      if (text.trim().startsWith("UPDATE ward_logs")) return { rowCount: 1, rows: [] };
+      if (text.includes("FROM ward_review_segments WHERE ward_log_id") && text.includes("SELECT segment_order")) {
+        return { rowCount: 2, rows: prior };
+      }
+      return { rowCount: 0, rows: [] };
+    });
+    return client;
+  }
+
+  it("PUT بلا reviewTracks والمقاطع كما هي: يُدرج المقاطع بتصنيفاتها القديمة", async () => {
+    const client = clientWithPrior();
+    connectMock.mockResolvedValue(client);
+    const log: NewWardLog = {
+      ...sampleLog,
+      reviewSegments: [
+        { fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, fromPage: 1, toPage: 1 },
+        { fromSurah: 2, fromAyah: 1, toSurah: 2, toAyah: 5, fromPage: 2, toPage: 2 },
+      ],
+    };
+    await updateWardLog(2, "student-1", 17, log);
+    const inserts = client.calls.filter((c) => c.text.trim().startsWith("INSERT INTO ward_review_segments"));
+    expect(inserts.map((c) => c.params?.[8])).toEqual(["sabqi", "manzil"]);
+    // القراءة تسبق الحذف
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts.findIndex((t) => t.startsWith("SELECT segment_order"))).toBeLessThan(
+      texts.findIndex((t) => t.startsWith("DELETE FROM ward_review_segments")),
+    );
+  });
+
+  it("تصنيفات صريحة (حتى null) تُطبَّق كما هي ولا تُقرأ القديمة", async () => {
+    const client = clientWithPrior();
+    connectMock.mockResolvedValue(client);
+    await updateWardLog(2, "student-1", 17, {
+      ...sampleLog,
+      reviewSegments: [{ fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, fromPage: 1, toPage: 1 }],
+      reviewSegmentTracks: ["manzil"],
+    });
+    const insert = client.calls.find((c) => c.text.trim().startsWith("INSERT INTO ward_review_segments"));
+    expect(insert?.params?.[8]).toBe("manzil");
+    expect(client.calls.some((c) => c.text.trim().startsWith("SELECT segment_order"))).toBe(false);
+  });
+});
+
+describe("setWardReviewTracks — قفل صف الورد قبل فحص الحالة", () => {
+  it("SELECT status ... FOR UPDATE داخل معاملة قبل أي UPDATE", async () => {
+    const client = makeFakeClient(1);
+    client.query.mockImplementation(async (text: string, params?: unknown[]) => {
+      client.calls.push({ text, params });
+      if (text.includes("SELECT status FROM ward_logs")) return { rows: [{ status: "new" }] };
+      if (text.includes("SELECT segment_order")) return { rows: [{ segment_order: 1 }] };
+      return { rows: [], rowCount: 1 };
+    });
+    connectMock.mockResolvedValue(client);
+    expect(await setWardReviewTracks(2, 17, ["sabqi"])).toBe("ok");
+    const texts = client.calls.map((c) => c.text.trim());
+    const begin = texts.indexOf("BEGIN");
+    const lock = texts.findIndex((t) => t.includes("SELECT status FROM ward_logs") && t.endsWith("FOR UPDATE"));
+    const upd = texts.findIndex((t) => t.startsWith("UPDATE ward_review_segments"));
+    expect(begin).toBeGreaterThanOrEqual(0);
+    expect(lock).toBeGreaterThan(begin);
+    expect(upd).toBeGreaterThan(lock);
   });
 });

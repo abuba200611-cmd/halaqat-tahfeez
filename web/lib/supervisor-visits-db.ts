@@ -105,7 +105,7 @@ export async function listDoneVisitsForHalaqah(halaqahId: number): Promise<Visit
            v.visitor_kind, v.visitor_name, v.scheduled_for, v.visited_at, v.status,
            v.overall_score, v.notes, v.recommendations, v.created_at
     FROM supervisor_visits v JOIN halaqahs h ON h.id = v.halaqah_id
-    WHERE v.halaqah_id = ${halaqahId} AND v.status = 'done'
+    WHERE v.halaqah_id = ${halaqahId} AND v.mosque_id = h.mosque_id AND v.status = 'done'
     ORDER BY v.visited_at DESC, v.id DESC
   `;
   return rows.map(rowToVisit);
@@ -221,12 +221,23 @@ export async function getVisitScores(visitId: number): Promise<VisitScores> {
 
 /** يستبدل درجات الزيارة كلها بالجسم الجديد (المفاتيح تحُقّقت قبل الوصول هنا) */
 export async function saveVisitScores(visitId: number, scores: VisitScores): Promise<void> {
-  await db().sql`DELETE FROM visit_criteria_scores WHERE visit_id = ${visitId}`;
-  for (const [key, value] of Object.entries(scores)) {
-    await db().sql`
-      INSERT INTO visit_criteria_scores (visit_id, criterion_key, score, note)
-      VALUES (${visitId}, ${key}, ${value.score}, ${value.note ?? ""})
-    `;
+  // حذف+إدراج بمعاملة واحدة: فشل منتصف الطريق لا يمسح درجات الزيارة المخزّنة
+  const client = await db().pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`DELETE FROM visit_criteria_scores WHERE visit_id = $1`, [visitId]);
+    for (const [key, value] of Object.entries(scores)) {
+      await client.query(
+        `INSERT INTO visit_criteria_scores (visit_id, criterion_key, score, note) VALUES ($1, $2, $3, $4)`,
+        [visitId, key, value.score, value.note ?? ""],
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
@@ -280,6 +291,10 @@ export async function applyVisitAction(input: ApplyVisitActionInput): Promise<Ap
   if (!parsed.ok) return { ok: false, status: 400, error: parsed.error };
   const existing = await getVisitScores(visit.id);
   const merged: VisitScores = { ...existing, ...parsed.scores };
+  // مسح درجة معيار (score: null) مسموح ما دامت الزيارة مجدولة فقط؛ المنجزة تبقى مكتملة
+  if (visit.status === "scheduled") {
+    for (const key of parsed.cleared ?? []) delete merged[key];
+  }
 
   let status: VisitStatus = visit.status;
   let visitedAt: string | null | undefined; // undefined = لا تغيير

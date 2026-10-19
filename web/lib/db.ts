@@ -1134,6 +1134,35 @@ async function insertReviewSegments(
   }
 }
 
+export type PriorSegmentRow = {
+  segment_order: number;
+  from_surah: number;
+  from_ayah: number;
+  to_surah: number;
+  to_ayah: number;
+  track: ReviewTrack | null;
+};
+
+/**
+ * يحمل تصنيف كل مقطع قائم إلى مقطعه الجديد إن بقي بالموضع (segment_order)
+ * والنطاق (سورة/آية البداية والنهاية) نفسيهما؛ غير ذلك = بلا تصنيف.
+ */
+export function carryOverReviewTracks(prior: PriorSegmentRow[], next: NewReviewSegment[]): (ReviewTrack | null)[] {
+  return next.map((seg, i) => {
+    const old = prior.find((p) => Number(p.segment_order) === i + 1);
+    if (
+      old &&
+      Number(old.from_surah) === seg.fromSurah &&
+      Number(old.from_ayah) === seg.fromAyah &&
+      Number(old.to_surah) === seg.toSurah &&
+      Number(old.to_ayah) === seg.toAyah
+    ) {
+      return old.track ?? null;
+    }
+    return null;
+  });
+}
+
 /**
  * هل تغيّر محتوى الورد فعلياً؟ — التاريخ أو أي حقل حفظ/مراجعة بما فيها
  * مقاطع المراجعة. الملاحظة ليست محتوى: تعديلها وحده لا يبرّر إعادة طلب
@@ -1238,8 +1267,22 @@ export async function updateWardLog(
       return { updated: false, buddyResetTo: null };
     }
     // استبدال كامل للمقاطع — أبسط وأصحّ من محاولة مطابقة/تحديث جزئي لقائمة أعيد إرسالها كاملة من الواجهة
+    // تصنيفات المقاطع (B3): PUT بلا reviewTracks (undefined) يحفظ التصنيفات
+    // القائمة لكل مقطع لم يتغيّر موضعه ونطاقه؛ مصفوفة صريحة (أو null) تُطبَّق كما هي
+    let tracksToInsert = log.reviewSegmentTracks;
+    if (tracksToInsert === undefined && log.reviewSegments?.length) {
+      const prior = await client.query(
+        `SELECT segment_order, from_surah, from_ayah, to_surah, to_ayah, track
+         FROM ward_review_segments WHERE ward_log_id = $1 ORDER BY segment_order`,
+        [id],
+      );
+      tracksToInsert = carryOverReviewTracks(
+        (prior.rows ?? []) as PriorSegmentRow[],
+        log.reviewSegments,
+      );
+    }
     await client.query(`DELETE FROM ward_review_segments WHERE ward_log_id = $1`, [id]);
-    await insertReviewSegments(client, id, log.reviewSegments, log.reviewSegmentTracks);
+    await insertReviewSegments(client, id, log.reviewSegments, tracksToInsert);
     // STEP 56 (تصحيح): الزميل نفسه بلا تغيير → لا حذف ولا إدراج، تبقى
     // حالته كما هي (confirmed تبقى confirmed) — إعادة الإدراج لأي سبب
     // آخر (حتى لو نفس الزميل) كانت تصفّر تأكيداً سابقاً بلا داعٍ.
@@ -1580,7 +1623,7 @@ export async function setWardReviewTracks(
   try {
     await client.query("BEGIN");
     const ward = await client.query<{ status: string }>(
-      `SELECT status FROM ward_logs WHERE id = $1 AND teacher_id = $2`,
+      `SELECT status FROM ward_logs WHERE id = $1 AND teacher_id = $2 FOR UPDATE`,
       [id, teacherId],
     );
     if (ward.rows.length === 0) {

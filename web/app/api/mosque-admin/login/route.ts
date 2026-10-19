@@ -1,5 +1,6 @@
 import { clientIp } from "@/lib/client-ip";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { loginFailureKey } from "@/lib/login-key";
 import { findMosqueAdminByUsername } from "@/lib/mosque/db";
 import { verifyPassword } from "@/lib/mosque/password";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
@@ -18,8 +19,9 @@ export async function POST(request: Request) {
   const username = String(body.username ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
 
-  const ipKey = `mosque-admin-login:ip:${clientIp(request)}`;
-  const userKey = `mosque-admin-login:user:${username}`;
+  const ip = clientIp(request);
+  const ipKey = `mosque-admin-login:ip:${ip}`;
+  const userKey = loginFailureKey("mosque-admin-login:user", ip, username);
   if (!(await peekRateLimit(ipKey, MAX_FAILURES, WINDOW_SECONDS)) || !(await peekRateLimit(userKey, MAX_FAILURES, WINDOW_SECONDS))) {
     return rateLimited();
   }

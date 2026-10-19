@@ -76,37 +76,54 @@ export async function enqueueWhatsapp(input: {
   const toPhone = phone ?? input.toPhone.trim().slice(0, 20);
   const invalid = phone === null;
 
+  const client = await db().pool.connect();
   try {
-    const rows = await db().sql`
-      WITH charged AS (
+    await client.query("BEGIN");
+    // تسلسل الإدراجات لكل جامع: بلا القفل يقرأ إدراجان متزامنان العدّاد نفسه
+    // فيتجاوزان السقف اليومي معاً. القفل ينتهي تلقائياً مع COMMIT/ROLLBACK.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('wa:' || $1::text))", [String(input.mosqueId)]);
+    const result = await client.query(
+      `WITH charged AS (
         SELECT
-          count(*) FILTER (WHERE mosque_id = ${input.mosqueId}) AS mosque_today,
-          count(*) FILTER (WHERE to_phone = ${toPhone}) AS phone_today
+          count(*) FILTER (WHERE mosque_id = $1::int) AS mosque_today,
+          count(*) FILTER (WHERE to_phone = $2::text) AS phone_today
         FROM notifications_outbox
         WHERE status != 'skipped' AND created_at >= date_trunc('day', now() AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh'
-          AND (mosque_id = ${input.mosqueId} OR to_phone = ${toPhone})
+          AND (mosque_id = $1::int OR to_phone = $2::text)
       ), ins AS (
         INSERT INTO notifications_outbox (channel, to_phone, template, params, status, error, mosque_id, ref)
-        SELECT 'whatsapp', ${toPhone}, ${input.template}, ${JSON.stringify(input.params)}::jsonb,
+        SELECT 'whatsapp', $2::text, $3::text, $4::jsonb,
                CASE
-                 WHEN ${invalid}::boolean THEN 'skipped'
-                 WHEN charged.mosque_today >= ${config.dailyMosqueCap}::int THEN 'skipped'
-                 WHEN charged.phone_today >= ${config.dailyRecipientCap}::int THEN 'skipped'
+                 WHEN $5::boolean THEN 'skipped'
+                 WHEN charged.mosque_today >= $6::int THEN 'skipped'
+                 WHEN charged.phone_today >= $7::int THEN 'skipped'
                  ELSE 'queued'
                END,
                CASE
-                 WHEN ${invalid}::boolean THEN 'invalid_phone'
-                 WHEN charged.mosque_today >= ${config.dailyMosqueCap}::int THEN 'cap_mosque'
-                 WHEN charged.phone_today >= ${config.dailyRecipientCap}::int THEN 'cap_recipient'
+                 WHEN $5::boolean THEN 'invalid_phone'
+                 WHEN charged.mosque_today >= $6::int THEN 'cap_mosque'
+                 WHEN charged.phone_today >= $7::int THEN 'cap_recipient'
                  ELSE ''
                END,
-               ${input.mosqueId}, ${input.ref}
+               $1::int, $8::text
         FROM charged
-        WHERE NOT EXISTS (SELECT 1 FROM notifications_outbox WHERE ref = ${input.ref})
+        WHERE NOT EXISTS (SELECT 1 FROM notifications_outbox WHERE ref = $8::text)
         RETURNING id, status, error
       )
-      SELECT id, status, error FROM ins
-    `;
+      SELECT id, status, error FROM ins`,
+      [
+        input.mosqueId,
+        toPhone,
+        input.template,
+        JSON.stringify(input.params),
+        invalid,
+        config.dailyMosqueCap,
+        config.dailyRecipientCap,
+        input.ref,
+      ],
+    );
+    await client.query("COMMIT");
+    const rows = result.rows;
     const row = rows[0];
     if (!row) return { deduped: true };
     return {
@@ -116,10 +133,46 @@ export async function enqueueWhatsapp(input: {
       reason: (row.error ?? "") as "invalid_phone" | "cap_mosque" | "cap_recipient" | "",
     };
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
     const err = error as { code?: string; cause?: { code?: string } };
     if ((err.code ?? err.cause?.code) === "23505") return { deduped: true };
     throw error;
+  } finally {
+    client.release();
   }
+}
+
+// ————— كنس العالق —————
+
+const STALE_QUEUED_MINUTES = 15;
+const SWEEP_THROTTLE_MS = 60_000;
+let lastSweepAt = 0;
+
+/**
+ * صفوف queued الأقدم من 15 دقيقة عالقة (انقطع الإرسال قبل التحديث): تصير
+ * failed بخطأ "stale" فتظهر بلوحة المطوّر وتقبل إعادة الإرسال اليدوية.
+ * لا ترمي أبداً. force=true يتجاوز خنق الدقيقة (لوحة المطوّر).
+ */
+export async function sweepStaleOutbox(force = false): Promise<number> {
+  const now = Date.now();
+  if (!force && now - lastSweepAt < SWEEP_THROTTLE_MS) return 0;
+  lastSweepAt = now;
+  try {
+    const rows = await db().sql`
+      UPDATE notifications_outbox
+      SET status = 'failed', error = 'stale'
+      WHERE status = 'queued' AND created_at < now() - (${STALE_QUEUED_MINUTES}::int * interval '1 minute')
+      RETURNING id
+    `;
+    return rows.length;
+  } catch {
+    return 0;
+  }
+}
+
+/** للاختبارات فقط: يضبط وقت آخر كنس (0 = يسمح بالكنس فوراً) */
+export function setLastSweepAtForTests(at: number): void {
+  lastSweepAt = at;
 }
 
 // ————— الإرسال —————
@@ -162,6 +215,7 @@ export async function dispatchWhatsapp(input: {
   ref: string;
   config?: WhatsappConfig;
 }): Promise<WhatsappDispatch> {
+  await sweepStaleOutbox();
   let outcome: WhatsappEnqueueOutcome;
   try {
     outcome = await enqueueWhatsapp(input);
@@ -267,6 +321,7 @@ export async function listWhatsappOutbox(filter: {
   mosqueId?: number;
   limit?: number;
 }): Promise<WhatsappOutboxRow[]> {
+  await sweepStaleOutbox(true);
   const status = filter.status ?? null;
   const mosqueId = filter.mosqueId ?? null;
   const limit = filter.limit ?? 200;

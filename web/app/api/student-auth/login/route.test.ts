@@ -59,7 +59,7 @@ describe("POST /api/student-auth/login — حدّ اسم المستخدم على
     const res = await POST(loginReq("ahmad", "wrong"));
 
     expect(res.status).toBe(401);
-    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("student-login:4:ahmad", 900);
+    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("student-login:4:unknown:ahmad", 900);
   });
 
   it("اسم مستخدم غير موجود: 401، ولا peek ولا احتساب — المفتاح يتطلّب حلقة معروفة", async () => {
@@ -79,7 +79,7 @@ describe("POST /api/student-auth/login — حدّ اسم المستخدم على
     const res = await POST(loginReq("ahmad", "correct"));
 
     expect(res.status).toBe(429);
-    expect(rateLimitMocks.peekRateLimit).toHaveBeenCalledWith("student-login:4:ahmad", 10, 900);
+    expect(rateLimitMocks.peekRateLimit).toHaveBeenCalledWith("student-login:4:unknown:ahmad", 10, 900);
     expect(authMocks.verifyPassword).not.toHaveBeenCalled();
     expect(rateLimitMocks.recordRateLimitHit).not.toHaveBeenCalled();
   });

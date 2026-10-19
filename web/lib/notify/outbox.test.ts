@@ -14,8 +14,17 @@ const featureMock = vi.fn();
 const settingMock = vi.fn();
 const optedInMock = vi.fn();
 
+const clientQuery = vi.fn(async (text: string, params: unknown[] = []) => {
+  // BEGIN/COMMIT/ROLLBACK والقفل الاستشاري لا تمرّ على sqlMock؛ الباقي يُوجَّه إليه
+  if (/^(BEGIN|COMMIT|ROLLBACK)/.test(text) || text.includes("pg_advisory_xact_lock")) return { rows: [] };
+  const rows = await sqlMock([text], ...params);
+  return { rows };
+});
 vi.mock("@netlify/database", () => ({
-  getDatabase: () => ({ pool: { connect: vi.fn() }, sql: sqlMock }),
+  getDatabase: () => ({
+    pool: { connect: async () => ({ query: clientQuery, release: vi.fn() }) },
+    sql: sqlMock,
+  }),
 }));
 vi.mock("../parent-db", () => ({
   listWhatsappParentsForStudent: targetsMock,
@@ -24,7 +33,8 @@ vi.mock("../parent-db", () => ({
 vi.mock("../mosque/db", () => ({ isFeatureEnabled: featureMock }));
 vi.mock("../mosque-settings-db", () => ({ getMosqueSetting: settingMock }));
 
-const { dispatchWhatsapp, resendWhatsappOutbox, sendWhatsappToParentsOfStudent } = await import("./outbox");
+const { dispatchWhatsapp, listWhatsappOutbox, resendWhatsappOutbox, sendWhatsappToParentsOfStudent, setLastSweepAtForTests } =
+  await import("./outbox");
 
 /** نص الاستعلامات حتى الآن وكل معاملاتها — (sql وسم قالب: [strings, ...values]) */
 function calls() {
@@ -38,6 +48,7 @@ const target = { parentId: 42, phone: "966501234567", studentName: "أحمد" };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setLastSweepAtForTests(Date.now()); // يعطّل كنس العالق في الاختبارات العامة
   delete process.env.WHATSAPP_TOKEN;
   delete process.env.WHATSAPP_PHONE_ID;
   vi.unstubAllGlobals();
@@ -319,5 +330,50 @@ describe("resendWhatsappOutbox — ذرّية وإعادة تحقق", () => {
     sqlMock.mockResolvedValueOnce([claimedRow]).mockResolvedValue([]);
     expect(await resendWhatsappOutbox(9)).toBe("skipped");
     expect(calls()[1]?.values).toContain("provider_not_configured");
+  });
+});
+
+describe("القفل الاستشاري لكل جامع (سقف يومي لا يتجاوزه التزامن)", () => {
+  it("الإدراج داخل معاملة يسبقه pg_advisory_xact_lock على hashtext('wa:'||mosque_id)", async () => {
+    sqlMock.mockResolvedValueOnce([{ id: 5, status: "queued", error: "" }]).mockResolvedValue([]);
+    await dispatchWhatsapp({ mosqueId: 7, toPhone: "966501234567", template: "ward_approved", params: {}, ref: "r1" });
+    const texts = clientQuery.mock.calls.map((c) => c[0] as string);
+    const begin = texts.findIndex((t) => t.startsWith("BEGIN"));
+    const lock = texts.findIndex((t) => t.includes("pg_advisory_xact_lock(hashtext('wa:'"));
+    const insert = texts.findIndex((t) => t.includes("INSERT INTO notifications_outbox"));
+    const commit = texts.findIndex((t) => t.startsWith("COMMIT"));
+    expect(begin).toBeGreaterThanOrEqual(0);
+    expect(lock).toBeGreaterThan(begin);
+    expect(insert).toBeGreaterThan(lock);
+    expect(commit).toBeGreaterThan(insert);
+    expect(clientQuery.mock.calls[lock][1]).toEqual(["7"]);
+  });
+});
+
+describe("كنس الصفوف العالقة", () => {
+  it("dispatch يكنس queued الأقدم من 15 دقيقة إلى failed/stale قبل الإدراج", async () => {
+    setLastSweepAtForTests(0);
+    sqlMock.mockResolvedValue([]);
+    await dispatchWhatsapp({ mosqueId: 7, toPhone: "966501234567", template: "ward_approved", params: {}, ref: "r2" });
+    const first = calls()[0];
+    expect(first.text).toContain("UPDATE notifications_outbox");
+    expect(first.text).toContain("'stale'");
+    expect(first.text).toContain("status = 'queued'");
+    expect(first.values).toContain(15);
+  });
+
+  it("خنق: كنسان متتاليان خلال دقيقة = استعلام واحد", async () => {
+    setLastSweepAtForTests(0);
+    sqlMock.mockResolvedValue([]);
+    await dispatchWhatsapp({ mosqueId: 7, toPhone: "966501234567", template: "ward_approved", params: {}, ref: "r3" });
+    await dispatchWhatsapp({ mosqueId: 7, toPhone: "966501234567", template: "ward_approved", params: {}, ref: "r4" });
+    expect(calls().filter((c) => c.text.includes("'stale'"))).toHaveLength(1);
+  });
+
+  it("قائمة لوحة المطوّر تكنس قسراً قبل القراءة", async () => {
+    sqlMock.mockResolvedValue([]);
+    await listWhatsappOutbox({});
+    expect(calls()[0].text).toContain("'stale'");
+    expect(calls()[1].text).toContain("SELECT id, mosque_id");
   });
 });

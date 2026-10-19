@@ -67,7 +67,12 @@ export function VisitEditor({
   async function submit(action: "save" | "done" | "cancel" | "reopen") {
     setBusy(action);
     setError(null);
-    const res = await callApi<{ visit: VisitEditorData }>(apiBase, "PUT", { action, scores, notes, recommendations });
+    // معيار كان مخزّناً وأُفرغ: يُرسل score: null صراحةً ليُمسح (مجدولة فقط) بدل أن يبقى القديم بالدمج
+    const payloadScores: Record<string, unknown> = { ...scores };
+    for (const key of Object.keys(initialScores)) {
+      if (!(key in scores)) payloadScores[key] = { score: null };
+    }
+    const res = await callApi<{ visit: VisitEditorData }>(apiBase, "PUT", { action, scores: payloadScores, notes, recommendations });
     setBusy(null);
     if (!res.ok) {
       setError(res.error);

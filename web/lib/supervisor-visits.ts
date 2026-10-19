@@ -130,7 +130,8 @@ export function parseCriterionScore(value: unknown): number | null {
     : Number.NaN;
 }
 
-export type ParsedVisitScores = { ok: true; scores: VisitScores } | { ok: false; error: string };
+/** cleared: معايير أُرسلت صراحةً بـscore: null (طلب مسح درجتها) — تغيب حين لا يوجد مسح */
+export type ParsedVisitScores = { ok: true; scores: VisitScores; cleared?: string[] } | { ok: false; error: string };
 
 /**
  * يتحقّق من درجات الجسم بمعايير الجامع فقط: مفتاح غريب أو درجة خارج ٠..٥ أو
@@ -142,6 +143,7 @@ export function parseVisitScoresBody(body: unknown, criteria: VisitCriterion[]):
   const known = new Set(criteria.map((c) => c.key));
   const byLabel = new Map(criteria.map((c) => [c.key, c.label]));
   const scores: VisitScores = {};
+  const cleared: string[] = [];
   for (const key of Object.keys(raw)) {
     if (!known.has(key)) return { ok: false, error: "معيار غير معروف" };
     const row = asObject(raw[key]);
@@ -149,13 +151,17 @@ export function parseVisitScoresBody(body: unknown, criteria: VisitCriterion[]):
     if (Number.isNaN(score)) {
       return { ok: false, error: `درجة «${byLabel.get(key)}» لازم تكون رقماً صحيحاً من ٠ إلى ${CRITERION_SCORE_MAX}` };
     }
-    if (score === null) continue; // "لم يُقيَّم" — لا سطر لها في الجسم الناتج
+    if (score === null) {
+      // "لم يُقيَّم" — لا سطر لها في scores؛ والمسح الصريح (score: null) يُبلَّغ في cleared
+      if (row.score === null) cleared.push(key);
+      continue;
+    }
     if (row.note !== undefined && typeof row.note !== "string") {
       return { ok: false, error: `ملاحظة «${byLabel.get(key)}» لازم تكون نصاً` };
     }
     scores[key] = row.note ? { score, note: row.note.trim().slice(0, VISIT_CRITERIA_NOTE_MAX) } : { score };
   }
-  return { ok: true, scores };
+  return cleared.length > 0 ? { ok: true, scores, cleared } : { ok: true, scores };
 }
 
 export type VisitTotal = { overallScore: number | null; scoredCount: number; complete: boolean };

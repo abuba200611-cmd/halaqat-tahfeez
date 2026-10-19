@@ -4,6 +4,7 @@ import { setParentSessionCookie } from "@/lib/parent-auth";
 import { recordLogin } from "@/lib/activity";
 import { findParentByEmail, normalizeParentEmail } from "@/lib/parent-db";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { loginFailureKey } from "@/lib/login-key";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط دخول المعلّم والطالب */
 function clientIp(request: Request): string {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
 
   // سقف لكل بريد على المحاولات الفاشلة فقط (نفس نمط المعلّم): فحص قبل التحقّق
   // واحتساب عند فشله حصراً، فلا يقفل أحد حساب ولي الأمر برشّ محاولات ناجحة
-  const emailLimitKey = `parent-login:email:${email}`;
+  const emailLimitKey = loginFailureKey("parent-login:email", ip, email);
   if (!(await peekRateLimit(emailLimitKey, 10, 900))) {
     return rateLimited();
   }

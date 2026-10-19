@@ -74,7 +74,7 @@ describe("POST /api/auth/login — حدّ البريد على الفشل فقط 
     const res = await POST(loginReq("U@X.com", "wrong"));
 
     expect(res.status).toBe(401);
-    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:u@x.com", 900);
+    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:unknown:u@x.com", 900);
   });
 
   it("بريد غير موجود: 404 + no_account (قرار المالك)، وتُحتسب المحاولة على مفتاحه", async () => {
@@ -88,7 +88,7 @@ describe("POST /api/auth/login — حدّ البريد على الفشل فقط 
     expect(data.error).toBe("ما عندك حساب بهذا البريد");
     expect(data.email).toBe("ghost@x.com");
     expect(authMocks.setSessionCookie).not.toHaveBeenCalled();
-    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:ghost@x.com", 900);
+    expect(rateLimitMocks.recordRateLimitHit).toHaveBeenCalledWith("login:email:unknown:ghost@x.com", 900);
     expect(dbMocks.recordFailedLoginAttempt).toHaveBeenCalled();
   });
 
@@ -98,7 +98,7 @@ describe("POST /api/auth/login — حدّ البريد على الفشل فقط 
     const res = await POST(loginReq("u@x.com", "correct"));
 
     expect(res.status).toBe(429);
-    expect(rateLimitMocks.peekRateLimit).toHaveBeenCalledWith("login:email:u@x.com", 10, 900);
+    expect(rateLimitMocks.peekRateLimit).toHaveBeenCalledWith("login:email:unknown:u@x.com", 10, 900);
     expect(dbMocks.findTeacherByUsername).not.toHaveBeenCalled();
     expect(rateLimitMocks.recordRateLimitHit).not.toHaveBeenCalled();
   });

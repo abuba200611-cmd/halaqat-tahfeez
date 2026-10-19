@@ -1,5 +1,6 @@
 import { clientIp } from "@/lib/client-ip";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { loginFailureKey } from "@/lib/login-key";
 import { findAssociationAdminByUsername, markAssociationAdminLogin } from "@/lib/association-db";
 import { setAssociationAdminSessionCookie } from "@/lib/association-auth";
 import { verifyPassword } from "@/lib/mosque/password";
@@ -17,8 +18,9 @@ export async function POST(request: Request) {
   const username = String(body.username ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
 
-  const ipKey = `association-login:ip:${clientIp(request)}`;
-  const userKey = `association-login:user:${username}`;
+  const ip = clientIp(request);
+  const ipKey = `association-login:ip:${ip}`;
+  const userKey = loginFailureKey("association-login:user", ip, username);
   if (!(await peekRateLimit(ipKey, MAX_FAILURES, WINDOW_SECONDS)) || !(await peekRateLimit(userKey, MAX_FAILURES, WINDOW_SECONDS))) {
     return rateLimited();
   }

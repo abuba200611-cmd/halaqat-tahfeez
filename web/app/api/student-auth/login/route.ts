@@ -2,6 +2,7 @@ import { checkLoginRateLimit, findStudentByUsername, recordFailedLoginAttempt } 
 import { setStudentSessionCookie, verifyPassword } from "@/lib/auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { loginFailureKey } from "@/lib/login-key";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
 function clientIp(request: Request): string {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   // سقف إضافي لكل (اسم مستخدم + حلقة) على المحاولات الفاشلة فقط —
   // نفس نمط حدّ البريد بدخول المعلّم: فحص قبل التحقّق واحتساب عند فشله
   // حصراً، حتى لا يُقفل حساب الطالب برشّ محاولات من أحد
-  const usernameLimitKey = student ? `student-login:${student.teacherId}:${username}` : null;
+  const usernameLimitKey = student ? loginFailureKey(`student-login:${student.teacherId}`, ip, username) : null;
   if (usernameLimitKey && !(await peekRateLimit(usernameLimitKey, 10, 900))) {
     return rateLimited();
   }

@@ -78,6 +78,13 @@ describe("parseVisitScoresBody", () => {
     expect(parseVisitScoresBody({}, CRITERIA)).toEqual({ ok: true, scores: {} });
   });
 
+  it("score: null صريح = مسح مُبلَّغ في cleared؛ الغياب بلا cleared", () => {
+    const parsed = parseVisitScoresBody({ a: { score: 2 }, b: { score: null } }, CRITERIA);
+    expect(parsed.ok && parsed.cleared).toEqual(["b"]);
+    const none = parseVisitScoresBody({ b: {} }, CRITERIA);
+    expect(none.ok && none.cleared).toBeUndefined();
+  });
+
   it("درجة غائبة لمعيار = لا سطر له (لم يُقيَّم بعد)", () => {
     const parsed = parseVisitScoresBody({ a: { score: 2 }, b: { score: null } }, CRITERIA);
     expect(parsed.ok && parsed.scores).toEqual({ a: { score: 2 } });

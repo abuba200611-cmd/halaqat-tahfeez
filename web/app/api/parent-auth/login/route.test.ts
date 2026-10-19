@@ -57,7 +57,7 @@ describe("POST /api/parent-auth/login — حدّ البريد على الفشل 
     authMocks.verifyPassword.mockReturnValue(false);
     const res = await POST(req("a@b.com", "bad"));
     expect(res.status).toBe(401);
-    expect(rl.recordRateLimitHit).toHaveBeenCalledWith("parent-login:email:a@b.com", 900);
+    expect(rl.recordRateLimitHit).toHaveBeenCalledWith("parent-login:email:unknown:a@b.com", 900);
     expect(parentAuthMocks.setParentSessionCookie).not.toHaveBeenCalled();
   });
 
@@ -66,14 +66,14 @@ describe("POST /api/parent-auth/login — حدّ البريد على الفشل 
     const res = await POST(req("ghost@b.com", "x"));
     expect(res.status).toBe(404);
     expect(((await res.json()) as { code: string }).code).toBe("no_account");
-    expect(rl.recordRateLimitHit).toHaveBeenCalledWith("parent-login:email:ghost@b.com", 900);
+    expect(rl.recordRateLimitHit).toHaveBeenCalledWith("parent-login:email:unknown:ghost@b.com", 900);
   });
 
   it("بعد ١٠ محاولات فاشلة: 429 بلا تحقّق ولا احتساب", async () => {
     rl.peekRateLimit.mockResolvedValue(false);
     const res = await POST(req("a@b.com", "pw"));
     expect(res.status).toBe(429);
-    expect(rl.peekRateLimit).toHaveBeenCalledWith("parent-login:email:a@b.com", 10, 900);
+    expect(rl.peekRateLimit).toHaveBeenCalledWith("parent-login:email:unknown:a@b.com", 10, 900);
     expect(parentDbMocks.findParentByEmail).not.toHaveBeenCalled();
     expect(rl.recordRateLimitHit).not.toHaveBeenCalled();
   });

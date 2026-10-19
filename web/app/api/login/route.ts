@@ -6,6 +6,7 @@ import { findMosqueAdminByUsername } from "@/lib/mosque/db";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { loginFailureKey } from "@/lib/login-key";
 
 /*
   M5 — صفحة الدخول الموحّدة /login: نموذج واحد (بريد/اسم مستخدم + كلمة
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
   }
 
   // سقف إضافي لكل معرّف على المحاولات الفاشلة فقط — نفس نمط دخول المعلّم
-  const idLimitKey = `unified-login:id:${identifier}`;
+  const idLimitKey = loginFailureKey("unified-login", ip, identifier);
   if (!(await peekRateLimit(idLimitKey, 10, 900))) {
     return rateLimited();
   }

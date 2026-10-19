@@ -2,6 +2,7 @@ import { checkLoginRateLimit, findTeacherByUsername, recordFailedLoginAttempt } 
 import { setSessionCookie, verifyPassword } from "@/lib/auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { loginFailureKey } from "@/lib/login-key";
 
 const NO_ACCOUNT_MESSAGE = "ما عندك حساب بهذا البريد";
 
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
   // سقف إضافي لكل بريد على المحاولات الفاشلة فقط: نفحص قبل التحقّق
   // ونحتسب عند فشله حصراً — فلا يستطيع أحد قفل حساب المعلّم برشّ محاولات،
   // ويبقى كبح التخمين الموزّع فوق حدّ الـIP كما هو
-  const emailLimitKey = `login:email:${username}`;
+  const emailLimitKey = loginFailureKey("login:email", ip, username);
   if (!(await peekRateLimit(emailLimitKey, 10, 900))) {
     return rateLimited();
   }

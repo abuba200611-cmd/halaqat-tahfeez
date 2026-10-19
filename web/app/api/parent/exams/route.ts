@@ -1,6 +1,8 @@
 import { currentParent, parentUnauthorized } from "@/lib/parent-auth";
 import { getParentChild } from "@/lib/parent-db";
 import { listPublishedResultsForStudent } from "@/lib/mosque/exams-db";
+import { isFeatureEnabled } from "@/lib/mosque/db";
+import { getMosqueIdForHalaqah } from "@/lib/fees-db";
 
 /**
  * نتائج اختبارات ابن واحد المنشورة: ?halaqah=<id>&student=<id> — نفس قاعدة
@@ -18,6 +20,9 @@ export async function GET(request: Request) {
 
   const child = await getParentChild(parent.id, halaqahId, studentId);
   if (!child) return NOT_FOUND;
+
+  const mosqueId = await getMosqueIdForHalaqah(child.halaqahId);
+  if (mosqueId === null || !(await isFeatureEnabled(mosqueId, "exams"))) return NOT_FOUND;
 
   return Response.json({ results: await listPublishedResultsForStudent(child.halaqahId, child.studentId) });
 }

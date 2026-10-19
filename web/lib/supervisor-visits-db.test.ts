@@ -12,8 +12,21 @@ type Call = { text: string; values: unknown[] };
 const calls: Call[] = [];
 const results: Record<string, unknown>[][] = [];
 
+const nextResult = () => (results.length > 0 ? (results.shift() as Record<string, unknown>[]) : []);
+let failOnInsert = false;
 vi.mock("@netlify/database", () => ({
   getDatabase: () => ({
+    pool: {
+      connect: async () => ({
+        query: async (text: string, values: unknown[] = []) => {
+          calls.push({ text, values });
+          if (failOnInsert && text.includes("INSERT INTO visit_criteria_scores")) throw new Error("boom");
+          if (/^(BEGIN|COMMIT|ROLLBACK)/.test(text)) return { rows: [] };
+          return { rows: nextResult() };
+        },
+        release: () => undefined,
+      }),
+    },
     sql: async (strings: TemplateStringsArray, ...values: unknown[]) => {
       calls.push({ text: strings.join("?"), values });
       return results.length > 0 ? (results.shift() as Record<string, unknown>[]) : [];
@@ -29,6 +42,7 @@ const { applyVisitAction, getVisitForAssociation, listDoneVisitsForHalaqah, list
 beforeEach(() => {
   calls.length = 0;
   results.length = 0;
+  failOnInsert = false;
 });
 
 const visit = (patch: Partial<Parameters<typeof applyVisitAction>[0]["visit"]> = {}) => ({
@@ -154,5 +168,75 @@ describe("تحصين الاستعلامات بالنطاق", () => {
     await listDoneVisitsForHalaqah(9);
     expect(calls[0].text).toContain("v.status = 'done'");
     expect(calls[0].values).toContain(9);
+  });
+
+  it("قائمة المعلّم تقيّد أيضاً بجامع الحلقة الحالي (حلقة نُقلت لجامع آخر لا تكشف زيارات القديم)", async () => {
+    await listDoneVisitsForHalaqah(9);
+    expect(calls[0].text).toContain("v.mosque_id = h.mosque_id");
+  });
+});
+
+describe("saveVisitScores عبر applyVisitAction — معاملة واحدة", () => {
+  it("حذف+إدراج بين BEGIN وCOMMIT", async () => {
+    await applyVisitAction({
+      visit: visit(),
+      body: { action: "save", scores: { [DEFAULT_VISIT_CRITERIA[0].key]: { score: 3 } } },
+    });
+    const texts = calls.map((c) => c.text.trim());
+    const begin = texts.indexOf("BEGIN");
+    const del = texts.findIndex((t) => t.startsWith("DELETE FROM visit_criteria_scores"));
+    const ins = texts.findIndex((t) => t.startsWith("INSERT INTO visit_criteria_scores"));
+    const commit = texts.indexOf("COMMIT");
+    expect(begin).toBeGreaterThanOrEqual(0);
+    expect(del).toBeGreaterThan(begin);
+    expect(ins).toBeGreaterThan(del);
+    expect(commit).toBeGreaterThan(ins);
+  });
+
+  it("فشل الإدراج: ROLLBACK ولا COMMIT", async () => {
+    failOnInsert = true;
+    await expect(
+      applyVisitAction({
+        visit: visit(),
+        body: { action: "save", scores: { [DEFAULT_VISIT_CRITERIA[0].key]: { score: 3 } } },
+      }),
+    ).rejects.toThrow("boom");
+    const texts = calls.map((c) => c.text.trim());
+    expect(texts).toContain("ROLLBACK");
+    expect(texts).not.toContain("COMMIT");
+  });
+});
+
+describe("مسح درجة معيار (score: null)", () => {
+  const [first, second] = DEFAULT_VISIT_CRITERIA;
+
+  it("زيارة مجدولة: المعيار الممسوح لا يُعاد إدراجه والباقي يبقى", async () => {
+    // إعدادات ثم درجات مخزّنة لمعيارين
+    results.push([], [
+      { criterion_key: first.key, score: 4 },
+      { criterion_key: second.key, score: 3 },
+    ]);
+    const result = await applyVisitAction({
+      visit: visit(),
+      body: { action: "save", scores: { [first.key]: { score: null } } },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.scores[first.key]).toBeUndefined();
+    expect(result.scores[second.key]).toEqual({ score: 3 });
+    expect(inserts()).toHaveLength(1);
+    expect(inserts()[0].values).toContain(second.key);
+  });
+
+  it("زيارة منجزة: المسح يُتجاهل (تبقى مكتملة)", async () => {
+    results.push([], scoreRows(DEFAULT_VISIT_CRITERIA));
+    const result = await applyVisitAction({
+      visit: visit({ status: "done", overallScore: 100 }),
+      body: { action: "save", scores: { [first.key]: { score: null } } },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.scores[first.key]).toEqual({ score: 5 });
+    expect(inserts()).toHaveLength(DEFAULT_VISIT_CRITERIA.length);
   });
 });
