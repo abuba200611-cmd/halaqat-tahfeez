@@ -170,6 +170,14 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "fees",
+    nameAr: "الرسوم والاشتراكات",
+    descriptionAr:
+      "تسجيل الرسوم والاشتراكات (خطط، مستحقات لكل فترة، دفعات وإيصالات قابلة للطباعة، إعفاءات، تصدير CSV) — سجل يدوي فقط بلا بوابة دفع، ويراه ولي الأمر قراءةً فقط والمعلّم كحالة.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

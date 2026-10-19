@@ -113,7 +113,7 @@ describe("resolveIdentity — الترتيب الثابت للأنواع", () =>
     expect((await resolveIdentity()).kind).toBe("parent");
 
     vi.mocked(currentParent).mockResolvedValue(null);
-    vi.mocked(currentMosqueAdmin).mockResolvedValue({ id: 4, mosqueId: 11, username: "admin" });
+    vi.mocked(currentMosqueAdmin).mockResolvedValue({ id: 4, mosqueId: 11, username: "admin", sessionVersion: 0 });
     sqlMock
       .mockResolvedValueOnce([membershipRow({ role: "mosque_admin", legacy_kind: "mosque_admin", legacy_id: "4", mosque_id: 11, mosque_name: "جامع النور" })])
       .mockResolvedValueOnce([userRow({ email: null, username: "admin" })])
@@ -138,7 +138,7 @@ describe("resolveIdentity — الترتيب الثابت للأنواع", () =>
   });
 
   it("مدير جامع وجمعية معاً: يغلب مدير الجامع (الأقدم بالترتيب) ولا يتغيّر سلوك دخوله", async () => {
-    vi.mocked(currentMosqueAdmin).mockResolvedValue({ id: 4, mosqueId: 11, username: "admin" });
+    vi.mocked(currentMosqueAdmin).mockResolvedValue({ id: 4, mosqueId: 11, username: "admin", sessionVersion: 0 });
     vi.mocked(currentAssociationAdmin).mockResolvedValue({ id: 6, associationId: 2, username: "assoc", sessionVersion: 0 });
     sqlMock
       .mockResolvedValueOnce([membershipRow({ role: "mosque_admin", legacy_kind: "mosque_admin", legacy_id: "4" })])

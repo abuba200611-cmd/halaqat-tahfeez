@@ -123,7 +123,7 @@ export async function startImpersonation(kind: ImpersonationKind, targetId: numb
     if (!mosqueAdmin) return null;
     const mosque = await getMosque(mosqueAdmin.mosqueId);
     label = `${mosqueAdmin.username} — ${mosque?.name ?? ""}`;
-    store.set(MOSQUE_ADMIN_SESSION_COOKIE, await createMosqueAdminSessionToken(mosqueAdmin.id), {
+    store.set(MOSQUE_ADMIN_SESSION_COOKIE, await createMosqueAdminSessionToken(mosqueAdmin.id, mosqueAdmin.sessionVersion ?? 0), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
