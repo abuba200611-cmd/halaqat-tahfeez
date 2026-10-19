@@ -378,7 +378,7 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
         {googleError === "not_linked" && (
           <p className="mb-3 text-center text-xs text-white/70">
             إذا كنت معلّماً، ادخل من{" "}
-            <Link href="/" className="font-semibold text-white hover:underline">
+            <Link href="/login" className="font-semibold text-white hover:underline">
               صفحة المعلّمين
             </Link>
           </p>
@@ -452,7 +452,7 @@ function StudentLogin({ onAuthenticated }: { onAuthenticated: (s: StudentSession
         </p>
         <p className="mt-2 text-center text-xs text-white/60">
           أنت معلّم؟{" "}
-          <Link href="/" className="font-semibold text-white hover:underline">
+          <Link href="/login" className="font-semibold text-white hover:underline">
             ادخل من صفحة المعلّمين
           </Link>
         </p>
