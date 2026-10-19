@@ -24,6 +24,7 @@ vi.mock("@/lib/parent-db", () => ({
 vi.mock("@/lib/parent-auth", () => ({ setParentSessionCookie: vi.fn() }));
 vi.mock("@/lib/mosque/db", () => ({ findMosqueAdminByUsername: vi.fn() }));
 vi.mock("@/lib/mosque-auth", () => ({ setMosqueAdminSessionCookie: vi.fn() }));
+vi.mock("@/lib/mosque-registration-db", () => ({ loginRequestStatus: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/rate-limit", () => ({
   peekRateLimit: vi.fn().mockResolvedValue(true),
   rateLimited: () => Response.json({ error: "محاولات كثيرة" }, { status: 429 }),
@@ -37,6 +38,7 @@ import { setParentSessionCookie } from "@/lib/parent-auth";
 import { findParentByEmail } from "@/lib/parent-db";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
 import { findMosqueAdminByUsername } from "@/lib/mosque/db";
+import { loginRequestStatus } from "@/lib/mosque-registration-db";
 
 const TEACHER = {
   id: 7,
@@ -68,6 +70,7 @@ beforeEach(() => {
   vi.mocked(findMosqueAdminByUsername).mockResolvedValue(null);
   vi.mocked(findParentByEmail).mockResolvedValue(null);
   vi.mocked(checkLoginRateLimit).mockResolvedValue(true);
+  vi.mocked(loginRequestStatus).mockResolvedValue(null);
 });
 
 describe("الترتيب الثابت للأنواع", () => {
@@ -156,5 +159,23 @@ describe("حساب موجود — كل فشل بكلمة خاطئة/إيقاف �
     const res = await call("a@x.com", "secret");
     expect(res.status).toBe(429);
     expect(findTeacherByUsername).not.toHaveBeenCalled();
+  });
+});
+
+describe("طلب تسجيل جامع معلّق أو مرفوض", () => {
+  it("معلّق: 403 برسالة «قيد المراجعة» لا الخطأ العام", async () => {
+    vi.mocked(loginRequestStatus).mockResolvedValue({ status: "pending", reason: null });
+    const res = await call("noor", "secret123");
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.code).toBe("registration_pending");
+    expect(body.error).toBe("طلب تسجيل جامعك قيد المراجعة");
+  });
+
+  it("مرفوض: الرسالة تحمل السبب", async () => {
+    vi.mocked(loginRequestStatus).mockResolvedValue({ status: "rejected", reason: "بيانات ناقصة" });
+    const body = await (await call("noor", "secret123")).json();
+    expect(body.code).toBe("registration_rejected");
+    expect(body.error).toContain("بيانات ناقصة");
   });
 });

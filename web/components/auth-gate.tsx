@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { RoleSwitcher } from "./role-switcher";
 import { BrandLockup } from "./brand";
-import { TeacherAuthScreen, markAccountKnown, type TeacherAuthUser } from "./teacher-auth";
+import { markAccountKnown, type TeacherAuthUser } from "./teacher-auth";
 import { BellIcon, CloseIcon, LogoutIcon, MailIcon, MenuIcon, SearchIcon } from "./icons";
 import { resetStore } from "@/lib/store";
+import { staleSessionDestination } from "@/lib/landing";
 import { GroupedNav } from "./grouped-nav";
 import { flattenNav, type NavGroup } from "@/lib/nav-groups";
 
@@ -26,41 +27,52 @@ const B = {
  * الحماية الفعلية على الخادم في مسارات الـ API — هذي طبقة تجربة استخدام.
  */
 export function AuthGate({ nav, children }: { nav: NavGroup<NavItem>[]; children: React.ReactNode }) {
+  const router = useRouter();
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [checking, setChecking] = useState(true);
+  const [offline, setOffline] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/me")
       .then((res) => res.json())
-      .then((data: { teacher: Teacher | null }) => {
-        if (!cancelled) setTeacher(data.teacher);
-        if (data.teacher) markAccountKnown();
+      .then(async (data: { teacher: Teacher | null }) => {
+        if (cancelled) return;
+        if (data.teacher) {
+          markAccountKnown();
+          setTeacher(data.teacher);
+          setChecking(false);
+          return;
+        }
+        // لا جلسة صالحة: لا نعرض نموذج دخول عند الجذر. نمسح كوكي الجلسة الميّت
+        // (وإلا يمنع proxy.ts إعادة كتابة "/" للترحيب) ثم نحوّل للواجهة.
+        // روابط الدعوة/خطأ جوجل القديمة تذهب لـ/signup بمعاملاتها.
+        const clearing = (await fetch("/api/auth/clear-stale", { method: "POST" })
+          .then((r) => r.json())
+          .catch(() => ({}))) as { home?: string | null };
+        if (cancelled) return;
+        router.replace(staleSessionDestination(clearing.home, window.location.search));
       })
       .catch(() => {
-        if (!cancelled) setTeacher(null);
-      })
-      .finally(() => {
-        if (!cancelled) setChecking(false);
+        // انقطاع الشبكة ≠ لا جلسة: لا نمسح شيئاً ولا نحوّل
+        if (!cancelled) {
+          setOffline(true);
+          setChecking(false);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const onAuthenticated = useCallback((next: Teacher) => {
-    resetStore();
-    setTeacher(next);
-  }, []);
+  }, [router]);
 
   const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     resetStore();
-    setTeacher(null);
-  }, []);
+    router.replace("/welcome");
+  }, [router]);
 
-  if (checking) {
+  if (checking || (!teacher && !offline)) {
     return (
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
         <p className="text-sm text-muted-foreground">جارٍ التحقق…</p>
@@ -69,7 +81,14 @@ export function AuthGate({ nav, children }: { nav: NavGroup<NavItem>[]; children
   }
 
   if (!teacher) {
-    return <TeacherAuthScreen onAuthenticated={onAuthenticated} />;
+    return (
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+        <p className="text-sm text-muted-foreground">تعذّر الاتصال بالخادم.</p>
+        <button onClick={() => window.location.reload()} className="mt-3 cursor-pointer text-sm font-semibold text-accent-ink hover:underline">
+          إعادة المحاولة
+        </button>
+      </main>
+    );
   }
 
   return (

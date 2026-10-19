@@ -7,6 +7,8 @@ import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 import { loginFailureKey } from "@/lib/login-key";
+import { loginRequestStatus } from "@/lib/mosque-registration-db";
+import { loginStatusMessage } from "@/lib/mosque-registration";
 
 /*
   M5 — صفحة الدخول الموحّدة /login: نموذج واحد (بريد/اسم مستخدم + كلمة
@@ -101,6 +103,15 @@ export async function POST(request: Request) {
       await recordLogin({ role: "parent", parentId: parent.id });
       return Response.json({ kind: "parent", redirect: "/parent" });
     }
+  }
+
+  // ٤) طلب تسجيل جامع معلّق/مرفوض ببيانات الدخول نفسها — رسالة حالته لا الخطأ العام
+  const registration = await loginRequestStatus(identifier, password);
+  if (registration) {
+    return Response.json(
+      { error: loginStatusMessage(registration.status, registration.reason), code: `registration_${registration.status}` },
+      { status: 403 },
+    );
   }
 
   return fail(!teacher && !mosqueAdmin && !parentExists);

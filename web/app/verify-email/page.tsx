@@ -1,6 +1,7 @@
 "use client";
 
 import { BrandLockup } from "@/components/brand";
+import { AuthBackLink } from "@/components/auth-back-link";
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -46,8 +47,9 @@ function VerifyEmailInner() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-10">
+      <AuthBackLink tone="onLight" className="mb-3 self-start" />
       <div className="mb-4 flex justify-center">
-        <BrandLockup tone="onLight" size={44} />
+        <BrandLockup tone="onLight" size={44} href="/welcome" />
       </div>
       <h1 className="font-display mb-1 text-center text-2xl font-bold text-primary">تأكيد البريد</h1>
       <Card className="mt-5 p-5 text-center">

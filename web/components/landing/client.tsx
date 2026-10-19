@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MotionConfig, animate, motion, useInView } from "motion/react";
-import { INTRO_COOKIE, safeNextPath } from "@/lib/landing";
+import { INTRO_COOKIE, REGISTER_MOSQUE_PATH, safeNextPath } from "@/lib/landing";
 import { CloseIcon, MenuIcon } from "@/components/icons";
 import { CTA_PRIMARY } from "./cta";
 
@@ -144,14 +144,14 @@ function Arrow() {
 function SignupCtaInner({ label, className, arrow }: { label: string; className: string; arrow: boolean }) {
   const next = useNext();
   return (
-    <Link href={next ?? "/signup"} className={className}>
+    <Link href={next ?? REGISTER_MOSQUE_PATH} className={className}>
       {label}
       {arrow && <Arrow />}
     </Link>
   );
 }
 
-/** زر التسجيل: يعود لمسار next الآمن إن وُجد، وإلا /signup */
+/** زر تسجيل الجامع: يعود لمسار next الآمن إن وُجد، وإلا /register-mosque */
 export function SignupCta({
   label,
   className = CTA_PRIMARY,
@@ -164,7 +164,7 @@ export function SignupCta({
   return (
     <Suspense
       fallback={
-        <Link href="/signup" className={className}>
+        <Link href={REGISTER_MOSQUE_PATH} className={className}>
           {label}
           {arrow && <Arrow />}
         </Link>
@@ -246,7 +246,7 @@ export function LandingNav() {
             دخول
           </Link>
           <SignupCta
-            label="تسجيل"
+            label="تسجيل جامع"
             arrow={false}
             className="inline-flex items-center rounded-full bg-[#AD7D56] px-5 py-2 text-sm font-bold text-black transition-colors hover:bg-[#c08d66] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#CDB49E]"
           />

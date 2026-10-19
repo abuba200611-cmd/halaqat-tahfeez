@@ -66,7 +66,7 @@ const ROLES = [
 ];
 
 const STEPS = [
-  { n: "١", title: "سجّل جامعك", text: "أنشئ حسابك وعرّف جامعك في خطوات قليلة." },
+  { n: "١", title: "سجّل جامعك", text: "أرسل طلب تسجيل جامعك، وبعد الموافقة تدخل بحساب مدير الجامع. وإن كنت معلّماً فأنشئ حسابك مباشرة." },
   { n: "٢", title: "أضف الحلقات وشارك الرابط", text: "أنشئ الحلقات وأرسل رابط الانضمام لمعلّميك." },
   { n: "٣", title: "تابع كل شيء من لوحة واحدة", text: "الحفظ والحضور والتقارير أمامك، محدّثة لحظة بلحظة." },
 ];
@@ -121,6 +121,9 @@ export default function WelcomePage() {
               <Reveal delay={0.85} y={20}>
                 <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                   <SignupCta label="ابدأ تسجيل جامعك" className={`${CTA_PRIMARY} w-full sm:w-auto`} />
+                  <Link href="/signup" className={`${CTA_GHOST} w-full sm:w-auto`}>
+                    أنا معلّم — أنشئ حسابك
+                  </Link>
                   <Link href="/login" className={`${CTA_GHOST} w-full sm:w-auto`}>
                     دخول المنصة
                   </Link>
@@ -366,6 +369,12 @@ export default function WelcomePage() {
                   className="relative inline-flex items-center justify-center gap-2.5 rounded-full bg-black px-8 py-4 text-base font-bold text-white transition-colors hover:bg-[#241b12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
                 />
                 <Link
+                  href="/signup"
+                  className="inline-flex items-center justify-center rounded-full border-2 border-black px-8 py-4 text-base font-bold text-black transition-colors hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+                >
+                  أنا معلّم — أنشئ حسابك
+                </Link>
+                <Link
                   href="/login"
                   className="inline-flex items-center justify-center rounded-full border-2 border-black px-8 py-4 text-base font-bold text-black transition-colors hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
                 >
@@ -391,8 +400,14 @@ export default function WelcomePage() {
             <Link href="/login" className="hover:text-white">
               دخول
             </Link>
+            <Link href="/register-mosque" className="hover:text-white">
+              تسجيل جامع
+            </Link>
             <Link href="/signup" className="hover:text-white">
-              تسجيل
+              حساب معلّم
+            </Link>
+            <Link href="/mosque-login" className="hover:text-white">
+              دخول مدير الجامع
             </Link>
             <Link href="/student-join" className="hover:text-white">
               أنا طالب

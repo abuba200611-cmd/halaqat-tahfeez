@@ -5,6 +5,8 @@ import { findMosqueAdminByUsername } from "@/lib/mosque/db";
 import { verifyPassword } from "@/lib/mosque/password";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
 import { recordLogin } from "@/lib/activity";
+import { loginRequestStatus } from "@/lib/mosque-registration-db";
+import { loginStatusMessage } from "@/lib/mosque-registration";
 
 const MAX_FAILURES = 8;
 const WINDOW_SECONDS = 60 * 60;
@@ -28,6 +30,16 @@ export async function POST(request: Request) {
 
   const admin = await findMosqueAdminByUsername(username);
   if (!admin || !verifyPassword(password, admin.passwordHash)) {
+    // بيانات طلب تسجيل معلّق/مرفوض صحيحة؟ رسالة حالته بدل الخطأ العام (لا تُحتسب فشلاً)
+    if (!admin) {
+      const request = await loginRequestStatus(username, password);
+      if (request) {
+        return Response.json(
+          { error: loginStatusMessage(request.status, request.reason), code: `registration_${request.status}` },
+          { status: 403 },
+        );
+      }
+    }
     await recordRateLimitHit(ipKey, WINDOW_SECONDS);
     await recordRateLimitHit(userKey, WINDOW_SECONDS);
     return Response.json({ error: "بيانات الدخول غير صحيحة" }, { status: 401 });

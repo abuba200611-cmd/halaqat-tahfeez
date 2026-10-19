@@ -26,6 +26,9 @@ export const GOOGLE_HANDOFF_COOKIE = "google_handoff";
 
 export const WELCOME_PATH = "/welcome";
 
+/** وجهة الزر الرئيسي «ابدأ تسجيل جامعك» — تسجيل الجامع لا حساب المعلّم (/signup) */
+export const REGISTER_MOSQUE_PATH = "/register-mosque";
+
 /**
  * مسارات التسجيل/الانضمام العامة — لا تُفتح إلا بعد المرور بالصفحة
  * الترحيبية (وجود كوكي mos_intro). صفحات الدخول واسترجاع كلمة المرور
@@ -34,12 +37,25 @@ export const WELCOME_PATH = "/welcome";
 export function isRegistrationPath(pathname: string): boolean {
   return (
     pathname === "/signup" ||
+    pathname === "/register-mosque" ||
     pathname === "/student-join" ||
     pathname === "/student-link" ||
     pathname === "/parent/join" ||
     pathname === "/j" ||
     pathname.startsWith("/j/")
   );
+}
+
+/**
+ * وجهة بوابة المعلّم حين لا جلسة معلّم صالحة: صفحة دور آخر مسجَّل صالح إن
+ * رجعها الخادم (ليست "/" كي لا ندور)، وروابط الدعوة/خطأ جوجل القديمة
+ * (?join= / ?googleError=) إلى /signup بمعاملاتها، وإلا الصفحة الترحيبية.
+ */
+export function staleSessionDestination(home: string | null | undefined, search: string): string {
+  if (home && home !== "/" && home.startsWith("/") && !home.startsWith("//")) return home;
+  const params = new URLSearchParams(search);
+  if (params.has("join") || params.has("googleError")) return `/signup${search}`;
+  return WELCOME_PATH;
 }
 
 /**

@@ -181,6 +181,7 @@ describe('"/" بلا جلسة → إعادة كتابة للترحيب، ومع 
 describe("بوابة مسارات التسجيل: mos_intro", () => {
   const GATED = [
     "/signup",
+    "/register-mosque",
     "/student-join",
     "/student-join?invite=abc",
     "/student-link",
@@ -206,6 +207,14 @@ describe("بوابة مسارات التسجيل: mos_intro", () => {
 
   it("تسليم جوجل (google_handoff) بلا mos_intro يمر لـ/signup — لا يردّه الترحيب", async () => {
     expect(await decide("/signup?google=1", PUBLIC_HOST, { google_handoff: "tok.sig" })).toBe("allow");
+  });
+
+  it("/register-mosque يتبع بوابة الترحيب نفسها ويحمل next لعودة آمنة", async () => {
+    const res = proxy(req("/register-mosque", PUBLIC_HOST));
+    expect(res.headers.get("location")).toBe(`https://${PUBLIC_HOST}/welcome?next=%2Fregister-mosque`);
+    expect(await decide("/register-mosque", PUBLIC_HOST, { halaqa_session: "5.0.1.sig" })).toBe("allow");
+    // مستضيج اللوحة لا بوابة ترحيب فيه
+    expect(await decide("/register-mosque", DEV_HOST)).toBe("allow");
   });
 
   it("من معه جلسة (مستخدم قائم) لا تُحجب عنه مسارات الانضمام", async () => {
