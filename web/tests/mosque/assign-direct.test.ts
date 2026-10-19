@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
   ربط student_id) مع تراجع عند الفشل.
 */
 
+vi.mock("@/lib/mosque/enrollment-db", () => ({ autoAssignRegistration: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/mosque/access", () => ({ canAccessMosque: vi.fn() }));
 vi.mock("@/lib/mosque/halaqat", () => ({
   addStudentToHalaqah: vi.fn(),
@@ -150,7 +151,7 @@ describe("POST /api/register (تسجيل عام)", () => {
   it("يكتب في mosque_registrations عبر addMosqueRegistration بالاسم مقصوصاً", async () => {
     const res = await register(post({ mosqueId: 1, name: "  سعد  ", phone: " 0555 " }));
     expect(res.status).toBe(200);
-    expect(db.addMosqueRegistration).toHaveBeenCalledWith(1, "سعد", "0555");
+    expect(db.addMosqueRegistration).toHaveBeenCalledWith(1, "سعد", "0555", { birthYear: null, level: null });
   });
 
   it("الميزة معطّلة = 404، والاسم فارغ = 400، وتجاوز المعدّل = 429", async () => {

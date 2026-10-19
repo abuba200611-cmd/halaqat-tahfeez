@@ -15,7 +15,7 @@ type Pending = {
   id: number;
   name: string;
   phone: string;
-  status: "pending" | "assigned";
+  status: "pending" | "assigned" | "waitlisted";
   halaqahId: number | null;
   createdAt: string;
 };
@@ -418,7 +418,9 @@ function PendingRow({
       <Card className="p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="font-semibold">{pending.name}</p>
+            <p className="font-semibold">
+              {pending.name} {pending.status === "waitlisted" && <Badge tone="warn">بالانتظار</Badge>}
+            </p>
             {pending.phone && <p className="tabular text-xs text-muted-foreground">{pending.phone}</p>}
           </div>
           {pending.status === "assigned" ? (

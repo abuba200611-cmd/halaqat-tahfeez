@@ -178,6 +178,22 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "auto_assign",
+    nameAr: "التوزيع الآلي وقائمة الانتظار",
+    descriptionAr:
+      "توزيع التسجيلات الجديدة آلياً على أنسب حلقة فيها مقاعد حسب السعة ومعايير العمر والمستوى، وقائمة انتظار مرتّبة تُرقّي أول مطابق عند خلوّ مقعد — مع بقاء التوزيع اليدوي متاحاً دائماً.",
+    defaultEnabled: false,
+    status: "ready",
+  },
+  {
+    key: "student_import",
+    nameAr: "استيراد الطلاب من Excel/CSV",
+    descriptionAr:
+      "رفع ملف .xlsx أو .csv لإضافة طلاب دفعة واحدة: معاينة بأخطاء كل صف، كشف التكرار، ثم تأكيد. لمدير الجامع ولمعلّم حلقته.",
+    defaultEnabled: true,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

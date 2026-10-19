@@ -36,7 +36,21 @@ export default function StudentsPage() {
   const [parentsFor, setParentsFor] = useState<Student | null>(null);
   const [attendance, setAttendance] = useState<Record<string, AttendanceSummary>>({});
   // حالة رسوم آخر فترة (قراءة فقط) — تظهر الخانة فقط إن فُعّلت الميزة لجامع الحلقة
+  const [importEnabled, setImportEnabled] = useState(false);
   const [fees, setFees] = useState<Record<string, { status: FeeStatus; periodLabel: string }> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/teacher/import")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { enabled?: boolean } | null) => {
+        if (!cancelled && data?.enabled) setImportEnabled(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +165,14 @@ export default function StudentsPage() {
           action={
             <div className="flex gap-2">
               <Button onClick={() => setShowForm(true)}>إضافة طالب</Button>
+              {importEnabled && (
+                <Link
+                  href="/students/import"
+                  className="flex items-center rounded-full border border-border bg-surface px-4 py-1.5 text-sm font-medium hover:bg-muted"
+                >
+                  استيراد Excel
+                </Link>
+              )}
             </div>
           }
         />
@@ -179,6 +201,14 @@ export default function StudentsPage() {
           >
             تصدير CSV
           </a>
+          {importEnabled && (
+            <Link
+              href="/students/import"
+              className="flex items-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              استيراد Excel
+            </Link>
+          )}
           <Button onClick={() => setShowForm((v) => !v)}>
             {showForm ? "إغلاق" : "إضافة طالب"}
           </Button>

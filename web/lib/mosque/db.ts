@@ -206,7 +206,8 @@ export type MosqueRegistration = {
   mosqueId: number;
   name: string;
   phone: string;
-  status: "pending" | "assigned";
+  /** waitlisted = بقائمة الانتظار (ميزة التوزيع الآلي)؛ يوزّعه المدير يدوياً متى شاء */
+  status: "pending" | "assigned" | "waitlisted";
   halaqahId: number | null;
   /** الطالب الحقيقي الذي أُنشئ عند التوزيع (students.id بنفس حلقة التوزيع)، أو null قبل التوزيع أو لسجل منقول قديم */
   studentId: string | null;
@@ -220,7 +221,7 @@ function rowToRegistration(row: Record<string, unknown>): MosqueRegistration {
     mosqueId: row.mosque_id as number,
     name: row.name as string,
     phone: row.phone as string,
-    status: row.status as "pending" | "assigned",
+    status: row.status as "pending" | "assigned" | "waitlisted",
     halaqahId: (row.halaqah_id as number | null) ?? null,
     studentId: (row.student_id as string | null) ?? null,
     createdAt: row.created_at as string,
@@ -229,9 +230,15 @@ function rowToRegistration(row: Record<string, unknown>): MosqueRegistration {
 }
 
 /** تسجيل عام عبر رابط الجامع — بلا اختيار حلقة، الجامع يوزّعه لاحقاً */
-export async function addMosqueRegistration(mosqueId: number, name: string, phone: string): Promise<number> {
+export async function addMosqueRegistration(
+  mosqueId: number,
+  name: string,
+  phone: string,
+  extra: { birthYear?: number | null; level?: string | null } = {},
+): Promise<number> {
   const rows = await db().sql`
-    INSERT INTO mosque_registrations (mosque_id, name, phone) VALUES (${mosqueId}, ${name}, ${phone}) RETURNING id
+    INSERT INTO mosque_registrations (mosque_id, name, phone, birth_year, level)
+    VALUES (${mosqueId}, ${name}, ${phone}, ${extra.birthYear ?? null}, ${extra.level ?? null}) RETURNING id
   `;
   return Number(rows[0].id);
 }
@@ -239,7 +246,7 @@ export async function addMosqueRegistration(mosqueId: number, name: string, phon
 export async function listMosqueRegistrations(mosqueId: number): Promise<MosqueRegistration[]> {
   const rows = await db().sql`
     SELECT id, mosque_id, name, phone, status, halaqah_id, student_id, created_at, assigned_at
-    FROM mosque_registrations WHERE mosque_id = ${mosqueId} ORDER BY created_at DESC
+    FROM mosque_registrations WHERE mosque_id = ${mosqueId} AND status <> 'removed' ORDER BY created_at DESC
   `;
   return rows.map(rowToRegistration);
 }
@@ -260,8 +267,9 @@ export async function getMosqueRegistration(id: number): Promise<MosqueRegistrat
 export async function claimRegistration(id: number, halaqahId: number): Promise<boolean> {
   const rows = await db().sql`
     UPDATE mosque_registrations
-    SET status = 'assigned', halaqah_id = ${halaqahId}, assigned_at = now()
-    WHERE id = ${id} AND status = 'pending'
+    SET status = 'assigned', halaqah_id = ${halaqahId}, assigned_at = now(),
+        waitlist_order = NULL, waitlisted_at = NULL
+    WHERE id = ${id} AND status IN ('pending', 'waitlisted')
     RETURNING id
   `;
   return rows.length > 0;
