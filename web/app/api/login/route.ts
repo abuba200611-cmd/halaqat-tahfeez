@@ -1,5 +1,5 @@
 import { checkLoginRateLimit, findTeacherByUsername, recordFailedLoginAttempt } from "@/lib/db";
-import { setSessionCookie, verifyPassword } from "@/lib/auth";
+import { GOOGLE_ONLY_MESSAGE, hasUsablePassword, setSessionCookie, verifyPassword } from "@/lib/auth";
 import { findParentByEmail, isValidParentEmail, normalizeParentEmail } from "@/lib/parent-db";
 import { setParentSessionCookie } from "@/lib/parent-auth";
 import { findMosqueAdminByUsername } from "@/lib/mosque/db";
@@ -56,6 +56,10 @@ export async function POST(request: Request) {
     // لا حساب بالمعرّف عند أي دور: رسالة صريحة (قرار المالك) تحوّل لإنشاء حساب
     if (noAccount) {
       return Response.json({ error: NO_ACCOUNT_MESSAGE, code: "no_account", email: identifier }, { status: 404 });
+    }
+    // معلّم حسابه بجوجل فقط (ولم يدخل بأي دور آخر): وجّهه لزر جوجل بدل «غير صحيحة»
+    if (teacher && !hasUsablePassword(teacher.passwordHash) && !teacher.deactivatedAt) {
+      return Response.json({ error: GOOGLE_ONLY_MESSAGE, code: "google_only" }, { status: 401 });
     }
     return Response.json({ error: GENERIC_LOGIN_ERROR }, { status: 401 });
   };

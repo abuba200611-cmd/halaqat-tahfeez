@@ -16,6 +16,8 @@ vi.mock("@/lib/db", () => dbMocks);
 const authMocks = vi.hoisted(() => ({
   setSessionCookie: vi.fn(),
   verifyPassword: vi.fn(),
+  hasUsablePassword: vi.fn((stored: string) => stored !== "google-only"),
+  GOOGLE_ONLY_MESSAGE: "حسابك مربوط بجوجل",
 }));
 vi.mock("@/lib/auth", () => authMocks);
 

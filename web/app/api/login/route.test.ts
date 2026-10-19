@@ -15,6 +15,8 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/auth", () => ({
   verifyPassword: vi.fn((password: string, stored: string) => password === stored),
   setSessionCookie: vi.fn(),
+  hasUsablePassword: (stored: string) => stored !== "google-only",
+  GOOGLE_ONLY_MESSAGE: "حسابك مربوط بجوجل",
 }));
 vi.mock("@/lib/parent-db", () => ({
   findParentByEmail: vi.fn(),
@@ -130,6 +132,15 @@ describe("لا حساب بالمعرّف — رسالة صريحة (قرار ا�
 });
 
 describe("حساب موجود — كل فشل بكلمة خاطئة/إيقاف ردٌّ واحد", () => {
+  it("معلّم حسابه بجوجل فقط: رسالة توجّهه لزر جوجل بدل «غير صحيحة»", async () => {
+    vi.mocked(findTeacherByUsername).mockResolvedValue({ ...TEACHER, passwordHash: "google-only" });
+    const res = await call("a@x.com", "anything");
+    const data = (await res.json()) as { code?: string };
+    expect(res.status).toBe(401);
+    expect(data.code).toBe("google_only");
+    expect(setSessionCookie).not.toHaveBeenCalled();
+  });
+
   it("نفس الرسالة والحالة للفشل بأي سبب", async () => {
     // ٢) معلّم موجود بكلمة خاطئة
     vi.mocked(findTeacherByUsername).mockResolvedValue({ ...TEACHER, passwordHash: "غيره" });

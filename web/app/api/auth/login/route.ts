@@ -1,5 +1,5 @@
 import { checkLoginRateLimit, findTeacherByUsername, recordFailedLoginAttempt } from "@/lib/db";
-import { setSessionCookie, verifyPassword } from "@/lib/auth";
+import { GOOGLE_ONLY_MESSAGE, hasUsablePassword, setSessionCookie, verifyPassword } from "@/lib/auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 import { loginFailureKey } from "@/lib/login-key";
@@ -36,6 +36,12 @@ export async function POST(request: Request) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
     return Response.json({ error: NO_ACCOUNT_MESSAGE, code: "no_account", email: username }, { status: 404 });
+  }
+  // حساب بلا كلمة مرور صالحة (أُنشئ أو رُبط بجوجل): نقولها صراحة بدل «غير صحيحة»
+  if (!hasUsablePassword(teacher.passwordHash)) {
+    await recordRateLimitHit(emailLimitKey, 900);
+    await recordFailedLoginAttempt(ip);
+    return Response.json({ error: GOOGLE_ONLY_MESSAGE, code: "google_only" }, { status: 401 });
   }
   if (!verifyPassword(password, teacher.passwordHash)) {
     await recordRateLimitHit(emailLimitKey, 900);

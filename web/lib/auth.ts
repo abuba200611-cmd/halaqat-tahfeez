@@ -24,6 +24,14 @@ export function hashPassword(password: string): string {
   return `${salt}:${derived}`;
 }
 
+/** حساب أنشأه جوجل أو أُبطلت كلمة مروره: بصمة بلا ":" لا تقبل أي كلمة مرور */
+export function hasUsablePassword(stored: string | null | undefined): boolean {
+  return typeof stored === "string" && stored.includes(":");
+}
+
+export const GOOGLE_ONLY_MESSAGE =
+  "حسابك مربوط بجوجل وما له كلمة مرور — ادخل بزر «الدخول بحساب جوجل»، أو عيّن كلمة مرور من «استرجاع كلمة المرور»";
+
 export function verifyPassword(password: string, stored: string): boolean {
   const [salt, expectedHex] = stored.split(":");
   if (!salt || !expectedHex) return false;
