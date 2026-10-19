@@ -37,8 +37,18 @@ const B = {
  * إن لم يكن مسجّلاً — وإلا الهيكل الكامل (قائمة جانبية + شريط علوي على
  * الكمبيوتر، شريط تنقّل سفلي على الجوال) بنفس هوية هيكل المعلّم (STEP 58).
  */
-export function StudentGate({ nav, children }: { nav: StudentNavItem[]; children: React.ReactNode }) {
+export function StudentGate({
+  nav: baseNav,
+  classmatesItem,
+  children,
+}: {
+  nav: StudentNavItem[];
+  /** يظهر في القائمة فقط حين يفعّل معلّم الحلقة ميزة الزملاء */
+  classmatesItem?: StudentNavItem;
+  children: React.ReactNode;
+}) {
   const [student, setStudent] = useState<StudentSession | null>(null);
+  const [classmatesEnabled, setClassmatesEnabled] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -58,6 +68,29 @@ export function StudentGate({ nav, children }: { nav: StudentNavItem[]; children
       cancelled = true;
     };
   }, []);
+
+  const studentId = student?.id ?? null;
+  useEffect(() => {
+    if (studentId === null) return;
+    let cancelled = false;
+    fetch("/api/student/classmates/status")
+      .then((res) => (res.ok ? res.json() : { enabled: false }))
+      .then((data: { enabled?: boolean }) => {
+        if (!cancelled) setClassmatesEnabled(data.enabled === true);
+      })
+      .catch(() => {
+        if (!cancelled) setClassmatesEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId]);
+
+  // قبل «الإعدادات» (آخر عنصر) — بعد أول 5 عناصر فلا يزاحم الشريط السفلي
+  const nav =
+    classmatesEnabled && classmatesItem
+      ? [...baseNav.slice(0, -1), classmatesItem, ...baseNav.slice(-1)]
+      : baseNav;
 
   const logout = useCallback(async () => {
     await fetch("/api/student-auth/logout", { method: "POST" });
