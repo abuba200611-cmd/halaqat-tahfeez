@@ -33,7 +33,6 @@ export function isRegistrationPath(pathname: string): boolean {
     pathname === "/signup" ||
     pathname === "/student-join" ||
     pathname === "/student-link" ||
-    pathname === "/join-mosque" ||
     pathname === "/parent/join" ||
     pathname === "/j" ||
     pathname.startsWith("/j/")

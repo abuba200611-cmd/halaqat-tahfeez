@@ -184,7 +184,6 @@ describe("بوابة مسارات التسجيل: mos_intro", () => {
     "/student-join",
     "/student-join?invite=abc",
     "/student-link",
-    "/join-mosque?code=x",
     "/parent/join?token=t",
     "/j",
     "/j/3",
@@ -205,10 +204,17 @@ describe("بوابة مسارات التسجيل: mos_intro", () => {
     });
   }
 
-  it("البوابة تشمل حتى من معه جلسة لم ير الترحيب قط — يمر به مرة واحدة ثم يُخزَّن", async () => {
-    expect(await decide("/student-join", PUBLIC_HOST, { halaqa_session: "5.0.1.sig" })).toBe(
-      "gate-welcome",
-    );
+  it("من معه جلسة (مستخدم قائم) لا تُحجب عنه مسارات الانضمام", async () => {
+    expect(await decide("/student-join", PUBLIC_HOST, { halaqa_session: "5.0.1.sig" })).toBe("allow");
+    expect(await decide("/j/3", PUBLIC_HOST, { halaqa_parent: "3.0.1.sig" })).toBe("allow");
+  });
+
+  it("/join-mosque صفحة معلّم مسجَّل (AuthGate) وليست بوابة تسجيل", async () => {
+    expect(await decide("/join-mosque?code=x", PUBLIC_HOST)).toBe("allow");
+  });
+
+  it('"/?utm_source=x" بلا جلسة → الترحيب (لا تحويل للتسجيل)', async () => {
+    expect(await decide("/?utm_source=x", PUBLIC_HOST)).toBe("welcome");
   });
 
   it("الدخول واسترجاع كلمة المرور والتأكيد ليست مسارات تسجيل", async () => {

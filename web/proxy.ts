@@ -66,14 +66,17 @@ export function proxy(request: NextRequest) {
   // الهبوط على "/" بلا جلسة → الترحيب. استثناء: روابط قديمة تحمل
   // معاملات (دعوة معلّم زميل /?join=، وخطأ جوجل /?googleError=) يضيع
   // معناها بالإعادة الكاتبة، فتوجَّه لصفحة التسجيل نفسها بمعاملاتها.
-  if (pathname === "/" && !hasSessionCookie(request)) {
-    if (search) {
+  const loggedIn = hasSessionCookie(request);
+  if (pathname === "/" && !loggedIn) {
+    const params = request.nextUrl.searchParams;
+    if (params.has("join") || params.has("googleError")) {
       return NextResponse.redirect(new URL(`/signup${search}`, request.url));
     }
     return NextResponse.rewrite(new URL(WELCOME_PATH, request.url));
   }
 
-  if (isRegistrationPath(pathname) && !request.cookies.get(INTRO_COOKIE)) {
+  // من معه جلسة مستخدم قائم لا مسجِّل جديد — لا نرجعه للترحيب
+  if (!loggedIn && isRegistrationPath(pathname) && !request.cookies.get(INTRO_COOKIE)) {
     const welcome = new URL(WELCOME_PATH, request.url);
     welcome.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(welcome);
@@ -92,7 +95,6 @@ export const config = {
     "/signup",
     "/student-join",
     "/student-link",
-    "/join-mosque",
     "/parent/join",
     "/j/:path*",
   ],
