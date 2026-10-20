@@ -540,6 +540,45 @@ export async function consumePasswordReset(token: string): Promise<number | null
   return rows[0] ? Number(rows[0].teacher_id) : null;
 }
 
+// ————— رمز الاسترجاع المكوّن من ٦ أرقام —————
+// الصف في password_resets بـkind='code': token_hash = HMAC الرمز، attempts = الخاطئة.
+
+/** يخزّن بصمة رمز جديد ويُبطل أي رمز سابق لنفس المعلّم (روابط الاسترجاع القديمة لا تُمَس) */
+export async function replaceResetCode(teacherId: number, codeHash: string, expiresAt: Date): Promise<void> {
+  await db().sql`DELETE FROM password_resets WHERE teacher_id = ${teacherId} AND kind = 'code'`;
+  await db().sql`
+    INSERT INTO password_resets (teacher_id, token_hash, expires_at, created_at, kind, attempts)
+    VALUES (${teacherId}, ${codeHash}, ${expiresAt.toISOString()}, ${new Date().toISOString()}, 'code', 0)
+  `;
+}
+
+/** يحتسب محاولة ذرّياً على الرمز الفعّال (غير المنتهي) ويرجع بصمته وعدّاده بعد الزيادة، أو null */
+export async function bumpResetCodeAttempt(
+  teacherId: number,
+  now: Date,
+): Promise<{ id: number; codeHash: string; attempts: number } | null> {
+  const rows = await db().sql`
+    UPDATE password_resets SET attempts = attempts + 1
+    WHERE teacher_id = ${teacherId} AND kind = 'code' AND expires_at > ${now.toISOString()}
+    RETURNING id, token_hash, attempts
+  `;
+  const row = rows[0];
+  return row ? { id: Number(row.id), codeHash: row.token_hash as string, attempts: Number(row.attempts) } : null;
+}
+
+/** يحرق صفاً بعينه — true فقط لمن حذفه فعلاً (يضمن الاستخدام لمرة واحدة عند التزامن) */
+export async function burnResetCode(id: number): Promise<boolean> {
+  const rows = await db().sql`DELETE FROM password_resets WHERE id = ${id} RETURNING id`;
+  return rows.length > 0;
+}
+
+/** يعيّن كلمة المرور عبر الاسترجاع: يُثبت ملكية البريد، يرفع نسخة الجلسة، ويحذف كل رموز/روابط الاسترجاع المعلّقة */
+export async function setTeacherPasswordViaReset(teacherId: number, passwordHash: string): Promise<void> {
+  await db().sql`UPDATE teachers SET password_hash = ${passwordHash}, email_verified = true,
+    session_version = session_version + 1 WHERE id = ${teacherId}`;
+  await db().sql`DELETE FROM password_resets WHERE teacher_id = ${teacherId}`;
+}
+
 export async function updateTeacherPassword(teacherId: number, passwordHash: string): Promise<void> {
   // رفع نسخة الجلسة بإطلاق كلمة المرور: كل جلسات الأجهزة الأخرى تسقط فوراً
   await db().sql`UPDATE teachers SET password_hash = ${passwordHash}, session_version = session_version + 1

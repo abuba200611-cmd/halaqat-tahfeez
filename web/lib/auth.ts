@@ -30,7 +30,7 @@ export function hasUsablePassword(stored: string | null | undefined): boolean {
 }
 
 export const GOOGLE_ONLY_MESSAGE =
-  "حسابك مربوط بجوجل وما له كلمة مرور — ادخل بزر «الدخول بحساب جوجل»، أو عيّن كلمة مرور من «استرجاع كلمة المرور»";
+  "حسابك مربوط بجوجل وما له كلمة مرور — ادخل بزر «الدخول بحساب جوجل»، أو عيّن كلمة مرور من (استرجاع كلمة المرور) برمز يوصلك على الإيميل";
 
 export function verifyPassword(password: string, stored: string): boolean {
   const [salt, expectedHex] = stored.split(":");

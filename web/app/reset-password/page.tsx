@@ -56,7 +56,12 @@ function ResetPasswordForm() {
 
       <Card className="mt-5 p-5">
         {!token ? (
-          <p className="text-center text-sm text-destructive">الرابط ناقص — تأكد إنك فتحته كاملاً من البريد.</p>
+          <div className="text-center text-sm">
+            <p className="mb-2 text-muted-foreground">صار الاسترجاع برمز من ٦ أرقام يوصلك على الإيميل بدل الرابط.</p>
+            <Link href="/forgot-password" className="font-semibold text-accent-ink hover:underline">
+              اطلب رمزاً جديداً
+            </Link>
+          </div>
         ) : done ? (
           <div className="text-center">
             <p className="mb-3 text-sm text-success">تم تعيين كلمة المرور ✓</p>
@@ -78,7 +83,14 @@ function ResetPasswordForm() {
                 className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               />
             </label>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <p className="text-sm text-destructive">
+                {error}{" "}
+                <Link href="/forgot-password" className="font-semibold text-accent-ink hover:underline">
+                  اطلب رمزاً جديداً
+                </Link>
+              </p>
+            )}
             <Button type="submit" disabled={busy} className="w-full">
               {busy ? "لحظة…" : "حفظ كلمة المرور"}
             </Button>
