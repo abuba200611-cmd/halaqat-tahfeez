@@ -1,8 +1,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it, afterEach, vi } from "vitest";
+import { describe, expect, it, afterEach, beforeAll, vi } from "vitest";
 import manifest from "@/app/manifest";
-import { ANDROID_PACKAGE_NAME, buildAssetLinks, installBannerMode, isIosSafari } from "@/lib/pwa";
+
+/* مسار المانيفست يقرأ headers() — نحاكيها بمستضيف قابل للتبديل */
+const hostState = vi.hoisted(() => ({ headers: {} as Record<string, string> }));
+vi.mock("next/headers", () => ({
+  headers: async () => ({ get: (name: string) => hostState.headers[name.toLowerCase()] ?? null }),
+}));
+import { ANDROID_PACKAGE_NAME, DEV_INSTALL_MIN_VISITS, buildAssetLinks, devManifest, installBannerMode, isIosSafari, manifestForHost } from "@/lib/pwa";
 
 const FP = Array.from({ length: 32 }, (_, i) => i.toString(16).padStart(2, "0").toUpperCase()).join(":");
 
@@ -20,7 +26,11 @@ const loadSwRules = () => {
 };
 
 describe("manifest", () => {
-  const m = manifest();
+  let m: Awaited<ReturnType<typeof manifest>>;
+  beforeAll(async () => {
+    hostState.headers = { host: "mos.vercel.app" };
+    m = await manifest();
+  });
   it("الحقول الأساسية", () => {
     expect(m.name).toBe("السلام — نظام تشغيل الجامع");
     expect(m.short_name).toBe("السلام");
@@ -40,6 +50,55 @@ describe("manifest", () => {
   });
   it("اختصارات دخول/رسائل/الحضور", () => {
     expect((m.shortcuts ?? []).map((s) => s.url)).toEqual(["/login", "/messages", "/attendance"]);
+  });
+});
+
+describe("المانيفست حسب المستضيف", () => {
+  const DEV_HOST = "mos-dev-console.vercel.app";
+
+  it("مستضيف اللوحة → مانيفست المطوّر المنفصل", () => {
+    const d = manifestForHost(DEV_HOST);
+    expect(d).toEqual(devManifest());
+    expect(d.name).toBe("لوحة المطوّر — MOS");
+    expect(d.short_name).toBe("المطوّر");
+    expect(d.id).toBe("/dev");
+    expect(d.start_url).toBe("/dev");
+    expect(d.scope).toBe("/");
+    expect(d.display).toBe("standalone");
+    expect(d.theme_color).toBe("#000000");
+    expect(d.background_color).toBe("#000000");
+    const icons = d.icons ?? [];
+    expect(icons.every((i) => i.src.startsWith("/brand/icons/dev-"))).toBe(true);
+    expect(icons.some((i) => i.purpose === "maskable")).toBe(true);
+    expect((d.shortcuts ?? []).map((s) => s.name)).toEqual(["الجوامع", "طلبات الجوامع", "البلاغات", "صادر واتساب"]);
+    expect((d.shortcuts ?? []).every((s) => (s.url ?? "").startsWith("/dev"))).toBe(true);
+  });
+  it("المستضيف العام والمفقود → مانيفست «السلام»", () => {
+    for (const host of ["mos.vercel.app", null, undefined, ""]) {
+      const main = manifestForHost(host);
+      expect(main.id).toBe("/");
+      expect(main.short_name).toBe("السلام");
+      expect(main.start_url).toBe("/");
+    }
+  });
+  it("المسار app/manifest يختار بحسب host وx-forwarded-host", async () => {
+    hostState.headers = { host: DEV_HOST };
+    expect((await manifest()).id).toBe("/dev");
+    hostState.headers = { host: "mos.vercel.app", "x-forwarded-host": DEV_HOST };
+    expect((await manifest()).id).toBe("/dev");
+    hostState.headers = { host: "mos.vercel.app" };
+    expect((await manifest()).id).toBe("/");
+  });
+  it("لافتة لوحة المطوّر تظهر من أول زيارة بينما العامة تنتظر الثانية", () => {
+    const base = { dismissed: false, standalone: false, hasPrompt: true, ua: "x" };
+    expect(installBannerMode({ ...base, visits: 1 })).toBe("none");
+    expect(installBannerMode({ ...base, visits: 1, minVisits: DEV_INSTALL_MIN_VISITS })).toBe("android");
+  });
+  it("الأيقونات المذكورة موجودة فعلاً على القرص", async () => {
+    const { existsSync } = await import("node:fs");
+    for (const i of devManifest().icons ?? []) {
+      expect(existsSync(fileURLToPath(new URL(`../public${i.src}`, import.meta.url)))).toBe(true);
+    }
   });
 });
 
@@ -97,6 +156,17 @@ describe("قواعد عامل الخدمة (public/sw-rules.js)", () => {
     expect(c("/api/auth/me")).toBe("bypass");
     expect(c("/api/push/subscribe", { method: "POST" })).toBe("bypass");
     expect(c("/api/messages", { mode: "navigate" })).toBe("bypass");
+  });
+  it("لوحة المطوّر: /api/dev لا يُعترض أبداً وHTML /dev شبكة بلا تخزين", () => {
+    expect(c("/api/dev/overview")).toBe("bypass");
+    expect(c("/api/dev/mosque-requests?count=1", { mode: "navigate" })).toBe("bypass");
+    expect(c("/dev/mosques", { mode: "navigate" })).toBe("navigate"); // sw.js لا يضع ردّ navigate في أي ذاكرة
+    expect(c("/dev/mosques", { mode: "cors" })).toBe("bypass");
+  });
+  it("sw.js لا يخزّن ردود التنقّل ولا يستدعي cache.put إلا للأصول الثابتة", () => {
+    const sw = readFileSync(fileURLToPath(new URL("../public/sw.js", import.meta.url)), "utf8");
+    const navigateBlock = sw.slice(sw.indexOf("// navigate:"), sw.indexOf("إشعارات الدفع"));
+    expect(navigateBlock).not.toContain(".put(");
   });
   it("التنقّلات شبكة أولاً؛ الطلبات الأخرى (RSC/fetch) لا تُعترض", () => {
     expect(c("/students", { mode: "navigate" })).toBe("navigate");

@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { INSTALL_DISMISSED_KEY, INSTALL_VISITS_KEY, installBannerMode, type InstallPlatform } from "@/lib/pwa";
+import {
+  DEV_INSTALL_DISMISSED_KEY,
+  DEV_INSTALL_MIN_VISITS,
+  INSTALL_DISMISSED_KEY,
+  INSTALL_MIN_VISITS,
+  INSTALL_VISITS_KEY,
+  installBannerMode,
+  type InstallPlatform,
+} from "@/lib/pwa";
 
 /* حدث beforeinstallprompt غير معرّف في lib.dom */
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -17,9 +25,9 @@ function readVisits(): number {
   }
 }
 
-function readDismissed(): boolean {
+function readDismissed(key: string): boolean {
   try {
-    return localStorage.getItem(INSTALL_DISMISSED_KEY) === "1";
+    return localStorage.getItem(key) === "1";
   } catch {
     return false;
   }
@@ -43,8 +51,14 @@ function isStandalone(): boolean {
   return window.matchMedia("(display-mode: standalone)").matches || nav.standalone === true;
 }
 
-/* لافتة «ثبّت التطبيق» الصغيرة — تظهر في اللوحات بعد الزيارة الثانية ويُحفظ إغلاقها. */
-export function InstallBanner() {
+/*
+  لافتة «ثبّت التطبيق» الصغيرة — تظهر في اللوحات بعد الزيارة الثانية ويُحفظ إغلاقها.
+  app="dev": لوحة المطوّر (المالك وحده) فتظهر من أول زيارة وبمفتاح إغلاق مستقل.
+*/
+export function InstallBanner({ app = "main" }: { app?: "main" | "dev" } = {}) {
+  const dev = app === "dev";
+  const dismissedKey = dev ? DEV_INSTALL_DISMISSED_KEY : INSTALL_DISMISSED_KEY;
+  const minVisits = dev ? DEV_INSTALL_MIN_VISITS : INSTALL_MIN_VISITS;
   const [mode, setMode] = useState<InstallPlatform>("none");
   const [deferred, setDeferred] = useState<InstallPromptEvent | null>(null);
 
@@ -52,7 +66,7 @@ export function InstallBanner() {
     const visits = countVisit();
     const ua = navigator.userAgent;
     const evaluate = (prompt: InstallPromptEvent | null) =>
-      setMode(installBannerMode({ visits, dismissed: readDismissed(), standalone: isStandalone(), hasPrompt: prompt !== null, ua }));
+      setMode(installBannerMode({ visits, dismissed: readDismissed(dismissedKey), minVisits, standalone: isStandalone(), hasPrompt: prompt !== null, ua }));
 
     evaluate(null);
     const onPrompt = (e: Event) => {
@@ -71,12 +85,12 @@ export function InstallBanner() {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [dismissedKey, minVisits]);
 
   const dismiss = () => {
     setMode("none");
     try {
-      localStorage.setItem(INSTALL_DISMISSED_KEY, "1");
+      localStorage.setItem(dismissedKey, "1");
     } catch {
       /* التخزين غير متاح: تُغلق لهذه الجلسة فقط */
     }
@@ -99,7 +113,7 @@ export function InstallBanner() {
       className="mb-4 flex items-start gap-3 rounded-2xl border border-border-strong bg-surface p-3.5 text-sm text-foreground shadow-sm"
     >
       <div className="min-w-0 flex-1">
-        <p className="font-semibold">ثبّت تطبيق السلام</p>
+        <p className="font-semibold">{dev ? "ثبّت لوحة المطوّر" : "ثبّت تطبيق السلام"}</p>
         {mode === "android" ? (
           <p className="mt-0.5 text-muted-foreground">افتحه من شاشتك الرئيسية مباشرة، كأي تطبيق.</p>
         ) : (

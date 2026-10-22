@@ -109,6 +109,39 @@ describe("جدول قرارات المعترض: مستضيج × مسار", () =>
   });
 });
 
+describe("PWA على مستضيف اللوحة: الأصول تمرّ ولا تُحجب", () => {
+  const PWA_PATHS = [
+    "/manifest.webmanifest",
+    "/sw.js",
+    "/sw-rules.js",
+    "/offline",
+    "/brand/icons/dev-192.png",
+    "/brand/icons/dev-512-maskable.png",
+    "/brand/logo.png",
+    "/_next/static/chunks/app-abc123.js",
+  ];
+  for (const path of PWA_PATHS) {
+    it(`${DEV_HOST} ${path} → allow (لا 404 ولا تحويل)`, async () => {
+      expect(await decide(path, DEV_HOST)).toBe("allow");
+    });
+  }
+
+  it("هذه المسارات خارج matcher أصلاً فلا يعترضها المعترض على أي مستضيف", async () => {
+    const { config } = await import("./proxy");
+    const patterns = config.matcher.map((m) => new RegExp(`^${m.replace(":path*", ".*")}$`));
+    for (const path of PWA_PATHS) {
+      expect(patterns.some((re) => re.test(path))).toBe(false);
+    }
+  });
+
+  it("/dev و/api/dev ما زالت 404 على المستضيف العام وتعمل على مستضيف اللوحة", async () => {
+    for (const path of ["/dev", "/dev/mosques", "/api/dev/overview"]) {
+      expect(await decide(path, PUBLIC_HOST)).toBe("404");
+      expect(await decide(path, DEV_HOST)).toBe("allow");
+    }
+  });
+});
+
 describe("مستضيجو اللوحة من البيئة", () => {
   it("DEV_CONSOLE_HOSTS يضيف مستضيجين (نطاق معاينة مثلاً) بمنفذ أو بدونه", async () => {
     process.env.DEV_CONSOLE_HOSTS = "preview-abc.vercel.app, example.com:443 ";
