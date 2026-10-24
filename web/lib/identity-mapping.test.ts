@@ -7,16 +7,21 @@ import { describe, expect, it } from "vitest";
 */
 
 import {
+  loginHrefFor,
   mapAssociationAdminIdentity,
   mapMosqueAdminIdentity,
   mapParentIdentity,
   mapStudentIdentity,
   mapSuperAdminIdentity,
   mapTeacherIdentity,
+  membershipShell,
   normalizeIdentityEmail,
   parseStudentLegacyId,
   studentHandle,
   studentLegacyId,
+  switcherMemberships,
+  type SwitchableMembership,
+  type SwitcherCandidate,
 } from "./identity-mapping";
 
 describe("normalizeIdentityEmail", () => {
@@ -175,5 +180,89 @@ describe("مدير جمعية → association_admin", () => {
         active: true,
       },
     });
+  });
+});
+
+/*
+  قواعد عرض مبدّل الأدوار (switcherMemberships) — جوهر إصلاح «تبديل الدور
+  يرسل المعلّم لصفحة ولي أمر بلا دور ولي أمر»: لا يُعرض إلا دور يستطيع
+  المستخدم فتحه فعلاً.
+*/
+
+function member(overrides: Partial<SwitchableMembership> = {}): SwitchableMembership {
+  return {
+    id: 10,
+    role: "parent",
+    legacyKind: "parent",
+    legacyId: "9",
+    active: true,
+    halaqahId: null,
+    mosqueId: null,
+    halaqahName: null,
+    mosqueName: null,
+    ...overrides,
+  };
+}
+
+function candidate(m: SwitchableMembership, live = true, sessionActive = false): SwitcherCandidate {
+  return { membership: m, live, sessionActive };
+}
+
+const TEACHER = { email: "a@x.com", username: null };
+
+describe("switcherMemberships — أدوار يستطيع فتحها فعلاً فقط", () => {
+  it("عضوية ولي أمر بلا جلسة ولي (بريد متطابق فقط) لا تُعرض للمعلّم إطلاقاً", () => {
+    const entries = switcherMemberships("teacher", [candidate(member())], TEACHER);
+    expect(entries).toEqual([]);
+  });
+
+  it("تُعرض فقط إن كانت جلسة من نوعها قائمة على الجهاز — والتنقّل إليها يكفي", () => {
+    const entries = switcherMemberships("teacher", [candidate(member(), true, true)], TEACHER);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ switchable: false, sessionActive: true, home: "/parent" });
+  });
+
+  it("نفس نوع الجلسة الحالية = تبديل مباشر بلا رابط دخول (معلّم بحلقتين)", () => {
+    const second = member({ id: 2, role: "assistant", legacyKind: "teacher", legacyId: "8", halaqahId: 5, halaqahName: "حلقة العصر" });
+    const entries = switcherMemberships("teacher", [candidate(second)], TEACHER);
+    expect(entries).toEqual([
+      expect.objectContaining({ switchable: true, loginHref: null, home: "/", label: "مساعد مشرف — حلقة العصر" }),
+    ]);
+  });
+
+  it("عضوية موقوفة أو بصف قديم ميت (live=false) مخفية ولو تطابق النوع", () => {
+    expect(switcherMemberships("teacher", [candidate(member({ role: "assistant", legacyKind: "teacher" }), false)], TEACHER)).toEqual([]);
+    expect(
+      switcherMemberships("teacher", [candidate(member({ role: "assistant", legacyKind: "teacher", active: false }))], TEACHER),
+    ).toEqual([]);
+  });
+
+  it("عضوية المطوّر لا تُعرض أبداً — لا مسار تبديل لها", () => {
+    const dev = member({ role: "developer", legacyKind: "super_admin", legacyId: "1" });
+    expect(switcherMemberships("teacher", [candidate(dev, true, true)], TEACHER)).toEqual([]);
+    expect(switcherMemberships("developer", [candidate(dev, true, true)], TEACHER)).toEqual([]);
+  });
+
+  it("عضويتان لنفس الصف القديم (تغيّر دور معلّم) = الأولى تكفي", () => {
+    const asAssistant = member({ id: 3, role: "assistant", legacyKind: "teacher", legacyId: "7" });
+    const asSupervisor = member({ id: 4, role: "supervisor", legacyKind: "teacher", legacyId: "7", halaqahName: "حلقة الفجر" });
+    const entries = switcherMemberships("teacher", [candidate(asAssistant), candidate(asSupervisor)], TEACHER);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].membership.id).toBe(3);
+  });
+
+  it("دور واحد فقط = قائمة فارغة (المكوّن يخفي المبدّل كلياً)", () => {
+    expect(switcherMemberships("parent", [], TEACHER)).toEqual([]);
+  });
+});
+
+describe("membershipShell + loginHrefFor بعد النقل", () => {
+  it("وجهات وتسميات الأدوار كما كانت", () => {
+    expect(membershipShell(member({ role: "parent" })).home).toBe("/parent");
+    expect(membershipShell(member({ role: "student", halaqahName: "حلقة الفجر" })).label).toContain("حلقة الفجر");
+  });
+
+  it("رابط دخول المطوّر صفحة الأدمن — لا صفحة الطالب", () => {
+    expect(loginHrefFor("developer", TEACHER)).toBe("/admin");
   });
 });

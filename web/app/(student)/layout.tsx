@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MessagesBadge } from "@/components/messages-badge";
 import { StudentGate } from "@/components/student-gate";
-import { BookIcon, UsersIcon, ChartIcon, ClipboardIcon, HomeIcon, MessageIcon, MicIcon, SettingsIcon, StarIcon } from "@/components/icons";
+import { BookIcon, UsersIcon, ChartIcon, ClipboardIcon, HelpIcon, HomeIcon, MessageIcon, MicIcon, SettingsIcon, StarIcon } from "@/components/icons";
 
 /** يستبدل عنوان التبويب الموروث من الجذر لكل صفحات الطالب — اسم القسم يبقى مع وسم MOS (M5) */
 export const metadata: Metadata = { title: "وردي — السلام" };
@@ -14,7 +14,9 @@ const NAV = [
   { href: "/student/recitations", label: "تلاواتي", desc: "سجّل تلاوتك ويقيّمها المعلّم", icon: <MicIcon size={19} /> },
   { href: "/student/monthly", label: "التقرير الشهري", desc: "أداؤك شهرياً", icon: <ChartIcon size={19} /> },
   { href: "/student/exams", label: "اختباراتي", desc: "نتائج اختبارات الحفظ", icon: <StarIcon size={19} /> },
+  { href: "/student/help", label: "كيف أستخدم المنصة؟", desc: "دليل مهامك خطوة بخطوة", icon: <HelpIcon size={19} /> },
   { href: "/student/suggest", label: "اقتراح / بلاغ", desc: "شاركنا رأيك أو بلاغك", icon: <MessageIcon size={19} /> },
+  // الإعدادات آخر عنصر دائماً — منطق إدراج «زملائي» بالبوابة يعتمد على ذلك
   { href: "/student/settings", label: "الإعدادات", desc: "التذكير اليومي وحسابك", icon: <SettingsIcon size={19} /> },
 ];
 

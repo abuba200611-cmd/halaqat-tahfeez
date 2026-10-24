@@ -86,7 +86,7 @@ function CommitteesList({ mosqueId }: { mosqueId: number }) {
               <Card className="p-4 transition-colors duration-200 hover:border-border-strong">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold">{committee.name}</p>
-                  <Badge tone="good">{committee.memberCount} عضو</Badge>
+                  <Badge>{committee.memberCount} عضو</Badge>
                 </div>
                 {committee.description && (
                   <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{committee.description}</p>

@@ -4,7 +4,7 @@ import { MessagesBadge } from "@/components/messages-badge";
 import { NewWardBadge } from "@/components/new-ward-badge";
 import { PendingRecitationsBadge } from "@/components/pending-recitations-badge";
 import { ImpersonationBannerBar } from "@/components/dev/banner-server";
-import { ChartIcon, CalendarIcon, ClipboardIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, SettingsIcon, ShuffleIcon, StarIcon, UsersIcon } from "@/components/icons";
+import { ChartIcon, CalendarIcon, ClipboardIcon, HelpIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, SettingsIcon, ShuffleIcon, StarIcon, UsersIcon } from "@/components/icons";
 import type { Metadata } from "next";
 
 /** عنوان تبويب قسم المعلّم — الاسم العربي للقسم يبقى، مع وسم MOS الموحّد (M5) */
@@ -58,6 +58,7 @@ const NAV: NavGroup<NavItem>[] = [
     pinned: true,
     items: [
       item("/settings", "الإعدادات", "إعدادات الحلقة والحساب والإشعارات", <SettingsIcon size={ic} />),
+      item("/help", "كيف أستخدم المنصة؟", "دليل مهامك الرئيسية خطوة بخطوة", <HelpIcon size={ic} />),
       item("/suggest", "اقتراح / بلاغ", "شاركنا رأيك أو بلاغك", <MessageIcon size={ic} />),
     ],
   },

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Empty } from "@/components/ui";
+import { ParentInviteLink } from "@/components/parent-invite-link";
 import { WardListItem } from "@/components/ward-list";
 import { JuzProgressCard } from "@/components/juz-progress";
 import { ReviewTrackCountsCard } from "@/components/review-track-bits";
@@ -62,6 +63,19 @@ export default function TeacherStudentPage() {
       <JuzProgressCard progress={detail.progress} />
 
       <ReviewTrackCountsCard days7={detail.trackCounts.days7} days30={detail.trackCounts.days30} />
+
+      {/* دعوة ولي الأمر — نفس آلية رابط الدعوة بصفحة الطلاب (لا آلية جديدة) */}
+      <section className="space-y-2 rounded-2xl border border-border bg-surface p-4">
+        <h2 className="text-sm font-semibold text-foreground">دعوة ولي الأمر</h2>
+        <p className="text-xs text-muted-foreground">
+          أنشئ رابط دعوة وأرسله لولي أمر {detail.student.name} عبر واتساب — يفتحه، ينشئ حسابه، ويدخل رمز الربط فيُربط بابنه تلقائياً.
+        </p>
+        <ParentInviteLink
+          endpoint="/api/students/parent-link"
+          studentId={detail.student.id}
+          shareText={`دعوة لمتابعة ابنك ${detail.student.name} في حلقة التحفيظ:\n١) افتح الرابط أدناه\n٢) أنشئ حسابك كولي أمر\n٣) أدخل رمز الربط (مضمن في الرابط) ليُربط حسابك بابنك تلقائياً`}
+        />
+      </section>
 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-foreground">آخر الأوراد</h2>

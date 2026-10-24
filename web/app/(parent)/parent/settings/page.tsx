@@ -36,6 +36,7 @@ export default function ParentSettingsPage() {
         <h2 className="mb-2 text-sm font-semibold text-stone-700">الحساب</h2>
         <p className="mb-3 text-sm text-stone-500">{parent.name} — {parent.email}</p>
         <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Link href="/parent/help" className="font-semibold text-accent-ink underline">كيف أستخدم المنصة؟</Link>
           <Link href="/parent/suggest" className="font-semibold text-accent-ink underline">اقتراح / بلاغ</Link>
           <button
             type="button"

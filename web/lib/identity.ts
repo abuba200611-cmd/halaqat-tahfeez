@@ -12,8 +12,12 @@ import {
   mapParentIdentity,
   mapStudentIdentity,
   mapTeacherIdentity,
+  membershipShell,
+  loginHrefFor,
   parseStudentLegacyId,
   studentLegacyId,
+  switcherMemberships,
+  type IdentityKind,
   type IdentityMapping,
   type LegacyKind,
   type MembershipRole,
@@ -29,9 +33,13 @@ import {
   2. ensureIdentity: ينشئ user+membership للحسابات الجديدة — يُستدعى داخل
      ترانزاكشن إنشاء الحساب نفسها (لاحظ نوع IdentityClient) بنفس قواعد
      backfill الترحيل حرفياً (identity-mapping.ts هو العقد المشترك).
+
+  قواعد عرض مبدّل الأدوار (membershipShell/loginHrefFor/switcherMemberships)
+  نقية في identity-mapping.ts لتُختبر مباشرة.
 */
 
-export type IdentityKind = "teacher" | "student" | "parent" | "mosque_admin" | "association_admin" | "developer";
+export type { IdentityKind };
+export { membershipShell, loginHrefFor, switcherMemberships };
 
 export type UnifiedUser = {
   id: number;
@@ -327,59 +335,4 @@ export async function syncMosqueAdminUserHandle(client: IdentityClient, adminId:
 /** عضوية الطالب من legacy_id المركّب "halaqahId:studentId" — تفكيك آمن */
 export function studentLegacyKey(legacyId: string): { halaqahId: number; studentId: string } | null {
   return parseStudentLegacyId(legacyId);
-}
-
-// ————— وصف العضوية للواجهة (مبدّل الأدوار) —————
-
-/** القشرة التي يقودها الدور + وجهة الهبوط بعد التبديل + التسمية العربية */
-export function membershipShell(membership: Membership): {
-  kind: IdentityKind;
-  home: string;
-  label: string;
-} {
-  switch (membership.role) {
-    case "supervisor":
-    case "assistant":
-      return {
-        kind: "teacher",
-        home: "/",
-        label: `${membership.role === "assistant" ? "مساعد مشرف" : "مشرف"}${
-          membership.halaqahName ? ` — ${membership.halaqahName}` : ""
-        }`,
-      };
-    case "parent":
-      return { kind: "parent", home: "/parent", label: "ولي أمر" };
-    case "student":
-      return {
-        kind: "student",
-        home: "/student",
-        label: `طالب${membership.halaqahName ? ` — ${membership.halaqahName}` : ""}`,
-      };
-    case "mosque_admin":
-      return {
-        kind: "mosque_admin",
-        home: membership.mosqueId ? `/mosque/${membership.mosqueId}` : "/mosque",
-        label: `مدير جامع${membership.mosqueName ? ` — ${membership.mosqueName}` : ""}`,
-      };
-    case "association_admin":
-      return { kind: "association_admin", home: "/association", label: "مدير جمعية" };
-    case "developer":
-      return { kind: "developer", home: "/dev", label: "مطوّر" };
-  }
-}
-
-/** رابط دخول الدور معبَّأً ببيانات المستخدم الموحّد حيث تدعمه صفحات الدخول القائمة */
-export function loginHrefFor(kind: string, user: { email: string | null; username: string | null }): string {
-  switch (kind) {
-    case "teacher":
-      return `/login?identifier=${encodeURIComponent(user.email ?? "")}`;
-    case "parent":
-      return `/parent/login?email=${encodeURIComponent(user.email ?? "")}`;
-    case "mosque_admin":
-      return `/mosque-login?username=${encodeURIComponent(user.username ?? "")}`;
-    case "association_admin":
-      return `/association-login?username=${encodeURIComponent(user.username ?? "")}`;
-    default:
-      return "/student";
-  }
 }

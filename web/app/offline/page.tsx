@@ -11,7 +11,7 @@ export default function OfflinePage() {
       <Image src="/brand/logo-light.png" alt="شعار السلام" width={72} height={77} priority />
       <p className="font-display mt-5 text-3xl leading-none text-white">السلام</p>
       <h1 className="mt-10 text-2xl font-bold text-white">أنت غير متصل</h1>
-      <p className="mt-3 max-w-xs text-sm leading-7 text-[#CDB49E]">
+      <p className="mt-3 max-w-xs text-sm leading-7 text-sand">
         تعذّر الوصول للإنترنت. تحقّق من اتصالك ثم أعد المحاولة، وسيعود كل شيء كما تركته.
       </p>
       <div className="mt-8">

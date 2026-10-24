@@ -136,7 +136,7 @@ function ActivityDetail({ mosqueId, activityId }: { mosqueId: number; activityId
           <p className="tabular mt-1 text-sm text-muted-foreground">{activity.activityDate}</p>
           {activity.tagKind && activity.tagName && (
             <div className="mt-2">
-              <Badge tone="good">
+              <Badge>
                 {TAG_LABEL[activity.tagKind]}: {activity.tagName}
               </Badge>
             </div>
@@ -154,7 +154,7 @@ function ActivityDetail({ mosqueId, activityId }: { mosqueId: number; activityId
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold">الصور</h3>
-            <Badge tone="good">{photos.length}</Badge>
+            <Badge>{photos.length}</Badge>
           </div>
           <div>
             <input
@@ -226,7 +226,7 @@ function ActivityDetail({ mosqueId, activityId }: { mosqueId: number; activityId
       <Card className="space-y-4 p-4">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold">الفيديو</h3>
-          <Badge tone="good">{videos.length}</Badge>
+          <Badge>{videos.length}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
           لا نرفع الفيديو هنا — ضع رابطه من يوتيوب أو جوجل درايف أو إنستقرام أو تيك توك أو إكس.

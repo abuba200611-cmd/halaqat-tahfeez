@@ -175,7 +175,7 @@ function BadgeCard({ base, badge, onSaved }: { base: string; badge: Badge; onSav
           {badge.name}
         </p>
         <div className="flex shrink-0 items-center gap-2">
-          <UiBadge tone="good">{badge.awardCount} منح</UiBadge>
+          <UiBadge>{badge.awardCount} منح</UiBadge>
           <Button variant="danger" className="!px-3 !py-1 text-xs" onClick={remove}>
             حذف
           </Button>

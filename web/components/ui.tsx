@@ -35,11 +35,22 @@ export function Button({ variant = "primary", className = "", ...props }: Button
   );
 }
 
-export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "good" | "warn" }) {
+/**
+ * شارة/رقاقة حالة — خريطة واحدة معتمدة لكل الواجهة:
+ * نجاح=success، تحذير=accent، خطأ=destructive، محايد=muted.
+ */
+export function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "good" | "warn" | "error";
+}) {
   const styles = {
     neutral: "bg-muted text-muted-foreground",
-    good: "bg-primary/10 text-primary",
+    good: "bg-success-soft text-success",
     warn: "bg-accent-soft text-accent-ink",
+    error: "bg-destructive-soft text-destructive",
   }[tone];
   return (
     <span className={`tabular inline-block rounded px-1.5 py-0.5 text-xs font-medium ${styles}`}>

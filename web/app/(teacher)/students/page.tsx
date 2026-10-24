@@ -260,7 +260,7 @@ export default function StudentsPage() {
           <ParentInviteLink
             endpoint="/api/students/parent-link"
             studentId={parentsFor.id}
-            shareText={`رابط متابعة ${parentsFor.name} في الحلقة:`}
+            shareText={`دعوة لمتابعة ابنك ${parentsFor.name} في حلقة التحفيظ:\n١) افتح الرابط أدناه\n٢) أنشئ حسابك كولي أمر\n٣) أدخل رمز الربط (مضمن في الرابط) ليُربط حسابك بابنك تلقائياً`}
           />
           {(parents[parentsFor.id] ?? []).length === 0 ? (
             <p className="text-xs text-muted-foreground">لا أولياء أمور مرتبطون بعد.</p>
@@ -312,7 +312,7 @@ export default function StudentsPage() {
                     </Link>
                     {usernames[student.id] && (
                       <span className="mr-2">
-                        <Badge tone="good">حساب</Badge>
+                        <Badge>حساب</Badge>
                       </span>
                     )}
                     {(parents[student.id]?.length ?? 0) > 0 && (
@@ -361,9 +361,9 @@ export default function StudentsPage() {
                     )}
                     <button
                       onClick={() => setParentsFor(student)}
-                      className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      className="cursor-pointer rounded px-2 py-1 text-xs font-semibold text-accent-ink transition-colors duration-200 hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     >
-                      رابط ولي الأمر
+                      دعوة ولي الأمر
                     </button>
                     <button
                       onClick={() => setLinkFor(student)}

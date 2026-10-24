@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useStudentLogout, useStudentSession } from "@/components/student-gate";
 import { StudentPushToggle } from "@/components/student-push-toggle";
 import { LogoutIcon } from "@/components/icons";
@@ -26,6 +27,9 @@ export default function StudentSettingsPage() {
         <p className="mb-3 text-sm text-stone-500">
           {student?.name} — {student?.halaqahName || "بلا حلقة"}
         </p>
+        <Link href="/student/help" className="mb-3 block text-sm font-semibold text-accent-ink underline">
+          كيف أستخدم المنصة؟
+        </Link>
         <button
           type="button"
           onClick={logout}

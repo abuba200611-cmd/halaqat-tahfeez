@@ -1,5 +1,8 @@
 import { currentStudent, currentTeacher } from "@/lib/auth";
-import { loginHrefFor, membershipShell, resolveIdentity } from "@/lib/identity";
+import { findMosqueAdminById, findStudentAccount, findTeacherById } from "@/lib/db";
+import { membershipShell, resolveIdentity, studentLegacyKey, switcherMemberships, type Membership } from "@/lib/identity";
+import { findAssociationAdminById } from "@/lib/association-db";
+import { findParentById } from "@/lib/parent-db";
 import { currentMosqueAdmin } from "@/lib/mosque-auth";
 import { currentAssociationAdmin } from "@/lib/association-auth";
 import { currentParent } from "@/lib/parent-auth";
@@ -7,10 +10,13 @@ import { studentLegacyId } from "@/lib/identity-mapping";
 
 /*
   M5 — هوية الجلسة الحالية لمبدّل الأدوار: الدور الحالي، المستخدم الموحّد،
-  وكل عضوياته الفعّالة الأخرى مع شرح كل واحدة: هل تبديلها يصدر كوكيها
-  مباشرة (نفس نوع الجلسة الحالية — كلمة مروره أُثبتت بهذا الدخول)، أم أن
-  نوعها مسجَّل بجلسة صالحة على هذا الجهاز أصلاً (يكفي التنقّل)، أم تحتاج
-  كلمة مرورها (رابط دخولها معبَّأ مسبقاً).
+  وكل عضوية أخرى يستطيع الوصول إليها فعلاً. قواعد العرض النقية في
+  switcherMemberships (identity-mapping.ts)؛ هذا المسار يجمع الحقائق فقط:
+
+  - live: الصف القديم الذي تشير إليه العضوية ما زال موجوداً وحياً —
+    عضوية بلا حساب حقيقي خلفها لا تُعرض مهما تطابقت البريدات.
+  - sessionMatches: جلسة من نوع العضوية قائمة على هذا الجهاز وتطابقها —
+    التنقّل إليها يكفي دون إصدار أي كوكي.
 */
 
 async function sessionMatches(kind: string, legacyId: string): Promise<boolean> {
@@ -40,34 +46,63 @@ async function sessionMatches(kind: string, legacyId: string): Promise<boolean> 
   }
 }
 
+/** الصف القديم الحي خلف العضوية — المعلّم الموقوف والحساب المحذوف = غير حي */
+async function membershipLive(m: Membership): Promise<boolean> {
+  const id = Number(m.legacyId);
+  switch (m.legacyKind) {
+    case "teacher": {
+      if (!Number.isInteger(id)) return false;
+      const teacher = await findTeacherById(id);
+      return teacher !== null && !teacher.deactivatedAt;
+    }
+    case "student": {
+      const key = studentLegacyKey(m.legacyId);
+      return key ? (await findStudentAccount(key.halaqahId, key.studentId)) !== null : false;
+    }
+    case "parent":
+      return Number.isInteger(id) ? (await findParentById(id)) !== null : false;
+    case "mosque_admin":
+      return Number.isInteger(id) ? (await findMosqueAdminById(id)) !== null : false;
+    case "association_admin":
+      return Number.isInteger(id) ? (await findAssociationAdminById(id)) !== null : false;
+    default:
+      // super_admin: لا مسار تبديل له أصلاً
+      return false;
+  }
+}
+
 export async function GET() {
   const identity = await resolveIdentity();
   if (identity.kind === null || identity.current === null) {
     return Response.json({ kind: identity.kind, user: identity.user, current: null, memberships: [] });
   }
 
-  const user = identity.user ?? { email: null, username: null };
-  const others = identity.memberships.filter((m) => m.id !== identity.current?.id && m.active);
+  const others = identity.memberships.filter((m) => m.id !== identity.current?.id);
+  const candidates = await Promise.all(
+    others.map(async (m) => ({
+      membership: m,
+      live: await membershipLive(m),
+      sessionActive: await sessionMatches(membershipShell(m).kind, m.legacyId),
+    })),
+  );
 
-  const memberships = await Promise.all(
-    others.map(async (m) => {
-      const shell = membershipShell(m);
-      const switchable = shell.kind === identity.kind && shell.kind !== "developer";
-      return {
-        id: m.id,
-        label: shell.label,
-        switchable,
-        sessionActive: await sessionMatches(shell.kind, m.legacyId),
-        home: shell.home,
-        loginHref: switchable ? null : loginHrefFor(shell.kind, user),
-      };
-    }),
+  const entries = switcherMemberships(
+    identity.kind,
+    candidates,
+    identity.user ?? { email: null, username: null },
   );
 
   return Response.json({
     kind: identity.kind,
     user: identity.user,
     current: { id: identity.current.id, label: membershipShell(identity.current).label },
-    memberships,
+    memberships: entries.map((e) => ({
+      id: e.membership.id,
+      label: e.label,
+      switchable: e.switchable,
+      sessionActive: e.sessionActive,
+      home: e.home,
+      loginHref: e.loginHref,
+    })),
   });
 }

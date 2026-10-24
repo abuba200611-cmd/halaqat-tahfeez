@@ -50,7 +50,7 @@ function StartGoogle({ initialError }: { initialError: string | null }) {
       <a
         href="/api/student-auth/google/link/start"
         className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl"
-        style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
+        style={{ backgroundColor: "var(--color-secondary)", color: "var(--color-on-secondary)" }}
       >
         الدخول بحساب Google
       </a>
@@ -110,7 +110,7 @@ function EnterLinkCodeForm() {
           type="submit"
           disabled={busy}
           className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold text-white shadow-lg transition-shadow duration-200 hover:shadow-accent/40 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-          style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
+          style={{ backgroundColor: "var(--color-secondary)", color: "var(--color-on-secondary)" }}
         >
           {busy ? "لحظة…" : "ربط الحساب"}
         </button>

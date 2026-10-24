@@ -70,6 +70,9 @@ export default function TeacherSettingsPage() {
           )}
           <ul className="space-y-2">
             <li>
+              <Link href="/help" className={LINK}>كيف أستخدم المنصة؟</Link>
+            </li>
+            <li>
               <Link href="/suggest" className={LINK}>اقتراح / بلاغ</Link>
             </li>
           </ul>

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(19,78,74,0.04)] ${className}`}>
+    <div className={`rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}>
       {children}
     </div>
   );
@@ -24,7 +24,7 @@ export function Stat({
   const dark = tone === "primary";
   return (
     <div
-      className={`rounded-2xl p-4 shadow-[0_1px_2px_rgba(19,78,74,0.04)] ${
+      className={`rounded-2xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${
         dark ? "bg-primary text-on-primary" : "border border-border bg-surface"
       }`}
     >
@@ -65,11 +65,22 @@ export function Button({ variant = "primary", className = "", ...props }: Button
   );
 }
 
-export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "good" | "warn" }) {
+/**
+ * شارة/رقاقة حالة — خريطة واحدة معتمدة لكل الواجهة:
+ * نجاح=success، تحذير=accent، خطأ=destructive، محايد=muted.
+ */
+export function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: "neutral" | "good" | "warn" | "error";
+}) {
   const styles = {
     neutral: "bg-muted text-muted-foreground",
-    good: "bg-primary/10 text-primary",
+    good: "bg-success-soft text-success",
     warn: "bg-accent/10 text-accent-ink",
+    error: "bg-destructive-soft text-destructive",
   }[tone];
   return (
     <span className={`tabular inline-block rounded-full px-2 py-0.5 text-xs font-medium ${styles}`}>

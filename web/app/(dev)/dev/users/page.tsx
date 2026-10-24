@@ -169,7 +169,7 @@ function UserRow({ user }: { user: User }) {
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 font-semibold">
             {user.label}
-            <Badge tone="good">{KIND_LABEL[user.kind]}</Badge>
+            <Badge>{KIND_LABEL[user.kind]}</Badge>
             {user.kind === "teacher" && <Badge>{user.role === "supervisor" ? "مشرف" : "مساعد"}</Badge>}
             {user.kind === "teacher" && !user.active && <Badge tone="warn">موقوف</Badge>}
             {user.kind === "student" && !user.active && <Badge tone="warn">محذوف</Badge>}

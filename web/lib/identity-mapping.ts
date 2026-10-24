@@ -219,3 +219,142 @@ export function mapSuperAdminIdentity(row: { id: number; username: string }): Id
     },
   };
 }
+
+// ————— مبدّل الأدوار — قواعد العرض النقية —————
+
+export type IdentityKind = "teacher" | "student" | "parent" | "mosque_admin" | "association_admin" | "developer";
+
+/** الحد البنيوي الأدنى من عضوية يكفي لعرضها بمبدّل الأدوار (تشبعه Membership كاملة) */
+export type SwitchableMembership = {
+  id: number;
+  role: MembershipRole;
+  legacyKind: LegacyKind;
+  legacyId: string;
+  active: boolean;
+  halaqahId: number | null;
+  mosqueId: number | null;
+  halaqahName: string | null;
+  mosqueName: string | null;
+};
+
+/** القشرة التي يقودها الدور + وجهة الهبوط بعد التبديل + التسمية العربية */
+export function membershipShell(membership: SwitchableMembership): {
+  kind: IdentityKind;
+  home: string;
+  label: string;
+} {
+  switch (membership.role) {
+    case "supervisor":
+    case "assistant":
+      return {
+        kind: "teacher",
+        home: "/",
+        label: `${membership.role === "assistant" ? "مساعد مشرف" : "مشرف"}${
+          membership.halaqahName ? ` — ${membership.halaqahName}` : ""
+        }`,
+      };
+    case "parent":
+      return { kind: "parent", home: "/parent", label: "ولي أمر" };
+    case "student":
+      return {
+        kind: "student",
+        home: "/student",
+        label: `طالب${membership.halaqahName ? ` — ${membership.halaqahName}` : ""}`,
+      };
+    case "mosque_admin":
+      return {
+        kind: "mosque_admin",
+        home: membership.mosqueId ? `/mosque/${membership.mosqueId}` : "/mosque",
+        label: `مدير جامع${membership.mosqueName ? ` — ${membership.mosqueName}` : ""}`,
+      };
+    case "association_admin":
+      return { kind: "association_admin", home: "/association", label: "مدير جمعية" };
+    case "developer":
+      return { kind: "developer", home: "/dev", label: "مطوّر" };
+  }
+}
+
+/** رابط دخول الدور معبَّأً ببيانات المستخدم الموحّد حيث تدعمه صفحات الدخول القائمة */
+export function loginHrefFor(kind: string, user: { email: string | null; username: string | null }): string {
+  switch (kind) {
+    case "teacher":
+      return `/login?identifier=${encodeURIComponent(user.email ?? "")}`;
+    case "parent":
+      return `/parent/login?email=${encodeURIComponent(user.email ?? "")}`;
+    case "mosque_admin":
+      return `/mosque-login?username=${encodeURIComponent(user.username ?? "")}`;
+    case "association_admin":
+      return `/association-login?username=${encodeURIComponent(user.username ?? "")}`;
+    case "developer":
+      return "/admin";
+    default:
+      return "/student";
+  }
+}
+
+/** مرشّح عرض واحد بمبدّل الأدوار: العضوية + فحصاها اللذان يجريهما المستدعي (خادم) */
+export type SwitcherCandidate<T extends SwitchableMembership = SwitchableMembership> = {
+  membership: T;
+  /** الصف القديم الذي تشير إليه العضوية ما زال حياً (الحساب موجود وغير موقوف) */
+  live: boolean;
+  /** جلسة فعلية من نوع هذه العضوية صالحة الآن على هذا الجهاز وتطابقها */
+  sessionActive: boolean;
+};
+
+/** ما يُعرض فعلاً للمستخدم في قائمة «تبديل الدور» */
+export type SwitcherEntry<T extends SwitchableMembership = SwitchableMembership> = {
+  membership: T;
+  kind: IdentityKind;
+  home: string;
+  label: string;
+  /** نفس نوع الجلسة الحالية — كلمة مرور هذا النوع أُثبتت بهذا الدخول فيصدر كوكيه مباشرة */
+  switchable: boolean;
+  sessionActive: boolean;
+  loginHref: string | null;
+};
+
+/**
+ * قواعد عرض عضويات المبدّل (نقية بلا قاعدة بيانات — المسار /api/identity/me
+ * يجمع الحقائق ويمرّرها هنا):
+ *
+ * 1. أدوار يستطيع المستخدم الوصول إليها فعلاً فقط: عضوية حية (الصف القديم
+ *    موجود وغير موقوف) وصالحة للدخول — إما أنها من نوع الجلسة الحالية
+ *    (تبديل مباشر)، أو أن جلسة من نوعها قائمة على الجهاز أصلاً (التنقّل
+ *    يكفي). عضوية نوع آخر بلا جلسة تُخفى كلية: رابطها لا يقود المستخدم
+ *    إلا لشاشة دخول بكلمة مرور لا يملكها (خطأ «معلّم يُرسَل لصفحة ولي
+ *    أمر» هو ما أصلحته هذه القاعدة).
+ * 2. دور واحد فقط = قائمة فارغة (المكوّن يخفي المبدّل كلياً).
+ * 3. عضويتان تشيران لنفس الصف القديم (تغيّر دور معلّم مثلاً) = الأولى تكفي.
+ * 4. عضوية المطوّر لا تُعرض أبداً — دخول اللوحة بسرّ ADMIN_SECRET لا مسار
+ *    تبديل له.
+ */
+export function switcherMemberships<T extends SwitchableMembership>(
+  currentKind: IdentityKind,
+  candidates: SwitcherCandidate<T>[],
+  user: { email: string | null; username: string | null },
+): SwitcherEntry<T>[] {
+  const seen = new Set<string>();
+  const entries: SwitcherEntry<T>[] = [];
+  for (const candidate of candidates) {
+    const m = candidate.membership;
+    const key = `${m.legacyKind}:${m.legacyId}`;
+    if (seen.has(key)) continue; // عضويتان لنفس الصف القديم — الأولى تكفي
+    seen.add(key);
+
+    const shell = membershipShell(m);
+    const switchable = shell.kind === currentKind && currentKind !== "developer";
+    if (!m.active || !candidate.live || shell.kind === "developer") continue;
+    if (!switchable && !candidate.sessionActive) continue;
+
+    entries.push({
+      membership: m,
+      kind: shell.kind,
+      home: shell.home,
+      label: shell.label,
+      switchable,
+      sessionActive: candidate.sessionActive,
+      loginHref: switchable ? null : loginHrefFor(shell.kind, user),
+    });
+  }
+  return entries;
+}

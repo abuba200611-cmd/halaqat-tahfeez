@@ -93,7 +93,7 @@ function FamilyDetail({ mosqueId, familyId }: { mosqueId: number; familyId: numb
       <Card className="space-y-4 p-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">الأفراد</h3>
-          <Badge tone="good">{data.members.length}</Badge>
+          <Badge>{data.members.length}</Badge>
         </div>
 
         {data.members.length === 0 ? (

@@ -212,7 +212,7 @@ function ArchiveList({ mosqueId }: { mosqueId: number }) {
                   <p className="tabular text-xs text-muted-foreground">{activity.activityDate}</p>
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {activity.tagKind && activity.tagName && (
-                      <Badge tone="good">
+                      <Badge>
                         {TAG_LABEL[activity.tagKind]}: {activity.tagName}
                       </Badge>
                     )}

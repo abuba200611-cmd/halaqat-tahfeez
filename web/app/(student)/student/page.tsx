@@ -346,7 +346,7 @@ export default function StudentDashboardPage() {
         <p className="mb-2 text-xs text-stone-500">أنشئ رابطاً يفتحه ولي أمرك ليتابع تقدّمك (قراءة فقط).</p>
         <ParentInviteLink
           endpoint="/api/student/parent-link"
-          shareText="رابط متابعة حفظي في الحلقة:"
+          shareText={`رابط متابعة حفظي في الحلقة:\n١) افتح الرابط أدناه\n٢) أنشئ حسابك كولي أمر\n٣) أدخل رمز الربط (مضمن في الرابط) ليُربط حسابك بي تلقائياً`}
         />
       </div>
     </div>

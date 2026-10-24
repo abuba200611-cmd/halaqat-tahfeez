@@ -190,7 +190,7 @@ function Dashboard({ onLoggedOut }: { onLoggedOut: () => void }) {
               {mosques.map((m) => (
                 <li key={m.id}>
                   <Link href={`/mosque/${m.id}`}>
-                    <Card className="flex items-center gap-3 p-4 transition-shadow duration-200 hover:shadow-[0_4px_14px_rgba(19,78,74,0.08)]">
+                    <Card className="flex items-center gap-3 p-4 transition-shadow duration-200 hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)]">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <BuildingIcon className="h-5 w-5" />
                       </span>

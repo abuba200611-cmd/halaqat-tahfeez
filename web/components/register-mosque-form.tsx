@@ -97,7 +97,7 @@ export function RegisterMosqueForm() {
             <Link
               href="/mosque-login"
               className="mt-6 block w-full rounded-xl px-3 py-3 text-center text-sm font-bold"
-              style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
+              style={{ backgroundColor: "var(--color-secondary)", color: "var(--color-on-secondary)" }}
             >
               صفحة دخول مدير الجامع
             </Link>
@@ -162,7 +162,7 @@ export function RegisterMosqueForm() {
             type="submit"
             disabled={busy}
             className="w-full cursor-pointer rounded-xl px-3 py-3 text-sm font-bold shadow-lg transition-shadow duration-200 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}
+            style={{ backgroundColor: "var(--color-secondary)", color: "var(--color-on-secondary)" }}
           >
             {busy ? "لحظة…" : "إرسال الطلب"}
           </button>

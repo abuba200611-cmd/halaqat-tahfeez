@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ParentAuthForm } from "@/components/parent-auth-form";
+import { ParentHowToCard } from "@/components/parent-how-to";
 import { BrandLockup } from "@/components/brand";
 import { AuthBackLink } from "@/components/auth-back-link";
 
@@ -23,7 +24,8 @@ function ParentLoginInner({ onDone }: { onDone: () => void }) {
       <AuthBackLink tone="onLight" />
       <BrandLockup tone="onLight" size={40} href="/welcome" />
       <h1 className="font-display mt-3 text-xl font-bold text-foreground">دخول ولي الأمر</h1>
-      <p className="text-sm text-stone-500">تابع حفظ ومراجعة أبنائك. للحصول على أول ربط اطلب رابط الدعوة من المعلّم أو من ابنك.</p>
+      <p className="text-sm text-muted-foreground">تابع حفظ ومراجعة أبنائك.</p>
+      <ParentHowToCard id="how-to" />
       <ParentAuthForm initialEmail={searchParams.get("email") ?? ""} onDone={onDone} />
     </div>
   );

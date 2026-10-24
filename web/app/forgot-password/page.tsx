@@ -134,7 +134,7 @@ export default function ForgotPasswordPage() {
               </div>
             </label>
             {error && <p className="text-sm text-destructive-light">{error}</p>}
-            <button type="submit" disabled={busy} className={primaryButtonClass} style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}>
+            <button type="submit" disabled={busy} className={primaryButtonClass} style={{ backgroundColor: "var(--color-secondary)", color: "var(--color-on-secondary)" }}>
               {busy ? "لحظة…" : "أرسل الرمز"}
             </button>
           </form>
@@ -184,7 +184,7 @@ export default function ForgotPasswordPage() {
               />
             </label>
             {error && <p className="text-sm text-destructive-light">{error}</p>}
-            <button type="submit" disabled={busy} className={primaryButtonClass} style={{ backgroundColor: "var(--color-secondary)", color: "#000000" }}>
+            <button type="submit" disabled={busy} className={primaryButtonClass} style={{ backgroundColor: "var(--color-secondary)", color: "var(--color-on-secondary)" }}>
               {busy ? "لحظة…" : "حفظ كلمة المرور والدخول"}
             </button>
             <div className="flex items-center justify-between gap-3 pt-1 text-xs">

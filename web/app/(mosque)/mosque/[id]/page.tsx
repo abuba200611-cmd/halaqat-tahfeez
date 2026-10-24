@@ -174,7 +174,7 @@ export default function MosqueDetailPage() {
         {data.features.halaqat && <TeacherJoinLinkCard mosqueId={mosqueId} />}
 
         {data.features.halaqat && (
-        <details className="group rounded-2xl border border-border bg-card p-4">
+        <details id="add-halaqah" className="group scroll-mt-24 rounded-2xl border border-border bg-card p-4">
           <summary className="cursor-pointer text-sm font-semibold">إضافة يدوية</summary>
           <p className="mb-3 mt-3 text-xs text-muted-foreground">
             الأصل أن يفتح مشرف الحلقة رابط انضمام المعلّمين أعلاه. أو اطلب منه رابط دعوة طلاب حلقته (صفحة الطلاب)، وألصق رمزه هنا فقط
@@ -200,13 +200,20 @@ export default function MosqueDetailPage() {
         <div>
           <h2 className="mb-3 font-display text-lg font-bold">الحلقات ({data.halaqahs.length})</h2>
           {data.halaqahs.length === 0 ? (
-            <Empty title="ما فيه حلقات مضافة بعد." />
+            <Empty
+              title="ما فيه حلقات مضافة بعد."
+              action={
+                <Button variant="ghost" onClick={openManualAdd} className="text-sm">
+                  أضف حلقة
+                </Button>
+              }
+            />
           ) : (
             <ul className="grid gap-2 sm:grid-cols-2">
               {data.halaqahs.map((h) => (
                 <li key={h.id}>
                   <Link href={`/mosque/${mosqueId}/halaqah/${h.id}`}>
-                    <Card className="flex items-center gap-3 p-3 transition-shadow duration-200 hover:shadow-[0_4px_14px_rgba(19,78,74,0.08)]">
+                    <Card className="flex items-center gap-3 p-3 transition-shadow duration-200 hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)]">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                         <BookIcon className="h-4 w-4" />
                       </span>
@@ -230,7 +237,14 @@ export default function MosqueDetailPage() {
             طلاب بانتظار التوزيع ({data.registrations.filter((p) => p.status === "pending").length})
           </h2>
           {data.registrations.length === 0 ? (
-            <Empty title="ما فيه تسجيلات جديدة بعد." />
+            <Empty
+              title="ما فيه تسجيلات جديدة بعد."
+              action={
+                <Button variant="ghost" onClick={copyLink} className="text-sm">
+                  {copied ? "نُسخ ✓" : "انسخ رابط التسجيل"}
+                </Button>
+              }
+            />
           ) : (
             <ul className="space-y-2">
               {data.registrations.map((p) => (
@@ -551,6 +565,15 @@ type Stats = {
   }[];
 };
 
+/** يفتح نموذج «إضافة يدوية» للحلقات وينزل إليه — زر الخطوة التالية بحالة الفراغ */
+function openManualAdd() {
+  const details = document.getElementById("add-halaqah");
+  if (details instanceof HTMLDetailsElement) {
+    details.open = true;
+    details.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
 /**
  * اللوحة الحقيقية — أرقام حية من قاعدة الحلقات (لا بيانات مخزّنة هنا)،
  * تُحدَّث كل ما فُتحت الصفحة. حلقة يفشل استعلامها تظهر بشارة بدل
@@ -568,7 +591,16 @@ function MosqueStatsSection({ mosqueId }: { mosqueId: number }) {
 
   if (stats === undefined) return <Empty title="جارٍ حساب الإحصائيات…" />;
   if (!stats || stats.halaqahCount === 0) {
-    return <Empty title="ما فيه حلقات مضافة بعد — الإحصائيات تظهر بعد إضافة أول حلقة." />;
+    return (
+      <Empty
+        title="ما فيه حلقات مضافة بعد — الإحصائيات تظهر بعد إضافة أول حلقة."
+        action={
+          <Button variant="ghost" onClick={openManualAdd} className="text-sm">
+            أضف حلقة
+          </Button>
+        }
+      />
+    );
   }
 
   return (

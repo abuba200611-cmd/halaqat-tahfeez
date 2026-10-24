@@ -113,6 +113,12 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
                   <MessagesBadge role="parent" />
                 </Link>
                 <Link
+                  href="/parent/help"
+                  className="hidden rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50 sm:block"
+                >
+                  كيف أستخدم المنصة؟
+                </Link>
+                <Link
                   href="/parent/suggest"
                   className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-semibold text-stone-600 transition-colors duration-200 hover:bg-stone-50"
                 >

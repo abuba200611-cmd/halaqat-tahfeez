@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useParentSession } from "@/components/parent-shell";
+import { ParentHowToCard } from "@/components/parent-how-to";
 import { ParentPushToggle } from "@/components/parent-push-toggle";
 import { ParentWhatsappCard } from "@/components/parent-whatsapp-card";
 import { AttendanceSummaryCard } from "@/components/attendance-summary";
@@ -80,12 +81,21 @@ function Dashboard() {
 
   if (children.length === 0) {
     return (
-      <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
-        <p className="mb-1 text-2xl">👪</p>
-        <p className="mb-1 font-naskh text-lg font-bold text-stone-800">لا أبناء مرتبطون بعد</p>
-        <p className="text-sm text-stone-500">
-          اطلب رابط الدعوة من معلّم الحلقة أو من ابنك (من لوحته ← «شارك مع ولي أمرك»)، ثم افتحه من هذا الجهاز.
-        </p>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
+          <p className="mb-1 text-2xl">👪</p>
+          <p className="mb-1 font-naskh text-lg font-bold text-stone-800">لا أبناء مرتبطون بعد</p>
+          <p className="mb-4 text-sm text-stone-500">
+            اطلب رابط الدعوة من معلّم الحلقة أو من ابنك (من لوحته ← «شارك مع ولي أمرك»)، ثم افتحه من هذا الجهاز.
+          </p>
+          <Link
+            href="/parent/help"
+            className="inline-block rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-primary"
+          >
+            كيف أربط ابني؟
+          </Link>
+        </div>
+        <ParentHowToCard />
       </div>
     );
   }
@@ -130,7 +140,7 @@ function Dashboard() {
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-semibold text-stone-700">الإشعارات</h2>
         <ParentPushToggle />
-        <div className="mt-3 border-t border-slate-100 pt-3">
+        <div className="mt-3 border-t border-stone-200 pt-3">
           <ParentWhatsappCard />
         </div>
       </div>

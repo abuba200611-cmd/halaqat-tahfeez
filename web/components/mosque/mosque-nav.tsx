@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { MessagesBadge } from "@/components/messages-badge";
-import { AwardIcon, BookIcon, BrainIcon, CalendarIcon, ChartIcon, ClipboardIcon, HomeIcon, ImageIcon, MessageIcon, SettingsIcon, ShieldIcon, StarIcon, TrophyIcon, UsersIcon } from "./icons";
+import { AwardIcon, BookIcon, BrainIcon, CalendarIcon, ChartIcon, ClipboardIcon, HelpIcon, HomeIcon, ImageIcon, MessageIcon, SettingsIcon, ShieldIcon, StarIcon, TrophyIcon, UsersIcon } from "./icons";
 
 export type NavItem = { href: string; label: string; icon: ReactNode; active?: boolean; badge?: ReactNode; group?: "top" | "features" | "bottom" };
 
@@ -86,15 +86,22 @@ export function mosqueNavItems(opts: {
   });
 
   items.push({
+    href: `/mosque/${mosqueId}/help`,
+    label: "كيف أستخدم المنصة؟",
+    icon: <HelpIcon />,
+    active: activeHref === `/mosque/${mosqueId}/help`,
+  });
+
+  items.push({
     href: `/mosque/${mosqueId}/settings`,
     label: "الإعدادات",
     icon: <SettingsIcon />,
     active: activeHref === `/mosque/${mosqueId}/settings`,
   });
 
-  // التجميع: أول عنصرين/ثلاثة أعلى، السياق الإضافي والمزايا في الوسط، واقتراح/إعدادات مثبّتة بالأسفل
+  // التجميع: أول عنصرين/ثلاثة أعلى، السياق الإضافي والمزايا في الوسط، والمساعدة/اقتراح/إعدادات مثبّتة بالأسفل
   return items.map((i) => {
-    if (i.href.endsWith("/suggest") || i.href.endsWith("/settings")) return { ...i, group: "bottom" as const };
+    if (i.href.endsWith("/suggest") || i.href.endsWith("/settings") || i.href.endsWith("/help")) return { ...i, group: "bottom" as const };
     if (i.href === "/mosque" || i.href === `/mosque/${mosqueId}` || i.href.endsWith("/brain") || i.href.endsWith("/messages")) return { ...i, group: "top" as const };
     return { ...i, group: "features" as const };
   });

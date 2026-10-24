@@ -135,7 +135,7 @@ export default function WelcomePage() {
                   <span aria-hidden className="text-[#AD7D56]">
                     •
                   </span>
-                  <Link href="/parent/login" className="font-semibold text-white underline decoration-[#AD7D56] decoration-2 underline-offset-[6px] hover:text-[#CDB49E]">
+                  <Link href="/parent/login#how-to" className="font-semibold text-white underline decoration-[#AD7D56] decoration-2 underline-offset-[6px] hover:text-[#CDB49E]">
                     أنا ولي أمر
                   </Link>
                 </p>
@@ -415,7 +415,7 @@ export default function WelcomePage() {
             <Link href="/student-join" className="hover:text-white">
               أنا طالب
             </Link>
-            <Link href="/parent/login" className="hover:text-white">
+            <Link href="/parent/login#how-to" className="hover:text-white">
               أنا ولي أمر
             </Link>
           </nav>

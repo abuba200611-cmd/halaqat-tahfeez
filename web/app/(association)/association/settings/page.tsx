@@ -39,6 +39,7 @@ export default function AssociationSettingsPage() {
         <PasswordChangeForm endpoint="/api/association/change-password" />
         <ThemeToggle />
         <Card className="space-y-3 p-4 text-sm">
+          <Link href="/association/help" className="block text-accent-ink underline">كيف أستخدم المنصة؟</Link>
           <Link href="/association/visits" className="block text-accent-ink underline">زيارات المشرف التربوي</Link>
           <button
             type="button"

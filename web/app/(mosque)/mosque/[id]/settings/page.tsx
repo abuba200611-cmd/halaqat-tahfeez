@@ -133,6 +133,12 @@ export default function MosqueSettingsPage() {
             <p className="text-xs text-muted-foreground">
               شغّل ما تحتاجه وعرّض الباقي — التغيير يطبّق على هذا الجامع فقط.
             </p>
+            <Link
+              href={`/mosque/${mosqueId}/help`}
+              className="mt-1 block text-xs font-semibold text-accent-ink underline"
+            >
+              كيف أستخدم المنصة؟
+            </Link>
           </div>
         </Card>
 

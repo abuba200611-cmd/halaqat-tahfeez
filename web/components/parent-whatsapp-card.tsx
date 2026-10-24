@@ -173,7 +173,7 @@ export function ParentWhatsappCard() {
                 type="button"
                 onClick={confirmCode}
                 disabled={!consented || busy || code.length !== 6}
-                className="cursor-pointer rounded-lg bg-success-soft px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="cursor-pointer rounded-lg bg-success-soft px-2.5 py-1.5 text-xs font-semibold text-success hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busy ? "لحظة…" : "تأكيد وتفعيل رسائل واتساب"}
               </button>

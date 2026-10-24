@@ -295,3 +295,15 @@ export function MicIcon(props: IconProps) {
 export function ChevronDownIcon(props: IconProps) {
   return base(<path d="m6 9 6 6 6-6" />, props);
 }
+
+/** دائرة بعلامة استفهام — صفحات «كيف أستخدم المنصة؟» */
+export function HelpIcon(props: IconProps) {
+  return base(
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.2 9a2.8 2.8 0 0 1 5.5.7c0 1.8-2.7 2.3-2.7 3.8" />
+      <path d="M12 17h.01" />
+    </>,
+    props,
+  );
+}

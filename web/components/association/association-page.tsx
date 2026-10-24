@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { DashboardShell } from "@/components/mosque/shell";
 import { Empty } from "@/components/mosque/ui";
-import { BuildingIcon, ClipboardIcon, SettingsIcon } from "@/components/mosque/icons";
+import { BuildingIcon, ClipboardIcon, HelpIcon, SettingsIcon } from "@/components/mosque/icons";
 
 import { BackButton } from "@/components/back-button";
 type Me = { admin: { username: string } | null; association: { name: string; city: string } | null };
@@ -60,6 +60,20 @@ export function AssociationPage({
           label: "زيارات المشرف التربوي",
           icon: <ClipboardIcon />,
           active: activeHref === "/association/visits" || activeHref?.startsWith("/association/visits/"),
+        },
+        {
+          href: "/association/help",
+          label: "كيف أستخدم المنصة؟",
+          icon: <HelpIcon />,
+          active: activeHref === "/association/help",
+          group: "bottom",
+        },
+        {
+          href: "/association/settings",
+          label: "الإعدادات",
+          icon: <SettingsIcon />,
+          active: activeHref === "/association/settings",
+          group: "bottom",
         },
       ]}
       title={title}

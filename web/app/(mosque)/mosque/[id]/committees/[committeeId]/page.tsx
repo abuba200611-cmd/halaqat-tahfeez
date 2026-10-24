@@ -98,7 +98,7 @@ function CommitteeDetail({ mosqueId, committeeId }: { mosqueId: number; committe
       <Card className="space-y-4 p-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">الأعضاء</h3>
-          <Badge tone="good">{data.members.length}</Badge>
+          <Badge>{data.members.length}</Badge>
         </div>
         {data.members.length === 0 ? (
           <p className="text-sm text-muted-foreground">لا أعضاء بعد.</p>

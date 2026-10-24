@@ -93,9 +93,9 @@ function AuthBackground() {
         }
       `}</style>
       <Blob size={420} top="-140px" left="-160px" gradient="linear-gradient(135deg, #AD7D56, #CDB49E)" blur={70} opacity={0.5} duration="9s" />
-      <Blob size={340} bottom="-140px" right="-120px" gradient="linear-gradient(135deg, #8A6242, #AD7D56)" blur={80} opacity={0.45} duration="11s" delay="1.5s" />
+      <Blob size={340} bottom="-140px" right="-120px" gradient="linear-gradient(135deg, #7F5636, #AD7D56)" blur={80} opacity={0.45} duration="11s" delay="1.5s" />
       <Blob size={70} top="14%" right="8%" gradient="linear-gradient(135deg, #CDB49E, #AD7D56)" blur={4} opacity={0.85} duration="7s" delay="0.5s" />
-      <Blob size={40} bottom="12%" left="7%" gradient="linear-gradient(135deg, #AD7D56, #6E5233)" blur={2} opacity={0.85} duration="8s" delay="2s" />
+      <Blob size={40} bottom="12%" left="7%" gradient="linear-gradient(135deg, #AD7D56, #7F5636)" blur={2} opacity={0.85} duration="8s" delay="2s" />
     </div>
   );
 }

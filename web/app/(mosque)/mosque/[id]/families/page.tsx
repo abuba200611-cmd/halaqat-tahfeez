@@ -84,7 +84,7 @@ function FamiliesList({ mosqueId }: { mosqueId: number }) {
               <Card className="p-4 transition-colors duration-200 hover:border-border-strong">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold">{family.name}</p>
-                  <Badge tone="good">{family.memberCount} فرد</Badge>
+                  <Badge>{family.memberCount} فرد</Badge>
                 </div>
                 {family.leaderName && (
                   <p className="mt-1 text-xs text-muted-foreground">الرئيس: {family.leaderName}</p>

@@ -26,6 +26,7 @@ export default function DevSettingsPage() {
       <div className={CARD}>
         <h2 className="mb-2 text-sm font-semibold">النظام</h2>
         <ul className="space-y-1.5 text-sm">
+          <li><Link href="/dev/help" className="text-accent-ink underline">كيف أستخدم اللوحة؟</Link></li>
           <li><Link href="/dev/health" className="text-accent-ink underline">صحة النظام</Link></li>
           <li><Link href="/dev/audit" className="text-accent-ink underline">سجل التدقيق</Link></li>
           <li><Link href="/dev/mosques" className="text-accent-ink underline">الجوامع ومزاياها</Link></li>

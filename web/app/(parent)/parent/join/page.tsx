@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ParentAuthForm } from "@/components/parent-auth-form";
+import { ParentHowToCard } from "@/components/parent-how-to";
 import { useParentSession } from "@/components/parent-shell";
 
 /*
@@ -85,6 +86,7 @@ function JoinFlow() {
       <div className="mx-auto max-w-sm space-y-4">
         <h1 className="font-display text-xl font-bold text-stone-800">دعوة لمتابعة ابنك</h1>
         <p className="text-sm text-stone-500">أنشئ حساب ولي أمر أو سجّل دخولك لإكمال الربط.</p>
+        <ParentHowToCard />
         <ParentAuthForm initialMode="register" />
       </div>
     );

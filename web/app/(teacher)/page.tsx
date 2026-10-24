@@ -21,18 +21,18 @@ import { useStudents } from "@/lib/store";
 import type { SavedScheduleInfo, SavedScheduleRecord } from "@/lib/schedule";
 import type { WardLog } from "@/lib/types";
 
-/* ————— لوحة ألوان الصفحة (STEP 41/42 — يطابق مرجع لوحة تحكّم زرقاء بقائمة جانبية) — محصورة هنا ————— */
+/* ————— لوحة ألوان الصفحة — كل القيم من رموز الهوية في globals.css ما عدا
+   الهيرو الأسود: سطح أسود دائم بنص أبيض في الوضعين (كالقوائم الجانبية) ————— */
 const C = {
   heroFrom: "#000000",
   heroTo: "#241B12",
-  blue: "#AD7D56",
-  emerald: "#3E6B4A",
-  orange: "#8A6242",
-  purple: "#8A6242",
-  gold: "#CDB49E",
-  cardBorder: "#E2D6C3",
-  text: "#000000",
-  textMuted: "#5F5344",
+  secondary: "var(--color-secondary)",
+  success: "var(--color-success)",
+  accentInk: "var(--color-accent-ink)",
+  sand: "var(--color-sand)",
+  cardBorder: "var(--color-border)",
+  text: "var(--color-foreground)",
+  textMuted: "var(--color-muted-foreground)",
 };
 
 
@@ -256,7 +256,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          color={C.blue}
+          color={C.secondary}
           icon={<UsersIcon size={22} />}
           label="عدد الطلاب"
           value={active.length}
@@ -264,20 +264,20 @@ export default function DashboardPage() {
           progressLabel={students.length > 0 ? `${active.length} من ${students.length} نشطون` : "لا طلاب بعد"}
         />
         <StatCard
-          color={C.emerald}
+          color={C.success}
           icon={<BookIcon size={22} />}
           label="صفحات محفوظة — هذا الأسبوع"
           value={stats.pagesThisWeek}
           delta={stats.pagesDelta}
         />
         <StatCard
-          color={C.orange}
+          color={C.accentInk}
           icon={<CalendarIcon size={22} />}
           label="الحلقات هذا الأسبوع"
           value={stats.sessionsThisWeek}
           delta={stats.sessionsDelta}
         />
-        <StatCard color={C.gold} icon={<FlameIcon size={22} />} label="أيام متتالية نشطة" value={stats.streak} />
+        <StatCard color={C.sand} icon={<FlameIcon size={22} />} label="أيام متتالية نشطة" value={stats.streak} />
       </div>
 
       <QuickActions clearAction={clear} hasStudents={hasStudents} />
@@ -294,7 +294,33 @@ export default function DashboardPage() {
 
 /* ————— بطاقة onboarding — تظهر أعلى اللوحة بدل استبدالها بالكامل، طالما لا طلاب بعد ————— */
 
+/**
+ * أزرار الخطوة التالية فعلية لا كلامية: الاستيراد يظهر إن فعّله جامع الحلقة،
+ * والانضمام للجامع يظهر فقط لمن حلقته ما زالت مستقلة (بلا جامع).
+ */
 export function OnboardingBanner() {
+  const [importEnabled, setImportEnabled] = useState(false);
+  const [mosqueJoined, setMosqueJoined] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/teacher/import")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { enabled?: boolean } | null) => {
+        if (!cancelled && data?.enabled) setImportEnabled(true);
+      })
+      .catch(() => {});
+    fetch("/api/teacher/mosque")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { mosque?: { name: string } | null } | null) => {
+        if (!cancelled) setMosqueJoined(Boolean(data?.mosque));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div
       className="flex flex-col items-center gap-4 rounded-2xl bg-white p-6 text-center shadow-sm sm:flex-row sm:text-right"
@@ -310,11 +336,32 @@ export function OnboardingBanner() {
         <p className="mt-1 text-sm" style={{ color: C.textMuted }}>
           لا يوجد طلاب بعد — اللوحة أدناه تعرض الهيكل الكامل بأصفار حتى تضيف طلابك.
         </p>
+        {mosqueJoined === false && (
+          <p className="mt-1 text-xs" style={{ color: C.textMuted }}>
+            حلقتك ما زالت مستقلة — انضم لجامعك لتظهر في إدارته وتُفعَّل مزاياه.
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-center gap-2">
         <Link href="/students">
           <Button>إضافة طالب</Button>
         </Link>
+        {importEnabled && (
+          <Link
+            href="/students/import"
+            className="flex items-center rounded-full border border-border bg-surface px-4 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            استورد من Excel
+          </Link>
+        )}
+        {mosqueJoined === false && (
+          <Link
+            href="/settings"
+            className="flex items-center rounded-full border border-border bg-surface px-4 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            انضم لجامع
+          </Link>
+        )}
       </div>
     </div>
   );
@@ -433,7 +480,10 @@ export function StatCard({
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
       <div className="flex items-start justify-between">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ backgroundColor: `${color}1A`, color }}>
+        <div
+          className="flex h-11 w-11 items-center justify-center rounded-xl"
+          style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
+        >
           {icon}
         </div>
         {showDelta && (
@@ -483,11 +533,12 @@ export function StatCard({
 /* ————— إجراءات سريعة ————— */
 
 export function QuickActions({ clearAction, hasStudents }: { clearAction: () => void; hasStudents: boolean }) {
+  // تدرّجات من رموز الهوية فقط — كلها بتباين AA للنص الأبيض في الوضعين
   const items = [
-    { href: "/students", from: "#8A6242", to: "#6E4E33", icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
-    { href: "/pairing", from: "#3E6B4A", to: "#33573D", icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
-    { href: "/reports", from: "#6E5233", to: "#4A3620", icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
-    { href: "/schedule", from: "#241B12", to: "#000000", icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
+    { href: "/students", from: "var(--color-accent-ink)", to: "var(--color-primary-hover)", icon: <PlusIcon size={26} />, title: "إضافة طالب", desc: "أضف طالباً جديداً للحلقة" },
+    { href: "/pairing", from: "var(--color-success)", to: "var(--color-success-hover)", icon: <ShuffleIcon size={26} />, title: "مطابقة حلقة", desc: "ولّد ثنائيات تسميع هذا الأسبوع" },
+    { href: "/reports", from: "var(--color-accent-hover)", to: "var(--color-accent-ink)", icon: <ChartIcon size={26} />, title: "تقرير الحلقة", desc: "أداء الحلقة الشهري" },
+    { href: "/schedule", from: "var(--color-primary-hover)", to: "var(--color-primary)", icon: <CalendarIcon size={26} />, title: "جدول الشهر", desc: "اعتمد جدول التسميع الشهري" },
   ];
 
   return (
@@ -523,14 +574,13 @@ export function QuickActions({ clearAction, hasStudents }: { clearAction: () => 
 /* ————— نجوم الأسبوع — كقائمة متصدّرين (مربع ملوّن بالحروف + رقم الترتيب) ————— */
 
 export function StarsOfWeek({ stars }: { stars: { id: string; name: string; pages: number }[] }) {
-  // مراتب التصدّر: بيج فرنسي، راودو دست، ثم بني غامق — نصّ المربع يتباين مع كل خلفية
-  const rankColors = ["#AD7D56", "#CDB49E", "#6E5233"];
-  const rankText = ["#000000", "#000000", "#FFFFFF"];
+  // مراتب التصدّر: بيج فرنسي، راودو دست، ثم درجة البيج الغامقة — نص أسود يتباين معها جميعاً في الوضعين
+  const rankColors = ["var(--color-secondary)", "var(--color-sand)", "var(--color-accent-ink)"];
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
       <h2 className="mb-4 flex items-center gap-2 font-display text-lg font-bold" style={{ color: C.text }}>
-        <span style={{ color: C.gold }}>
+        <span style={{ color: C.sand }}>
           <StarIcon size={18} />
         </span>
         نجوم الأسبوع
@@ -546,13 +596,17 @@ export function StarsOfWeek({ stars }: { stars: { id: string; name: string; page
               <div className="relative shrink-0">
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold"
-                  style={{ backgroundColor: rankColors[i] ?? C.blue, color: rankText[i] ?? "#000000" }}
+                  style={{ backgroundColor: rankColors[i] ?? C.secondary, color: "var(--color-on-secondary)" }}
                 >
                   {s.name.trim().charAt(0) || "؟"}
                 </div>
                 <span
-                  className="tabular absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
-                  style={{ backgroundColor: C.text }}
+                  className="tabular absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[10px] font-bold"
+                  style={{
+                    backgroundColor: C.text,
+                    color: "var(--color-background)",
+                    borderColor: "var(--color-surface)",
+                  }}
                 >
                   {i + 1}
                 </span>
@@ -616,16 +670,13 @@ export function TodaySession({ today, next }: { today: SessionDay | null; next: 
 /* ————— بانتظار المراجعة (أوراد جديدة) — بيانات حقيقية من /api/wards ————— */
 
 export function PendingReview({ count }: { count: number }) {
+  // بانتظار المراجعة = تحذير → لهجة accent وفق خريطة الشارات المعتمدة
   return (
     <Link
       href="/inbox"
-      className="flex items-center gap-4 rounded-2xl p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
-      style={{ border: `1px solid ${C.orange}33`, backgroundColor: `${C.orange}0D` }}
+      className="flex items-center gap-4 rounded-2xl border border-accent/40 bg-accent-soft p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5"
     >
-      <span
-        className="tabular flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
-        style={{ backgroundColor: C.orange }}
-      >
+      <span className="tabular flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-base font-bold text-on-secondary">
         {count}
       </span>
       <div className="min-w-0 flex-1">
@@ -636,9 +687,7 @@ export function PendingReview({ count }: { count: number }) {
           أوراد جديدة أرسلها الطلاب، بحاجة اطّلاعك أو اعتمادك
         </div>
       </div>
-      <Button className="shrink-0" style={{ backgroundColor: C.orange }}>
-        مراجعة الوارد
-      </Button>
+      <Button className="shrink-0">مراجعة الوارد</Button>
     </Link>
   );
 }
