@@ -5,6 +5,7 @@ import { recordLogin } from "@/lib/activity";
 import { findParentByEmail, normalizeParentEmail } from "@/lib/parent-db";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 import { loginFailureKey } from "@/lib/login-key";
+import { logSecurityEvent } from "@/lib/audit-log";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط دخول المعلّم والطالب */
 function clientIp(request: Request): string {
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
   if (!parent) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    await logSecurityEvent({ event: "login.failure", actorKind: "parent", ip, identifier: email, details: { reason: "no_account" } });
     return Response.json(
       { error: "ما عندك حساب بهذا البريد", code: "no_account", email },
       { status: 404 },
@@ -42,10 +44,12 @@ export async function POST(request: Request) {
   if (!verifyPassword(password, parent.passwordHash)) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    await logSecurityEvent({ event: "login.failure", actorKind: "parent", actorId: parent.id, ip, details: { reason: "bad_password" } });
     return Response.json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" }, { status: 401 });
   }
 
   await setParentSessionCookie(parent.id);
   await recordLogin({ role: "parent", parentId: parent.id });
+  await logSecurityEvent({ event: "login.success", actorKind: "parent", actorId: parent.id, ip });
   return Response.json({ parent: { id: parent.id, name: parent.name, email: parent.email } });
 }

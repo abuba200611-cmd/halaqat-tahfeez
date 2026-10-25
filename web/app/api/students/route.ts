@@ -95,6 +95,14 @@ export async function PUT(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
+  // استبدال القائمة يحذف كل طلاب الحلقة — هدّام: ممنوع أثناء «عرض كـ»، ولغير
+  // المشرف مسموح فقط على حلقة فارغة (ترحيل القائمة المحلية القديمة لا غير)
+  const impBlocked = await guardImpersonation();
+  if (impBlocked) return impBlocked;
+  if (teacher.role !== "supervisor" && (await listStudents(teacher.halaqahId)).length > 0) {
+    return Response.json({ error: "استبدال قائمة الطلاب متاح لمشرف الحلقة فقط" }, { status: 403 });
+  }
+
   try {
     const body = (await request.json()) as { students?: unknown };
     if (!Array.isArray(body.students)) throw new Error("قائمة الطلاب مفقودة");

@@ -5,6 +5,7 @@ import { clientIp } from "@/lib/client-ip";
 import { guardImpersonation } from "@/lib/dev-impersonation";
 import { hasLocalPassword, validatePasswordChange } from "@/lib/account-settings";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
+import { logSecurityEvent, type SecurityAuditInput } from "@/lib/audit-log";
 
 /*
   تغيير كلمة المرور من داخل الحساب — منطق واحد لكل الأدوار التي تدخل بكلمة
@@ -16,6 +17,14 @@ import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 const SESSION_LIMIT = 5;
 const IP_LIMIT = 20;
 const WINDOW_SECONDS = 15 * 60;
+
+/** وسم الحدّ ← نوع الفاعل بسجل الأمان */
+const ACTOR_KIND: Record<string, SecurityAuditInput["actorKind"]> = {
+  teacher: "teacher",
+  parent: "parent",
+  "mosque-admin": "mosque_admin",
+  association: "association_admin",
+};
 
 export type PasswordChangeTarget = {
   /** وسم الدور في مفتاح الحدّ: teacher | parent | mosque-admin | association */
@@ -54,6 +63,12 @@ export async function handlePasswordChange(request: Request, target: PasswordCha
   }
 
   await target.apply(hashPassword(checked.input.next));
+  await logSecurityEvent({
+    event: "password.change",
+    actorKind: ACTOR_KIND[target.scope] ?? "unknown",
+    actorId: target.sessionId,
+    ip,
+  });
   return Response.json({ ok: true });
 }
 

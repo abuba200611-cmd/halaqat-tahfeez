@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   deleteStudent: vi.fn(),
   consumePasswordReset: vi.fn(),
   updateTeacherPassword: vi.fn(),
+  listStudents: vi.fn(),
+  replaceStudents: vi.fn(),
 }));
 
 vi.mock("@/lib/dev-impersonation", () => ({ guardImpersonation: mocks.guardImpersonation }));
@@ -26,9 +28,13 @@ vi.mock("@/lib/db", () => ({
   deleteStudent: mocks.deleteStudent,
   consumePasswordReset: mocks.consumePasswordReset,
   updateTeacherPassword: mocks.updateTeacherPassword,
+  listStudents: mocks.listStudents,
+  replaceStudents: mocks.replaceStudents,
 }));
+vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: vi.fn(async () => true), rateLimited: vi.fn() }));
+vi.mock("@/lib/audit-log", () => ({ logSecurityEvent: vi.fn() }));
 
-const { DELETE } = await import("@/app/api/students/route");
+const { DELETE, PUT } = await import("@/app/api/students/route");
 const { POST: resetPasswordPOST } = await import("@/app/api/auth/reset-password/route");
 
 const TEACHER = { id: 1, halaqahId: 7, role: "supervisor" as const };
@@ -89,5 +95,43 @@ describe("تغيير كلمة المرور (POST /api/auth/reset-password) مع 
     );
     expect(res.status).toBe(200);
     expect(mocks.updateTeacherPassword).toHaveBeenCalledWith(9, "hash:12345678");
+  });
+});
+
+describe("استبدال القائمة (PUT /api/students)", () => {
+  const putRequest = () =>
+    new Request("http://localhost/api/students", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ students: [{ id: "s1", name: "أحمد" }] }),
+    });
+
+  it("يُحجب أثناء «عرض كـ» قبل أي كتابة", async () => {
+    mocks.guardImpersonation.mockResolvedValue(blocked);
+    const res = await PUT(putRequest());
+    expect(res.status).toBe(403);
+    expect(mocks.replaceStudents).not.toHaveBeenCalled();
+  });
+
+  it("المساعد لا يستبدل حلقة فيها طلاب", async () => {
+    mocks.currentTeacher.mockResolvedValue({ ...TEACHER, role: "assistant" });
+    mocks.listStudents.mockResolvedValue([{ id: "x" }]);
+    const res = await PUT(putRequest());
+    expect(res.status).toBe(403);
+    expect(mocks.replaceStudents).not.toHaveBeenCalled();
+  });
+
+  it("المساعد يرحّل القائمة المحلية إلى حلقة فارغة", async () => {
+    mocks.currentTeacher.mockResolvedValue({ ...TEACHER, role: "assistant" });
+    mocks.listStudents.mockResolvedValue([]);
+    const res = await PUT(putRequest());
+    expect(res.status).toBe(200);
+    expect(mocks.replaceStudents).toHaveBeenCalledWith(7, expect.any(Array));
+  });
+
+  it("المشرف يستبدل كما كان", async () => {
+    const res = await PUT(putRequest());
+    expect(res.status).toBe(200);
+    expect(mocks.listStudents).not.toHaveBeenCalled();
   });
 });

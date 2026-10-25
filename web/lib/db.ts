@@ -534,7 +534,7 @@ export async function createPasswordReset(teacherId: number): Promise<string> {
 export async function consumePasswordReset(token: string): Promise<number | null> {
   const rows = await db().sql`
     DELETE FROM password_resets
-    WHERE token_hash = ${hashToken(token)} AND expires_at > now()
+    WHERE token_hash = ${hashToken(token)} AND expires_at > now() AND kind = 'link'
     RETURNING teacher_id
   `;
   return rows[0] ? Number(rows[0].teacher_id) : null;

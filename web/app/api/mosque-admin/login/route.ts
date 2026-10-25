@@ -5,6 +5,7 @@ import { findMosqueAdminByUsername } from "@/lib/mosque/db";
 import { verifyPassword } from "@/lib/mosque/password";
 import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
 import { recordLogin } from "@/lib/activity";
+import { logSecurityEvent } from "@/lib/audit-log";
 import { loginRequestStatus } from "@/lib/mosque-registration-db";
 import { loginStatusMessage } from "@/lib/mosque-registration";
 
@@ -42,10 +43,12 @@ export async function POST(request: Request) {
     }
     await recordRateLimitHit(ipKey, WINDOW_SECONDS);
     await recordRateLimitHit(userKey, WINDOW_SECONDS);
+    await logSecurityEvent({ event: "login.failure", actorKind: "mosque_admin", actorId: admin?.id, ip, identifier: username });
     return Response.json({ error: "بيانات الدخول غير صحيحة" }, { status: 401 });
   }
 
   await setMosqueAdminSessionCookie(admin.id);
   await recordLogin({ role: "mosque_admin", adminId: admin.id });
+  await logSecurityEvent({ event: "login.success", actorKind: "mosque_admin", actorId: admin.id, ip });
   return Response.json({ ok: true });
 }

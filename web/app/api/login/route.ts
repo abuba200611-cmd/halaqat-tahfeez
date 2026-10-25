@@ -7,6 +7,7 @@ import { setMosqueAdminSessionCookie } from "@/lib/mosque-auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 import { loginFailureKey } from "@/lib/login-key";
+import { logSecurityEvent } from "@/lib/audit-log";
 import { loginRequestStatus } from "@/lib/mosque-registration-db";
 import { loginStatusMessage } from "@/lib/mosque-registration";
 
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
   const fail = async (noAccount = false) => {
     await recordRateLimitHit(idLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    await logSecurityEvent({ event: "login.failure", actorKind: "unknown", ip, identifier, details: { via: "unified" } });
     // لا حساب بالمعرّف عند أي دور: رسالة صريحة (قرار المالك) تحوّل لإنشاء حساب
     if (noAccount) {
       return Response.json({ error: NO_ACCOUNT_MESSAGE, code: "no_account", email: identifier }, { status: 404 });
@@ -73,6 +75,7 @@ export async function POST(request: Request) {
     if (teacher.deactivatedAt) return fail();
     await setSessionCookie(teacher.id);
     await recordLogin({ role: "teacher", teacherId: teacher.id });
+    await logSecurityEvent({ event: "login.success", actorKind: "teacher", actorId: teacher.id, ip, details: { via: "unified" } });
     return Response.json({
       kind: "teacher",
       redirect: "/",
@@ -93,6 +96,7 @@ export async function POST(request: Request) {
   if (mosqueAdmin && verifyPassword(password, mosqueAdmin.passwordHash)) {
     await setMosqueAdminSessionCookie(mosqueAdmin.id);
     await recordLogin({ role: "mosque_admin", adminId: mosqueAdmin.id });
+    await logSecurityEvent({ event: "login.success", actorKind: "mosque_admin", actorId: mosqueAdmin.id, ip, details: { via: "unified" } });
     return Response.json({ kind: "mosque_admin", redirect: `/mosque/${mosqueAdmin.mosqueId}` });
   }
 
@@ -105,6 +109,7 @@ export async function POST(request: Request) {
     if (parent && verifyPassword(password, parent.passwordHash)) {
       await setParentSessionCookie(parent.id);
       await recordLogin({ role: "parent", parentId: parent.id });
+      await logSecurityEvent({ event: "login.success", actorKind: "parent", actorId: parent.id, ip, details: { via: "unified" } });
       return Response.json({ kind: "parent", redirect: "/parent" });
     }
   }
