@@ -2,6 +2,8 @@ import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { runStudentDailyReminder } from "@/lib/push";
 import { safeEqual } from "@/lib/safe-equal";
 import { deliverDueWebhooks } from "@/lib/webhooks-db";
+import { runRetentionCleanup } from "@/lib/retention";
+import { logSecurityEvent } from "@/lib/audit-log";
 
 /**
  * تذكير الطلاب اليومي (STEP 54) — يستدعيه Vercel Cron وحده (راجع
@@ -32,5 +34,23 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("webhook delivery failed", error);
   }
-  return Response.json(webhooks ? { ...result, webhooks } : result);
+
+  // تنظيف الاحتفاظ التلقائي (نفس تنظيف لوحة المطوّر اليدوي): يحذف المنتهي فقط
+  // فهو آمن التكرار، وفشله لا يُفشل بقية عمل الـcron.
+  let retention: { total: number } | null = null;
+  try {
+    const results = await runRetentionCleanup();
+    const total = results.reduce((sum, r) => sum + r.deleted, 0);
+    const counts = Object.fromEntries(results.map((r) => [r.key, r.error ? "error" : r.deleted]));
+    await logSecurityEvent({
+      event: "retention.cleanup",
+      actorKind: "developer",
+      actorId: "cron",
+      details: { source: "cron", total, ...counts },
+    });
+    retention = { total };
+  } catch (error) {
+    console.error("retention cleanup failed", error);
+  }
+  return Response.json({ ...result, ...(webhooks ? { webhooks } : {}), ...(retention ? { retention } : {}) });
 }

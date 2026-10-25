@@ -5,6 +5,11 @@ vi.mock("@/lib/push", () => pushMocks);
 vi.mock("@/lib/riyadh-date", () => ({ riyadhTodayISO: () => "2026-09-27" }));
 vi.mock("@/lib/webhooks-db", () => ({ deliverDueWebhooks: vi.fn(async () => null) }));
 
+const retentionMocks = vi.hoisted(() => ({ runRetentionCleanup: vi.fn() }));
+vi.mock("@/lib/retention", () => retentionMocks);
+const auditMocks = vi.hoisted(() => ({ logSecurityEvent: vi.fn(async () => undefined) }));
+vi.mock("@/lib/audit-log", () => auditMocks);
+
 const { GET } = await import("./route");
 
 const ORIGINAL_SECRET = process.env.CRON_SECRET;
@@ -16,6 +21,7 @@ function req(headers?: Record<string, string>): Request {
 describe("GET /api/cron/student-reminder — حماية الـcron (STEP 54)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    retentionMocks.runRetentionCleanup.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -51,7 +57,31 @@ describe("GET /api/cron/student-reminder — حماية الـcron (STEP 54)", (
     const res = await GET(req({ authorization: "Bearer s3cr3t" }));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ sent: 2, skipped: 3, removed: 1, failed: 0 });
+    expect(await res.json()).toEqual({ sent: 2, skipped: 3, removed: 1, failed: 0, retention: { total: 0 } });
     expect(pushMocks.runStudentDailyReminder).toHaveBeenCalledWith("2026-09-27");
+  });
+
+  it("تنظيف الاحتفاظ يعمل ويسجّل retention.cleanup بالأعداد", async () => {
+    process.env.CRON_SECRET = "s3cr3t";
+    pushMocks.runStudentDailyReminder.mockResolvedValue({ sent: 0 });
+    retentionMocks.runRetentionCleanup.mockResolvedValue([
+      { key: "a", label: "a", deleted: 3 },
+      { key: "b", label: "b", deleted: 0, error: "x" },
+    ]);
+    const res = await GET(req({ authorization: "Bearer s3cr3t" }));
+    expect(res.status).toBe(200);
+    expect(auditMocks.logSecurityEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "retention.cleanup", actorKind: "developer", details: { source: "cron", total: 3, a: 3, b: "error" } }),
+    );
+  });
+
+  it("فشل التنظيف لا يُفشل الـcron", async () => {
+    process.env.CRON_SECRET = "s3cr3t";
+    pushMocks.runStudentDailyReminder.mockResolvedValue({ sent: 1 });
+    retentionMocks.runRetentionCleanup.mockRejectedValue(new Error("db down"));
+    const res = await GET(req({ authorization: "Bearer s3cr3t" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ sent: 1 });
+    expect(auditMocks.logSecurityEvent).not.toHaveBeenCalled();
   });
 });
