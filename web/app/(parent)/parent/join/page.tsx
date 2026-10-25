@@ -84,8 +84,8 @@ function JoinFlow() {
   if (!parent) {
     return (
       <div className="mx-auto max-w-sm space-y-4">
-        <h1 className="font-display text-xl font-bold text-stone-800">دعوة لمتابعة ابنك</h1>
-        <p className="text-sm text-stone-500">أنشئ حساب ولي أمر أو سجّل دخولك لإكمال الربط.</p>
+        <h1 className="font-display text-xl font-bold text-white">دعوة لمتابعة ابنك</h1>
+        <p className="text-sm text-white/70">أنشئ حساب ولي أمر أو سجّل دخولك لإكمال الربط.</p>
         <ParentHowToCard />
         <ParentAuthForm initialMode="register" />
       </div>
@@ -105,7 +105,7 @@ function JoinFlow() {
   }
 
   return (
-    <div className="mx-auto max-w-sm space-y-4 rounded-2xl border border-stone-200 bg-white p-5 text-center">
+    <div className="force-light mx-auto max-w-sm space-y-4 rounded-2xl border border-stone-200 bg-white p-5 text-center">
       <p className="text-2xl">👪</p>
       <p className="text-sm text-stone-700">
         ربط حسابك بالطالب «<span className="font-bold">{preview.studentName}</span>» في حلقة «
@@ -126,5 +126,5 @@ function JoinFlow() {
 }
 
 function Message({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-600">{children}</div>;
+  return <div className="force-light rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-600">{children}</div>;
 }

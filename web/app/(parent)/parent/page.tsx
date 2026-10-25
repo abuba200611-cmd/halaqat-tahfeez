@@ -65,7 +65,7 @@ function Dashboard() {
 
   if (!parent) {
     return (
-      <div className="rounded-2xl border border-stone-200 bg-white p-6 text-center">
+      <div className="force-light rounded-2xl border border-stone-200 bg-white p-6 text-center">
         <p className="mb-3 text-sm text-stone-600">سجّل دخولك لمتابعة أبنائك.</p>
         <Link
           href="/parent/login"

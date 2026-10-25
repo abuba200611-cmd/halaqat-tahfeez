@@ -64,7 +64,7 @@ export function ParentAuthForm({
     "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
   return (
-    <form onSubmit={submit} className="space-y-3 rounded-2xl border border-stone-200 bg-white p-5">
+    <form onSubmit={submit} className="force-light space-y-3 rounded-2xl border border-stone-200 bg-white p-5">
       <div className="flex gap-1 rounded-xl bg-stone-100 p-1 text-sm font-semibold">
         {(["login", "register"] as const).map((m) => (
           <button
