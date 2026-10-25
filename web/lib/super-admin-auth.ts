@@ -3,6 +3,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { findSuperAdminById, sessionSecret, type SuperAdmin } from "./db";
+import { clearSessionCookie, readSessionCookie, writeSessionCookie } from "./session-cookie";
 
 /*
   جلسة المشرف العام — STEP 5. مبنية على نفس فلسفة جلسة المعلّم
@@ -47,24 +48,23 @@ export async function readSuperAdminSessionToken(token: string): Promise<number 
 
 export async function setSuperAdminSessionCookie(adminId: number): Promise<void> {
   const store = await cookies();
-  store.set(SUPER_ADMIN_SESSION_COOKIE, await createSuperAdminSessionToken(adminId), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  writeSessionCookie(
+    store,
+    SUPER_ADMIN_SESSION_COOKIE,
+    await createSuperAdminSessionToken(adminId),
+    SESSION_MAX_AGE_SECONDS,
+  );
 }
 
 export async function clearSuperAdminSession(): Promise<void> {
   const store = await cookies();
-  store.delete(SUPER_ADMIN_SESSION_COOKIE);
+  clearSessionCookie(store, SUPER_ADMIN_SESSION_COOKIE);
 }
 
 /** المشرف العام صاحب الجلسة الحالية، أو null إن لم يكن مسجّلاً */
 export async function currentSuperAdmin(): Promise<SuperAdmin | null> {
   const store = await cookies();
-  const token = store.get(SUPER_ADMIN_SESSION_COOKIE)?.value;
+  const token = readSessionCookie(store, SUPER_ADMIN_SESSION_COOKIE);
   if (!token) return null;
 
   const adminId = await readSuperAdminSessionToken(token);

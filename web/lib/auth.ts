@@ -11,6 +11,11 @@ import {
   teacherSessionVersion,
   type Teacher,
 } from "./db";
+import {
+  clearSessionCookie as clearCookieStore,
+  readSessionCookie,
+  writeSessionCookie,
+} from "./session-cookie";
 import type { StudentAccount } from "./types";
 
 export const SESSION_COOKIE = "halaqa_session";
@@ -80,24 +85,23 @@ export async function readSessionToken(
 
 export async function setSessionCookie(teacherId: number): Promise<void> {
   const store = await cookies();
-  store.set(SESSION_COOKIE, await createSessionToken(teacherId, await teacherSessionVersion(teacherId)), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  writeSessionCookie(
+    store,
+    SESSION_COOKIE,
+    await createSessionToken(teacherId, await teacherSessionVersion(teacherId)),
+    SESSION_MAX_AGE_SECONDS,
+  );
 }
 
 export async function clearSessionCookie(): Promise<void> {
   const store = await cookies();
-  store.delete(SESSION_COOKIE);
+  clearCookieStore(store, SESSION_COOKIE);
 }
 
 /** المعلّم صاحب الجلسة الحالية، أو null إن لم يكن مسجّلاً */
 export async function currentTeacher(): Promise<Teacher | null> {
   const store = await cookies();
-  const token = store.get(SESSION_COOKIE)?.value;
+  const token = readSessionCookie(store, SESSION_COOKIE);
   if (!token) return null;
 
   const session = await readSessionToken(token);
@@ -173,28 +177,23 @@ export async function setStudentSessionCookie(
   studentId: string,
 ): Promise<void> {
   const store = await cookies();
-  store.set(
+  writeSessionCookie(
+    store,
     STUDENT_SESSION_COOKIE,
     await createStudentSessionToken(teacherId, studentId, await studentSessionVersion(teacherId, studentId)),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: SESSION_MAX_AGE_SECONDS,
-    },
+    SESSION_MAX_AGE_SECONDS,
   );
 }
 
 export async function clearStudentSessionCookie(): Promise<void> {
   const store = await cookies();
-  store.delete(STUDENT_SESSION_COOKIE);
+  clearCookieStore(store, STUDENT_SESSION_COOKIE);
 }
 
 /** الطالب صاحب الجلسة الحالية، أو null إن لم يكن مسجّلاً */
 export async function currentStudent(): Promise<StudentAccount | null> {
   const store = await cookies();
-  const token = store.get(STUDENT_SESSION_COOKIE)?.value;
+  const token = readSessionCookie(store, STUDENT_SESSION_COOKIE);
   if (!token) return null;
 
   const parsed = await readStudentSessionToken(token);
