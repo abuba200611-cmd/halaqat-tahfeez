@@ -132,7 +132,8 @@ function Sidebar({
   const pathname = usePathname();
   const initial = (teacher.teacherName || teacher.halaqahName || "م").trim().charAt(0);
 
-  const isActive = (item: NavItem) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href));
+  const activeItem = bestNavMatch(flattenNav(nav), pathname);
+  const isActive = (item: NavItem) => item === activeItem;
   const renderItem = (item: NavItem) => {
     const active = isActive(item);
     return (
@@ -242,6 +243,16 @@ function Sidebar({
   );
 }
 
+/** أطول مسار مطابق — حتى لا يضيء «الطلاب» مع «روابط الدعوة» (/students/invites) */
+function bestNavMatch(items: NavItem[], pathname: string): NavItem | undefined {
+  let best: NavItem | undefined;
+  for (const item of items) {
+    const hit = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
+    if (hit && (!best || item.href.length > best.href.length)) best = item;
+  }
+  return best;
+}
+
 /**
  * الشريط العلوي الأبيض: زر ☰ (جوال فقط) + عنوان الصفحة النشطة ووصفها +
  * بحث (بصري حالياً — بلا نتائج فعلية، لا نضيف منطق بحث جديد فوق طلاب
@@ -250,7 +261,7 @@ function Sidebar({
 function TopBar({ nav: groups, teacher, onOpenDrawer }: { nav: NavGroup<NavItem>[]; teacher: Teacher; onOpenDrawer: () => void }) {
   const pathname = usePathname();
   const nav = flattenNav(groups);
-  const active = nav.find((item) => (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href))) ?? nav[0];
+  const active = bestNavMatch(nav, pathname) ?? nav[0];
   const newWardsHref = nav.find((n) => n.href === "/inbox")?.badge;
   const initial = (teacher.teacherName || teacher.halaqahName || "م").trim().charAt(0);
 

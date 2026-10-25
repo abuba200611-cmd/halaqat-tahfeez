@@ -28,6 +28,7 @@ const NAV: NavGroup<NavItem>[] = [
     collapsible: true,
     items: [
       item("/students", "الطلاب", "إدارة قائمة طلاب حلقتك", <UsersIcon size={ic} />),
+      item("/students/invites", "روابط الدعوة", "روابط انضمام الطلاب والمعلّمين المساعدين", <MailIcon size={ic} />),
       item("/attendance", "الحضور", "تسجيل حضور الطلاب اليومي", <ClipboardIcon size={ic} />),
       item("/recitations", "التلاوات", "الاستماع لتلاوات الطلاب وتقييمها", <MicIcon size={ic} />, <PendingRecitationsBadge />),
       item("/pairing", "المطابقة", "توليد ثنائيات التسميع", <ShuffleIcon size={ic} />),
