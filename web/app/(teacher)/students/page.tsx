@@ -22,7 +22,7 @@ function avgMastery(student: Student): number {
 }
 
 export default function StudentsPage() {
-  const { students, loading, upsert, remove } = useStudents();
+  const { students, loading, upsert } = useStudents();
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
@@ -370,15 +370,6 @@ export default function StudentsPage() {
                       className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                     >
                       {links[student.id] ? "تحديث" : "حالة الربط"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        remove(student.id);
-                        setTimeout(loadDeleted, 500);
-                      }}
-                      className="cursor-pointer rounded px-2 py-1 text-xs text-destructive transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      حذف
                     </button>
                   </td>
                 </tr>
