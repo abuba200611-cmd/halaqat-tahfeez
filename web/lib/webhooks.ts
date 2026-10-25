@@ -20,7 +20,7 @@ import { safeEqual } from "@/lib/safe-equal";
 export const SIGNATURE_HEADER = "X-Salam-Signature";
 export const SIGNATURE_TOLERANCE_SECONDS = 300;
 
-export const WEBHOOK_EVENTS = ["ping", "student.created", "attendance.recorded", "progress.recorded"] as const;
+export const WEBHOOK_EVENTS = ["ping", "student.created", "attendance.recorded", "progress.recorded", "progress.approved"] as const;
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
 export function isWebhookEvent(value: unknown): value is WebhookEvent {
@@ -306,16 +306,27 @@ export function progressRecordedPayload(
   halaqahId: number,
   studentId: string,
   log: { date: string; hifzAyah?: AyahPos; reviewAyah?: AyahPos },
+  status: "new" | "approved" = "new",
 ) {
   return {
     id,
     halaqah_id: halaqahId,
     student_id: studentId,
     date: log.date,
-    status: "new",
+    status,
     hifz: ayahBlock(log.hifzAyah),
     review: ayahBlock(log.reviewAyah),
   };
+}
+
+/** progress.approved — نفس شكل progress.recorded بحالة approved */
+export function progressApprovedPayload(
+  id: number,
+  halaqahId: number,
+  studentId: string,
+  log: { date: string; hifzAyah?: AyahPos; reviewAyah?: AyahPos },
+) {
+  return progressRecordedPayload(id, halaqahId, studentId, log, "approved");
 }
 
 export function buildWebhookBody(event: string, payload: unknown, deliveryId: number | string, createdAtISO: string): string {

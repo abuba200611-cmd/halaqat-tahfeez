@@ -1621,7 +1621,11 @@ export async function setWardLogStatus(
   status: WardStatus,
   actingTeacherId?: number,
   reviewNote?: string,
-): Promise<{ studentId: string } | null> {
+): Promise<{
+  studentId: string;
+  /** عند الاعتماد فقط: لحمولة حدث الويب هوك progress.approved */
+  log?: { date: string; hifzAyah: AyahRange | null; reviewAyah: AyahRange | null };
+} | null> {
   if (status === "needs_revision") {
     const note = reviewNote?.trim();
     if (!note) throw new Error("ملاحظة المراجعة مطلوبة عند طلب الإعادة");
@@ -1640,9 +1644,20 @@ export async function setWardLogStatus(
       UPDATE ward_logs
       SET status = 'approved', reviewed_by = ${actingTeacherId ?? null}, reviewed_at = ${new Date().toISOString()}
       WHERE teacher_id = ${teacherId} AND id = ${id}
-      RETURNING student_id
+      RETURNING student_id, date,
+        hifz_from_surah, hifz_from_ayah, hifz_to_surah, hifz_to_ayah,
+        review_from_surah, review_from_ayah, review_to_surah, review_to_ayah
     `;
-    return rows.length > 0 ? { studentId: rows[0].student_id as string } : null;
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      studentId: r.student_id as string,
+      log: {
+        date: String(r.date).slice(0, 10),
+        hifzAyah: ayahRangeFromRow(r, "hifz_from_surah", "hifz_from_ayah", "hifz_to_surah", "hifz_to_ayah"),
+        reviewAyah: ayahRangeFromRow(r, "review_from_surah", "review_from_ayah", "review_to_surah", "review_to_ayah"),
+      },
+    };
   }
 
   const rows = await db().sql`

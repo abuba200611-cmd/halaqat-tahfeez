@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { emitHalaqahEvent } from "@/lib/webhooks-db";
-import { progressRecordedPayload } from "@/lib/webhooks";
+import { progressApprovedPayload, progressRecordedPayload } from "@/lib/webhooks";
 import { currentStudent, currentTeacher, studentUnauthorized, unauthorized } from "@/lib/auth";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import {
@@ -295,7 +295,7 @@ export async function PATCH(request: Request) {
     }
   }
 
-  let result: { studentId: string } | null;
+  let result: Awaited<ReturnType<typeof setWardLogStatus>>;
   try {
     result = await setWardLogStatus(teacher.halaqahId, id, status, teacher.id, note);
     if (!result) {
@@ -305,6 +305,14 @@ export async function PATCH(request: Request) {
     return Response.json(
       { error: error instanceof Error ? error.message : "تعذّر تحديث حالة الورد" },
       { status: 400 },
+    );
+  }
+
+  if (status === "approved" && result.log) {
+    await emitHalaqahEvent(
+      teacher.halaqahId,
+      "progress.approved",
+      progressApprovedPayload(id, teacher.halaqahId, result.studentId, result.log),
     );
   }
 
