@@ -1,3 +1,4 @@
+import { logSecurityEvent } from "@/lib/audit-log";
 import { logServerError } from "@/lib/dev-error-log";
 import { revokeApiKey } from "@/lib/api-keys-db";
 import { idParam, integrationsGate, integrationsWriteGuard } from "@/lib/integrations-api";
@@ -15,6 +16,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const guard = await integrationsWriteGuard(ctx.mosqueId);
     if (guard instanceof Response) return guard;
     if (!(await revokeApiKey(ctx.mosqueId, keyIdNum))) return paramNotFound();
+    await logSecurityEvent({ event: "api_key.revoke", actorKind: "mosque_admin", details: { mosqueId: ctx.mosqueId, keyId: keyIdNum } });
     return Response.json({ ok: true });
   } catch (error) {
     await logServerError("mosque-integrations:key-revoke", error);

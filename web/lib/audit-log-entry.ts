@@ -12,7 +12,9 @@ export type SecurityEvent =
   | "admin_login.failure"
   | "password.reset"
   | "password.change"
-  | "retention.cleanup";
+  | "retention.cleanup"
+  | "api_key.create"
+  | "api_key.revoke";
 
 export type SecurityActorKind =
   | "teacher"
