@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
   وتقييد كل شيء بمعرّف الجامع. القاعدة وcanAccessMosque ونظام المعلّم محاكاة.
 */
 
+vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: vi.fn(async () => true), rateLimited: () => Response.json({}, { status: 429 }) }));
 vi.mock("@/lib/mosque/access", () => ({ canAccessMosque: vi.fn() }));
 vi.mock("@/lib/mosque/db", () => ({
   getMosque: vi.fn(),

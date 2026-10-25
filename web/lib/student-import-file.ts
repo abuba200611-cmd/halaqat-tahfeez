@@ -1,6 +1,7 @@
 import "server-only";
 
 import { readSheet } from "read-excel-file/node";
+import { looksLikeBinary, looksLikeZip } from "./file-signature";
 import { MAX_IMPORT_BYTES, decodeCsvBytes, parseCsv, tableToRows, type RawRow, type RawTable } from "./student-import";
 
 /*
@@ -12,11 +13,6 @@ import { MAX_IMPORT_BYTES, decodeCsvBytes, parseCsv, tableToRows, type RawRow, t
 export type ParsedImport = { ok: true; rows: RawRow[] } | { ok: false; error: string; status: number };
 
 const fail = (error: string, status = 400): ParsedImport => ({ ok: false, error, status });
-
-/** بصمة zip (xlsx حاوية zip) */
-function looksLikeZip(bytes: Uint8Array): boolean {
-  return bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
-}
 
 export async function parseImportFile(file: { name: string; size: number; arrayBuffer: () => Promise<ArrayBuffer> }): Promise<ParsedImport> {
   const lower = file.name.toLowerCase();
@@ -35,6 +31,8 @@ export async function parseImportFile(file: { name: string; size: number; arrayB
       if (!looksLikeZip(bytes)) return fail("الملف ليس بصيغة .xlsx سليمة");
       table = (await readSheet(Buffer.from(bytes))) as RawTable;
     } else {
+      // ملف ثنائي (xlsx/pdf/exe…) بامتداد .csv يُرفض قبل التحليل
+      if (looksLikeBinary(bytes)) return fail("الملف ليس بصيغة .csv نصية سليمة");
       table = parseCsv(decodeCsvBytes(bytes));
     }
   } catch {

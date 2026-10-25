@@ -11,6 +11,8 @@ import { hashPassword, setSessionCookie } from "@/lib/auth";
 import { clearGoogleHandoffCookie, readGoogleHandoff } from "@/lib/google-handoff";
 import { recordLogin } from "@/lib/activity";
 import { sendMail } from "@/lib/mail";
+import { hasPrivacyConsent, privacyConsentRequired } from "@/lib/privacy-consent-shared";
+import { recordPrivacyConsent } from "@/lib/privacy-consent";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي */
 function clientIp(request: Request): string {
@@ -39,6 +41,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!hasPrivacyConsent(body)) return privacyConsentRequired();
   // نخزّن البريد بعمود "username" القديم نفسه لتفادي ترحيل مخطط قاعدة البيانات —
   // هو فعلياً بريد إلكتروني الآن من واجهة المستخدم وطبقة التحقق فقط.
   let username = String(body.username ?? "").trim().toLowerCase();
@@ -90,6 +93,7 @@ export async function POST(request: Request) {
   } else {
     id = await createHalaqahWithSupervisor(username, passwordHash, halaqahName, emailVerified, teacherName);
   }
+  await recordPrivacyConsent("teacher", id, clientIp(request));
   await setSessionCookie(id);
   await recordLogin({ role: "teacher", teacherId: id });
 

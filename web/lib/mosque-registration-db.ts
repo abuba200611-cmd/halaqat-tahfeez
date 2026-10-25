@@ -76,13 +76,23 @@ export async function createRegistrationRequest(
 ): Promise<CreateRequestResult> {
   if (await usernameTaken(input.username)) return { ok: false, code: "username_taken" };
   try {
-    const rows = await db().sql`
-      INSERT INTO mosque_registration_requests
-        (mosque_name, city, applicant_name, phone, email, username, password_hash, association_name)
-      VALUES (${input.mosqueName}, ${input.city}, ${input.applicantName}, ${input.phone}, ${input.email},
-              ${input.username}, ${passwordHash}, ${input.associationName})
-      RETURNING id
-    `;
+    // العمود requested_association_id (ترحيل D1) لا يُلمس إلا عند اختيار جمعية
+    const rows = input.associationId
+      ? await db().sql`
+          INSERT INTO mosque_registration_requests
+            (mosque_name, city, applicant_name, phone, email, username, password_hash, association_name,
+             requested_association_id)
+          VALUES (${input.mosqueName}, ${input.city}, ${input.applicantName}, ${input.phone}, ${input.email},
+                  ${input.username}, ${passwordHash}, ${input.associationName}, ${input.associationId})
+          RETURNING id
+        `
+      : await db().sql`
+          INSERT INTO mosque_registration_requests
+            (mosque_name, city, applicant_name, phone, email, username, password_hash, association_name)
+          VALUES (${input.mosqueName}, ${input.city}, ${input.applicantName}, ${input.phone}, ${input.email},
+                  ${input.username}, ${passwordHash}, ${input.associationName})
+          RETURNING id
+        `;
     return { ok: true, id: Number(rows[0].id) };
   } catch (error) {
     // سباق بين فحص الاسم والإدراج: الفهرس الفريد للمعلّق هو الحَكَم
@@ -147,7 +157,7 @@ export async function approveRegistrationRequest(
   try {
     await client.query("BEGIN");
     const found = await client.query(
-      `SELECT id, mosque_name, city, username, password_hash, association_name, status
+      `SELECT *
        FROM mosque_registration_requests WHERE id = $1 FOR UPDATE`,
       [id],
     );
@@ -196,13 +206,29 @@ export async function approveRegistrationRequest(
     const adminId = Number(admin.rows[0].id);
     await ensureMosqueAdminIdentity(client, { id: adminId, mosqueId, username });
 
+    // جمعية اختارها مقدّم الطلب نفسه: ربط معلّق تقرره الجمعية (لا ربط مباشر).
+    // اختيار المطوّر الصريح أو مطابقة الاسم أعلاه يربطان فوراً كما كان.
+    let pendingLinkAssociationId: number | null = null;
+    const requestedAssociationId = req.requested_association_id ? Number(req.requested_association_id) : null;
+    if (requestedAssociationId && associationId === null) {
+      const exists = await client.query(`SELECT id FROM associations WHERE id = $1`, [requestedAssociationId]);
+      if (exists.rows.length > 0) {
+        await client.query(
+          `INSERT INTO mosque_association_links (mosque_id, association_id, requested_by)
+           VALUES ($1, $2, 'mosque') ON CONFLICT (mosque_id, association_id) DO NOTHING`,
+          [mosqueId, requestedAssociationId],
+        );
+        pendingLinkAssociationId = requestedAssociationId;
+      }
+    }
+
     await client.query(
       `UPDATE mosque_registration_requests
        SET status = 'approved', mosque_id = $2, association_id = $3, decided_at = now()
        WHERE id = $1`,
       [id, mosqueId, associationId],
     );
-    await writeAudit(client, "mosque_request.approve", id, { mosqueId, adminId, associationId, username });
+    await writeAudit(client, "mosque_request.approve", id, { mosqueId, adminId, associationId, username, pendingLinkAssociationId });
     await client.query("COMMIT");
     return { ok: true, mosqueId, adminId, associationId };
   } catch (error) {

@@ -1,11 +1,18 @@
 import { consumePasswordReset, updateTeacherPassword } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { guardImpersonation } from "@/lib/dev-impersonation";
+import { clientIp } from "@/lib/client-ip";
+import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
+import { logSecurityEvent } from "@/lib/audit-log";
 
 export async function POST(request: Request) {
   // تغيير كلمة المرور هدّام — ممنوع أثناء «عرض كـ» حتى لو تسلّل الرمز
   const impBlocked = await guardImpersonation();
   if (impBlocked) return impBlocked;
+
+  // روابط الاسترجاع القديمة: الرمز عالي العشوائية، والحدّ يكبح الرشّ والإغراق
+  const ip = clientIp(request);
+  if (!(await checkRateLimit(`reset-link-ip:${ip}`, 20, 15 * 60))) return rateLimited();
 
   const body = (await request.json().catch(() => ({}))) as { token?: unknown; password?: unknown };
   const token = String(body.token ?? "").trim();
@@ -22,5 +29,6 @@ export async function POST(request: Request) {
   }
 
   await updateTeacherPassword(teacherId, hashPassword(password));
+  await logSecurityEvent({ event: "password.reset", actorKind: "teacher", actorId: teacherId, ip, details: { via: "link" } });
   return Response.json({ ok: true });
 }

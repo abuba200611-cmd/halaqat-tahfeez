@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { sessionSecret } from "./db";
 import { findAssociationAdminById, type AssociationAdmin } from "./association-db";
+import { clearSessionCookie, readSessionCookie, writeSessionCookie } from "./session-cookie";
 
 /*
   جلسة مدير الجمعية — كوكي مستقل تماماً (association_admin_session) بوسم
@@ -52,24 +53,23 @@ export async function readAssociationAdminSessionToken(
 
 export async function setAssociationAdminSessionCookie(adminId: number, sessionVersion: number): Promise<void> {
   const store = await cookies();
-  store.set(ASSOCIATION_ADMIN_SESSION_COOKIE, await createAssociationAdminSessionToken(adminId, sessionVersion), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  writeSessionCookie(
+    store,
+    ASSOCIATION_ADMIN_SESSION_COOKIE,
+    await createAssociationAdminSessionToken(adminId, sessionVersion),
+    SESSION_MAX_AGE_SECONDS,
+  );
 }
 
 export async function clearAssociationAdminSession(): Promise<void> {
   const store = await cookies();
-  store.delete(ASSOCIATION_ADMIN_SESSION_COOKIE);
+  clearSessionCookie(store, ASSOCIATION_ADMIN_SESSION_COOKIE);
 }
 
 /** مدير الجمعية صاحب الجلسة الحالية، أو null (التوكن فاسد، أو الحساب محذوف، أو الإصدار قديم) */
 export async function currentAssociationAdmin(): Promise<AssociationAdmin | null> {
   const store = await cookies();
-  const token = store.get(ASSOCIATION_ADMIN_SESSION_COOKIE)?.value;
+  const token = readSessionCookie(store, ASSOCIATION_ADMIN_SESSION_COOKIE);
   if (!token) return null;
 
   const session = await readAssociationAdminSessionToken(token);

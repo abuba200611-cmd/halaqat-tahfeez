@@ -58,7 +58,7 @@ describe("حماية مسارات اللوحة", () => {
       await overviewGET(),
       await usersGET(new Request("http://localhost/api/dev/users?q=ab")),
       await healthGET(),
-      await auditGET(),
+      await auditGET(new Request("http://localhost/api/dev/audit")),
     ]) {
       expect(res.status).toBe(404);
     }
@@ -76,7 +76,7 @@ describe("حماية مسارات اللوحة", () => {
       await overviewGET(),
       await usersGET(new Request("http://localhost/api/dev/users?q=ab")),
       await healthGET(),
-      await auditGET(),
+      await auditGET(new Request("http://localhost/api/dev/audit")),
     ]) {
       expect(res.status).toBe(401);
     }
@@ -92,7 +92,7 @@ describe("حماية مسارات اللوحة", () => {
 
     expect((await overviewGET()).status).toBe(403);
     expect((await healthGET()).status).toBe(403);
-    expect((await auditGET()).status).toBe(403);
+    expect((await auditGET(new Request("http://localhost/api/dev/audit"))).status).toBe(403);
   });
 
   it("أدمن طبيعي: النظرة العامة تعمل والبحث يمرّ للطبقة", async () => {

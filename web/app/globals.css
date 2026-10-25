@@ -108,8 +108,9 @@ body {
   --color-muted-foreground: #cdb49e;
   --color-border: #3a2e22;
   --color-border-strong: #5a4733;
-  --color-destructive: #d4574a;
-  --color-destructive-hover: #e06a5d;
+  /* أفتح من الفاتح (كان #d4574a يقع تحت ٤.٥:١ فوق destructive-soft الداكن) */
+  --color-destructive: #e06a5d;
+  --color-destructive-hover: #e57a6d;
   --color-destructive-soft: #3a1f19;
   --color-destructive-light: #e39b8d;
   --color-success: #7db88a;
@@ -155,8 +156,8 @@ body {
     --color-muted-foreground: #cdb49e;
     --color-border: #3a2e22;
     --color-border-strong: #5a4733;
-    --color-destructive: #d4574a;
-    --color-destructive-hover: #e06a5d;
+    --color-destructive: #e06a5d;
+    --color-destructive-hover: #e57a6d;
     --color-destructive-soft: #3a1f19;
     --color-destructive-light: #e39b8d;
     --color-success: #7db88a;

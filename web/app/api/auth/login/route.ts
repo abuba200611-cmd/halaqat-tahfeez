@@ -3,6 +3,7 @@ import { GOOGLE_ONLY_MESSAGE, hasUsablePassword, setSessionCookie, verifyPasswor
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 import { loginFailureKey } from "@/lib/login-key";
+import { logSecurityEvent } from "@/lib/audit-log";
 
 const NO_ACCOUNT_MESSAGE = "ما عندك حساب بهذا البريد";
 
@@ -35,17 +36,20 @@ export async function POST(request: Request) {
   if (!teacher) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    await logSecurityEvent({ event: "login.failure", actorKind: "teacher", ip, identifier: username, details: { reason: "no_account" } });
     return Response.json({ error: NO_ACCOUNT_MESSAGE, code: "no_account", email: username }, { status: 404 });
   }
   // حساب بلا كلمة مرور صالحة (أُنشئ أو رُبط بجوجل): نقولها صراحة بدل «غير صحيحة»
   if (!hasUsablePassword(teacher.passwordHash)) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    await logSecurityEvent({ event: "login.failure", actorKind: "teacher", actorId: teacher.id, ip, details: { reason: "google_only" } });
     return Response.json({ error: GOOGLE_ONLY_MESSAGE, code: "google_only" }, { status: 401 });
   }
   if (!verifyPassword(password, teacher.passwordHash)) {
     await recordRateLimitHit(emailLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    await logSecurityEvent({ event: "login.failure", actorKind: "teacher", actorId: teacher.id, ip, details: { reason: "bad_password" } });
     return Response.json({ error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" }, { status: 401 });
   }
 
@@ -57,6 +61,7 @@ export async function POST(request: Request) {
 
   await setSessionCookie(teacher.id);
   await recordLogin({ role: "teacher", teacherId: teacher.id });
+  await logSecurityEvent({ event: "login.success", actorKind: "teacher", actorId: teacher.id, ip });
   return Response.json({
     teacher: {
       id: teacher.id,

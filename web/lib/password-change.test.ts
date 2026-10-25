@@ -13,6 +13,9 @@ vi.mock("@/lib/rate-limit", () => rate);
 const imp = vi.hoisted(() => ({ guardImpersonation: vi.fn() }));
 vi.mock("@/lib/dev-impersonation", () => imp);
 
+const audit = vi.hoisted(() => ({ logSecurityEvent: vi.fn() }));
+vi.mock("@/lib/audit-log", () => audit);
+
 // hashPassword / verifyPassword الحقيقيان من lib/auth (scrypt) — لا محاكاة لهما
 const { hashPassword, verifyPassword } = await import("./auth");
 const { handlePasswordChange, passwordInfoResponse } = await import("./password-change");

@@ -38,6 +38,7 @@ export function isRegistrationPath(pathname: string): boolean {
   return (
     pathname === "/signup" ||
     pathname === "/register-mosque" ||
+    pathname === "/register-association" ||
     pathname === "/student-join" ||
     pathname === "/student-link" ||
     pathname === "/parent/join" ||

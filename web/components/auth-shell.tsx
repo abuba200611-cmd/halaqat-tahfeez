@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AuthBackLink } from "./auth-back-link";
 
 /**
@@ -14,6 +15,11 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           <AuthBackLink />
         </div>
         {children}
+        <p className="mt-5 text-center text-xs text-white/60">
+          <Link href="/privacy" className="font-semibold text-white/80 hover:text-white hover:underline">
+            سياسة الخصوصية
+          </Link>
+        </p>
       </div>
     </div>
   );

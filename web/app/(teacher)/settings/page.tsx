@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileNameForm } from "@/components/profile-name-form";
 import { PasswordChangeForm } from "@/components/password-change-form";
 import { JoinMosqueBox } from "@/components/join-mosque-box";
+import { DataDeletionCard } from "@/components/data-deletion-card";
 
 type Me = { teacherName?: string; halaqahName?: string; role?: "supervisor" | "assistant"; email?: string | null };
 
@@ -83,6 +84,8 @@ export default function TeacherSettingsPage() {
         {me && <ProfileNameForm key={me.teacherName ?? ""} endpoint="/api/teacher/profile" initialName={me.teacherName ?? ""} />}
         <PasswordChangeForm endpoint="/api/auth/change-password" />
       </section>
+
+      <DataDeletionCard kind="teacher" />
 
       <section className="space-y-3" aria-labelledby="set-theme">
         <h2 id="set-theme" className="text-sm font-semibold text-muted-foreground">المظهر</h2>

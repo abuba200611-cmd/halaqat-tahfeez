@@ -92,7 +92,7 @@ export function RoleSwitcher({ tone = "dark" }: { tone?: "dark" | "light" }) {
       {open && (
         <div
           className={`absolute bottom-full right-0 z-50 mb-2 w-56 rounded-xl p-1.5 shadow-xl ${
-            isDark ? "bg-foreground ring-1 ring-white/15" : "border border-stone-200 bg-white"
+            isDark ? "bg-black ring-1 ring-white/15" : "border border-stone-200 bg-white"
           }`}
         >
           {items.map((item) => (

@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useParentSession, type ParentSession } from "./parent-shell";
+import { PrivacyConsentField } from "./privacy-consent-field";
+import { PRIVACY_CONSENT_REQUIRED_MESSAGE } from "@/lib/privacy-consent-shared";
 
 /**
  * نموذج دخول/إنشاء حساب ولي الأمر (STEP 61) — مشترك بين /parent/login
@@ -25,9 +28,14 @@ export function ParentAuthForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noAccount, setNoAccount] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === "register" && !privacyConsent) {
+      setError(PRIVACY_CONSENT_REQUIRED_MESSAGE);
+      return;
+    }
     setBusy(true);
     setError(null);
     setNoAccount(false);
@@ -35,7 +43,7 @@ export function ParentAuthForm({
       const res = await fetch(mode === "login" ? "/api/parent-auth/login" : "/api/parent-auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mode === "login" ? { email, password } : { name, email, password }),
+        body: JSON.stringify(mode === "login" ? { email, password } : { name, email, password, privacyConsent }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; parent?: ParentSession; code?: string };
       if (!res.ok || !data.parent) {
@@ -107,6 +115,8 @@ export function ParentAuthForm({
         />
       </label>
 
+      {mode === "register" && <PrivacyConsentField tone="onLight" checked={privacyConsent} onChange={setPrivacyConsent} />}
+
       {error && <p className="text-sm text-destructive">{error}</p>}
       {noAccount && (
         <button
@@ -129,6 +139,11 @@ export function ParentAuthForm({
       >
         {busy ? "لحظة…" : mode === "login" ? "دخول" : "إنشاء الحساب"}
       </button>
+      <p className="text-center text-xs text-stone-600">
+        <Link href="/privacy" className="underline">
+          سياسة الخصوصية
+        </Link>
+      </p>
     </form>
   );
 }

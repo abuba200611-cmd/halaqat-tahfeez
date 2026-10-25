@@ -4,6 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { recordSeen } from "./activity";
 import { findMosqueAdminById, mosqueAdminSessionVersion, sessionSecret, type MosqueAdmin } from "./db";
+import { clearSessionCookie, readSessionCookie, writeSessionCookie } from "./session-cookie";
 
 /*
   جلسة مدير الجامع — STEP 5 من خطة MVP Migration Foundation. نفس آلية
@@ -69,24 +70,23 @@ export async function readMosqueAdminSessionToken(token: string): Promise<number
 export async function setMosqueAdminSessionCookie(adminId: number, sessionVersion?: number): Promise<void> {
   const version = sessionVersion ?? (await mosqueAdminSessionVersion(adminId));
   const store = await cookies();
-  store.set(MOSQUE_ADMIN_SESSION_COOKIE, await createMosqueAdminSessionToken(adminId, version), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  writeSessionCookie(
+    store,
+    MOSQUE_ADMIN_SESSION_COOKIE,
+    await createMosqueAdminSessionToken(adminId, version),
+    SESSION_MAX_AGE_SECONDS,
+  );
 }
 
 export async function clearMosqueAdminSession(): Promise<void> {
   const store = await cookies();
-  store.delete(MOSQUE_ADMIN_SESSION_COOKIE);
+  clearSessionCookie(store, MOSQUE_ADMIN_SESSION_COOKIE);
 }
 
 /** مدير الجامع صاحب الجلسة الحالية، أو null إن لم يكن مسجّلاً */
 export async function currentMosqueAdmin(): Promise<MosqueAdmin | null> {
   const store = await cookies();
-  const token = store.get(MOSQUE_ADMIN_SESSION_COOKIE)?.value;
+  const token = readSessionCookie(store, MOSQUE_ADMIN_SESSION_COOKIE);
   if (!token) return null;
 
   const session = await readMosqueAdminSession(token);

@@ -24,6 +24,8 @@ const EMOJI: Record<string, string> = {
   mosques: "🕌",
   "mosque-requests": "📝",
   associations: "🏛️",
+  "association-requests": "📋",
+  "data-requests": "🗑️",
   users: "👥",
   reports: "📮",
   health: "🩺",
@@ -35,6 +37,13 @@ const EMOJI: Record<string, string> = {
   settings: "⚙️",
 };
 
+/** الصفحات ذات شارة العدّاد → مسار API يرجع ?count=1 */
+const BADGE_ENDPOINTS: Record<string, string> = {
+  "/dev/mosque-requests": "/api/dev/mosque-requests",
+  "/dev/association-requests": "/api/dev/association-requests",
+  "/dev/data-requests": "/api/dev/data-requests",
+};
+
 function isActive(pathname: string, href: string): boolean {
   if (href === "/dev") return pathname === "/dev";
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -43,19 +52,23 @@ function isActive(pathname: string, href: string): boolean {
 export function DevShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [busy, setBusy] = useState(false);
-  const [pendingRequests, setPendingRequests] = useState(0);
+  /** عدّاد المعلّق لكل صفحة تحمل شارة: المفتاح مسار الصفحة */
+  const [badges, setBadges] = useState<Record<string, number>>({});
+  const pendingRequests = badges["/dev/mosque-requests"] ?? 0;
   const [sheetOpen, setSheetOpen] = useState(false);
   const { bar, center, more } = splitDevMobileNav([...DEV_NAV_ITEMS, DEV_SETTINGS_ITEM]);
 
-  // شارة طلبات تسجيل الجوامع المعلّقة — فشل الجلب يخفيها فقط
+  // شارات الطلبات المعلّقة (جوامع، جمعيات، حذف بيانات) — فشل جلب أحدها يخفي شارته فقط
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/dev/mosque-requests?count=1")
-      .then((res) => (res.ok ? res.json() : { pending: 0 }))
-      .then((data: { pending?: number }) => {
-        if (!cancelled) setPendingRequests(Number(data.pending ?? 0));
-      })
-      .catch(() => {});
+    for (const href of Object.keys(BADGE_ENDPOINTS)) {
+      fetch(`${BADGE_ENDPOINTS[href]}?count=1`)
+        .then((res) => (res.ok ? res.json() : { pending: 0 }))
+        .then((data: { pending?: number }) => {
+          if (!cancelled) setBadges((prev) => ({ ...prev, [href]: Number(data.pending ?? 0) }));
+        })
+        .catch(() => {});
+    }
     return () => {
       cancelled = true;
     };
@@ -94,12 +107,12 @@ export function DevShell({ children }: { children: ReactNode }) {
         >
           <span aria-hidden>{EMOJI[item.id] ?? "•"}</span>
           <span className={vertical ? "" : "md:hidden"}>{item.label}</span>
-          {item.href === "/dev/mosque-requests" && pendingRequests > 0 && (
+          {(badges[item.href] ?? 0) > 0 && (
             <span
               className="tabular rounded-full bg-secondary px-1.5 text-[11px] font-bold leading-normal text-on-secondary"
-              aria-label={`${pendingRequests} طلب معلّق`}
+              aria-label={`${badges[item.href]} طلب معلّق`}
             >
-              {pendingRequests}
+              {badges[item.href]}
             </span>
           )}
         </Link>
@@ -155,6 +168,7 @@ export function DevShell({ children }: { children: ReactNode }) {
         center={center}
         more={more}
         pendingRequests={pendingRequests}
+        badges={badges}
         sheetOpen={sheetOpen}
         onToggleSheet={() => setSheetOpen((v) => !v)}
         onCloseSheet={() => setSheetOpen(false)}
@@ -198,6 +212,7 @@ function MobileBottomBar({
   center,
   more,
   pendingRequests,
+  badges,
   sheetOpen,
   onToggleSheet,
   onCloseSheet,
@@ -207,6 +222,7 @@ function MobileBottomBar({
   center: DevNavItem | null;
   more: DevNavItem[];
   pendingRequests: number;
+  badges: Record<string, number>;
   sheetOpen: boolean;
   onToggleSheet: () => void;
   onCloseSheet: () => void;
@@ -249,6 +265,14 @@ function MobileBottomBar({
                 >
                   <span aria-hidden>{EMOJI[item.id] ?? "•"}</span>
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  {(badges[item.href] ?? 0) > 0 && (
+                    <span
+                      className="tabular rounded-full bg-secondary px-1.5 text-[11px] font-bold leading-normal text-on-secondary"
+                      aria-label={`${badges[item.href]} طلب معلّق`}
+                    >
+                      {badges[item.href]}
+                    </span>
+                  )}
                 </Link>
               ))}
             </nav>
@@ -314,6 +338,12 @@ function MobileBottomBar({
             >
               <MoreIcon />
               <span className="text-[10px] leading-none">المزيد</span>
+              {more.some((item) => (badges[item.href] ?? 0) > 0) && (
+                <span
+                  className="absolute right-3 top-1.5 h-2 w-2 rounded-full bg-secondary"
+                  aria-label="طلبات معلّقة داخل المزيد"
+                />
+              )}
             </button>
           </div>
         </nav>

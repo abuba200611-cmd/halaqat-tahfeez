@@ -6,6 +6,11 @@ import { findMosqueAdminById, findTeacherById, sessionSecret } from "./db";
 import { createSessionToken, SESSION_COOKIE } from "./auth";
 import { createMosqueAdminSessionToken, MOSQUE_ADMIN_SESSION_COOKIE } from "./mosque-auth";
 import { getMosque } from "./mosque/db";
+import {
+  clearSessionCookie,
+  readSessionCookie,
+  writeSessionCookie,
+} from "./session-cookie";
 
 /*
   M3 — «عرض كـ»: يفتح المطوّر (جلسة الأدمن) جلسة قصيرة بدور معلّم أو مدير

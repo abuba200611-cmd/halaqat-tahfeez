@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { recordSeen } from "./activity";
 import { sessionSecret } from "./db";
 import { findParentById, parentSessionVersion, type Parent } from "./parent-db";
+import { clearSessionCookie, readSessionCookie, writeSessionCookie } from "./session-cookie";
 
 /*
   STEP 61 — جلسة ولي الأمر. كوكي منفصل بصيغة حمولة مميّزة
@@ -52,24 +53,23 @@ export async function readParentSessionToken(
 
 export async function setParentSessionCookie(parentId: number): Promise<void> {
   const store = await cookies();
-  store.set(PARENT_SESSION_COOKIE, await createParentSessionToken(parentId, await parentSessionVersion(parentId)), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-  });
+  writeSessionCookie(
+    store,
+    PARENT_SESSION_COOKIE,
+    await createParentSessionToken(parentId, await parentSessionVersion(parentId)),
+    SESSION_MAX_AGE_SECONDS,
+  );
 }
 
 export async function clearParentSessionCookie(): Promise<void> {
   const store = await cookies();
-  store.delete(PARENT_SESSION_COOKIE);
+  clearSessionCookie(store, PARENT_SESSION_COOKIE);
 }
 
 /** ولي الأمر صاحب الجلسة الحالية، أو null إن لم يكن مسجّلاً */
 export async function currentParent(): Promise<Parent | null> {
   const store = await cookies();
-  const token = store.get(PARENT_SESSION_COOKIE)?.value;
+  const token = readSessionCookie(store, PARENT_SESSION_COOKIE);
   if (!token) return null;
 
   const session = await readParentSessionToken(token);

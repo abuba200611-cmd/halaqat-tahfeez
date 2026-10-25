@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDevConsoleHost, requestHost } from "@/lib/hosts";
 import { GOOGLE_HANDOFF_COOKIE, INTRO_COOKIE, SESSION_COOKIES, WELCOME_PATH, isRegistrationPath } from "@/lib/landing";
+import { csrfBlocked } from "@/lib/csrf";
 
 /*
   dev split — فصل لوحة المطوّر عن المنصة العامة بالمستضيج (Next 16:
@@ -49,6 +50,13 @@ export function proxy(request: NextRequest) {
   const devHost = isDevConsoleHost(requestHost(request.headers));
   const { pathname, search } = request.nextUrl;
 
+  // ————— فحص CSRF المركزي —————
+  // قبل أي منطق آخر: طلب مغيِّر إلى /api/* من أصل غير مستضيج الطلب → 403.
+  // المسارات ذات التوقيع/السرّ الخاص (webhooks/link/v1) مستثناة داخل lib/csrf.ts.
+  if (csrfBlocked(request.method, pathname, request.headers)) {
+    return NextResponse.json({ error: "طلب مرفوض (فحص الأصل)" }, { status: 403 });
+  }
+
   if (!devHost && isConsolePath(pathname)) {
     return NextResponse.rewrite(new URL(NOT_FOUND_PATH, request.url));
   }
@@ -94,10 +102,10 @@ export const config = {
     "/",
     "/dev/:path*",
     "/admin/:path*",
-    "/api/dev/:path*",
-    "/api/admin/:path*",
+    "/api/:path*",
     "/signup",
     "/register-mosque",
+    "/register-association",
     "/student-join",
     "/student-link",
     "/parent/join",

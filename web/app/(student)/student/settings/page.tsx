@@ -5,6 +5,7 @@ import { useStudentLogout, useStudentSession } from "@/components/student-gate";
 import { StudentPushToggle } from "@/components/student-push-toggle";
 import { LogoutIcon } from "@/components/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { DataDeletionCard } from "@/components/data-deletion-card";
 
 /** "الإعدادات" — التذكير اليومي وتسجيل الخروج (STEP 58)، كان زر الإشعارات مبعثراً برأس الرئيسية */
 export default function StudentSettingsPage() {
@@ -21,6 +22,8 @@ export default function StudentSettingsPage() {
       </div>
 
       <ThemeToggle />
+
+      <DataDeletionCard kind="student" />
 
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-semibold text-stone-700">الحساب</h2>

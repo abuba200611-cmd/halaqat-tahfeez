@@ -26,8 +26,8 @@ export function ProductPreview() {
           <span className="rounded-full bg-black px-3 py-1 text-[11px] font-semibold text-[#CDB49E]">اليوم</span>
         </div>
 
-        {/* التقدّم + الحضور */}
-        <div className="mt-4 grid grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[#E2D6C3] bg-white p-4">
+        {/* التقدّم + الحضور — force-light تُبقيها بيضاء في الوضع الداكن */}
+        <div className="force-light mt-4 grid grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-[#E2D6C3] bg-white p-4">
           <div>
             <p className="text-xs font-semibold text-[#5F5344]">تقدّم حفظ الحلقة</p>
             <p className="mt-1 text-lg font-bold leading-tight">
