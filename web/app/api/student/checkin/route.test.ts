@@ -26,6 +26,7 @@ const rateMocks = vi.hoisted(() => ({
 vi.mock("@/lib/rate-limit", () => rateMocks);
 vi.mock("@/lib/dev-error-log", () => ({ logServerError: vi.fn(async () => undefined) }));
 
+vi.mock("@/lib/webhooks-db", () => ({ emitHalaqahEvent: vi.fn(async () => undefined), emitMosqueEvent: vi.fn(async () => undefined) }));
 const { POST } = await import("./route");
 const post = (body: unknown) =>
   POST(new Request("http://localhost/api/student/checkin", { method: "POST", body: JSON.stringify(body) }));

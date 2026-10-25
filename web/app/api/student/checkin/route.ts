@@ -1,4 +1,6 @@
 import { currentStudent, studentUnauthorized } from "@/lib/auth";
+import { emitHalaqahEvent } from "@/lib/webhooks-db";
+import { attendanceRecordedPayload } from "@/lib/webhooks";
 import { recordQrCheckin } from "@/lib/attendance-db";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
@@ -40,6 +42,13 @@ export async function POST(request: Request) {
 
     const result = await recordQrCheckin(student.teacherId, student.id, today);
     if (!result.found) return Response.json({ error: "تعذّر تسجيل حضورك" }, { status: 404 });
+    if (!result.alreadyRecorded) {
+      await emitHalaqahEvent(
+        student.teacherId,
+        "attendance.recorded",
+        attendanceRecordedPayload(student.teacherId, today, [{ studentId: student.id, status: result.status }]),
+      );
+    }
 
     return Response.json({
       ok: true,

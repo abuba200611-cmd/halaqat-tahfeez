@@ -275,6 +275,49 @@ export const httpsSender: Sender = ({ url, address, body, headers, timeoutMs }) 
     req.end(body);
   });
 
+// ————— حمولات الأحداث (دنيا: معرّفات/تاريخ/حالة/مواضع آيات — بلا ملاحظات ولا هواتف ولا بريد) —————
+
+type AyahPos = { fromSurah: number; fromAyah: number; toSurah: number; toAyah: number } | null | undefined;
+
+const ayahBlock = (a: AyahPos) => ({
+  from_surah: a?.fromSurah ?? null,
+  from_ayah: a?.fromAyah ?? null,
+  to_surah: a?.toSurah ?? null,
+  to_ayah: a?.toAyah ?? null,
+});
+
+/** student.created — نفس حقول GET /api/v1/students */
+export function studentCreatedPayload(halaqahId: number, studentId: string, name: string) {
+  return { id: studentId, halaqah_id: halaqahId, name, active: true };
+}
+
+/** attendance.recorded — دفعة واحدة لكل حفظ (طالب واحد أو «الكل حاضر»)؛ عناصر records بنفس حقول GET /api/v1/attendance */
+export function attendanceRecordedPayload(
+  halaqahId: number,
+  date: string,
+  records: { studentId: string; status: string }[],
+) {
+  return { halaqah_id: halaqahId, date, records: records.map((r) => ({ student_id: r.studentId, status: r.status })) };
+}
+
+/** progress.recorded — نفس شكل عنصر GET /api/v1/progress (بلا ملاحظة) */
+export function progressRecordedPayload(
+  id: number,
+  halaqahId: number,
+  studentId: string,
+  log: { date: string; hifzAyah?: AyahPos; reviewAyah?: AyahPos },
+) {
+  return {
+    id,
+    halaqah_id: halaqahId,
+    student_id: studentId,
+    date: log.date,
+    status: "new",
+    hifz: ayahBlock(log.hifzAyah),
+    review: ayahBlock(log.reviewAyah),
+  };
+}
+
 export function buildWebhookBody(event: string, payload: unknown, deliveryId: number | string, createdAtISO: string): string {
   return JSON.stringify({ id: String(deliveryId), event, created_at: createdAtISO, data: payload });
 }

@@ -1,4 +1,6 @@
 import { joinHalaqahByInviteCode } from "@/lib/db";
+import { emitHalaqahEvent } from "@/lib/webhooks-db";
+import { studentCreatedPayload } from "@/lib/webhooks";
 import { requireLinkSecret } from "@/lib/link-auth";
 
 /**
@@ -25,5 +27,10 @@ export async function POST(request: Request) {
   const result = await joinHalaqahByInviteCode(inviteCode, studentName, linkUsername);
   if (!result) return Response.json({ error: "رمز الدعوة غير صحيح" }, { status: 404 });
 
+  await emitHalaqahEvent(
+    result.teacherId,
+    "student.created",
+    studentCreatedPayload(result.teacherId, result.studentId, studentName),
+  );
   return Response.json({ ok: true });
 }

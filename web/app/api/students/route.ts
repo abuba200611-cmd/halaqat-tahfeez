@@ -1,4 +1,6 @@
 import { currentTeacher, unauthorized } from "@/lib/auth";
+import { emitHalaqahEvent } from "@/lib/webhooks-db";
+import { studentCreatedPayload } from "@/lib/webhooks";
 import { deleteStudent, listStudents, replaceStudents, upsertStudent } from "@/lib/db";
 import { guardImpersonation } from "@/lib/dev-impersonation";
 import { logServerError } from "@/lib/dev-error-log";
@@ -78,7 +80,14 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { student?: unknown };
     const student = parseStudent(body.student);
-    await upsertStudent(teacher.halaqahId, student);
+    const created = await upsertStudent(teacher.halaqahId, student);
+    if (created) {
+      await emitHalaqahEvent(
+        teacher.halaqahId,
+        "student.created",
+        studentCreatedPayload(teacher.halaqahId, student.id, student.name),
+      );
+    }
     // إيقاف طالب يُفرِّغ مقعده (التوزيع الآلي) — فشل الترقية لا يُفشل الحفظ
     if (!student.active) await promoteAfterSeatFreed(teacher.halaqahId);
     return Response.json({ ok: true });

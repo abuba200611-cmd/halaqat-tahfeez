@@ -1,6 +1,9 @@
 import "server-only";
 
+import { after } from "next/server";
+
 import { db } from "./db";
+import { logServerError } from "./dev-error-log";
 import { isFeatureEnabled } from "./mosque/db";
 import {
   MAX_ATTEMPTS,
@@ -116,10 +119,73 @@ export async function enqueueWebhookEvent(
   return rows.map((r) => Number(r.id));
 }
 
+/**
+ * يصفّ حدثاً حقيقياً من مسار عمل ويجدول تسليماً فورياً (best-effort) عبر after().
+ * لا يرمي أبداً. الجامع مغلق الميزة/بلا نقطة مشتركة = استعلام واحد رخيص ثم عودة.
+ * الـcron يبقى مسار إعادة المحاولة.
+ */
+async function emitEvent(
+  scope: { mosqueId: number } | { halaqahId: number },
+  event: WebhookEvent,
+  payload: unknown,
+): Promise<void> {
+  try {
+    const rows =
+      "mosqueId" in scope
+        ? await db().sql`
+            SELECT ${scope.mosqueId}::int AS mosque_id,
+                   EXISTS (
+                     SELECT 1 FROM webhook_endpoints e
+                     WHERE e.mosque_id = ${scope.mosqueId} AND e.active = TRUE
+                       AND (cardinality(e.events) = 0 OR ${event} = ANY(e.events))
+                   ) AS subscribed
+          `
+        : await db().sql`
+            SELECT h.mosque_id,
+                   EXISTS (
+                     SELECT 1 FROM webhook_endpoints e
+                     WHERE e.mosque_id = h.mosque_id AND e.active = TRUE
+                       AND (cardinality(e.events) = 0 OR ${event} = ANY(e.events))
+                   ) AS subscribed
+            FROM halaqahs h WHERE h.id = ${scope.halaqahId}
+          `;
+    const row = rows[0];
+    if (!row || row.mosque_id == null || row.subscribed !== true) return;
+
+    const mosqueId = Number(row.mosque_id);
+    const ids = await enqueueWebhookEvent(mosqueId, event, payload);
+    if (ids.length === 0) return;
+
+    try {
+      after(async () => {
+        try {
+          await deliverDueWebhooks({ ids, mosqueId });
+        } catch (error) {
+          await logServerError("webhooks:deliver-now", error);
+        }
+      });
+    } catch {
+      // خارج سياق طلب: يبقى الصف في الصندوق ويلتقطه الـcron
+    }
+  } catch (error) {
+    await logServerError(`webhooks:emit:${event}`, error).catch(() => {});
+  }
+}
+
+/** يصدر حدثاً لجامع معروف */
+export function emitMosqueEvent(mosqueId: number, event: WebhookEvent, payload: unknown): Promise<void> {
+  return emitEvent({ mosqueId }, event, payload);
+}
+
+/** يصدر حدثاً عبر حلقة (يُحلّ جامعها داخل الاستعلام نفسه؛ حلقة بلا جامع = لا شيء) */
+export function emitHalaqahEvent(halaqahId: number, event: WebhookEvent, payload: unknown): Promise<void> {
+  return emitEvent({ halaqahId }, event, payload);
+}
+
 export type DeliverySummary = { claimed: number; delivered: number; retried: number; failed: number };
 
 /** يسلّم المستحق من الصندوق. mosqueId اختياري لحصر التشغيل (زرّ الاختبار). */
-export async function deliverDueWebhooks(opts: { limit?: number; mosqueId?: number } = {}): Promise<DeliverySummary> {
+export async function deliverDueWebhooks(opts: { limit?: number; mosqueId?: number; ids?: number[] } = {}): Promise<DeliverySummary> {
   const limit = Math.min(Math.max(opts.limit ?? 25, 1), 100);
   const summary: DeliverySummary = { claimed: 0, delivered: 0, retried: 0, failed: 0 };
 
@@ -130,6 +196,7 @@ export async function deliverDueWebhooks(opts: { limit?: number; mosqueId?: numb
       JOIN webhook_endpoints e ON e.id = o.endpoint_id
       WHERE o.status = 'pending' AND o.next_attempt_at <= now()
         AND (${opts.mosqueId ?? null}::int IS NULL OR e.mosque_id = ${opts.mosqueId ?? null}::int)
+        AND (${opts.ids ?? null}::int[] IS NULL OR o.id = ANY(${opts.ids ?? null}::int[]))
       ORDER BY o.next_attempt_at
       LIMIT ${limit}
       FOR UPDATE OF o SKIP LOCKED

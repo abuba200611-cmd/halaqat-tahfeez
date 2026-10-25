@@ -21,6 +21,8 @@ import {
   type RowResult,
 } from "@/lib/student-import";
 import { isFeatureEnabled } from "./db";
+import { emitMosqueEvent } from "@/lib/webhooks-db";
+import { studentCreatedPayload } from "@/lib/webhooks";
 
 /*
   طبقة بيانات التوزيع الآلي وقائمة الانتظار والاستيراد. كل كتابة تجري داخل
@@ -36,20 +38,30 @@ type Tx = {
   query: (text: string, params?: unknown[]) => Promise<{ rows: Record<string, unknown>[]; rowCount?: number | null }>;
 };
 
+/** طلاب أُنشئوا داخل ترانزاكشن لم تُلتزَم بعد — تُصدَر أحداثهم بعد COMMIT فقط */
+const createdInTx = new WeakMap<object, { halaqahId: number; id: string; name: string }[]>();
+
 export async function withMosqueTx<T>(mosqueId: number, fn: (tx: Tx) => Promise<T>): Promise<T> {
   const client = await db().pool.connect();
+  let result: T;
   try {
     await client.query("BEGIN");
     await client.query("SELECT id FROM mosques WHERE id = $1 FOR UPDATE", [mosqueId]);
-    const result = await fn(client as unknown as Tx);
+    result = await fn(client as unknown as Tx);
     await client.query("COMMIT");
-    return result;
   } catch (error) {
+    createdInTx.delete(client);
     await client.query("ROLLBACK").catch(() => {});
     throw error;
   } finally {
     client.release();
   }
+  const created = createdInTx.get(client) ?? [];
+  createdInTx.delete(client);
+  for (const s of created) {
+    await emitMosqueEvent(mosqueId, "student.created", studentCreatedPayload(s.halaqahId, s.id, s.name));
+  }
+  return result;
 }
 
 // ————— قراءات مشتركة —————
@@ -109,6 +121,9 @@ export async function insertStudentTx(tx: Tx, halaqahId: number, name: string): 
     [id, halaqahId, name],
   );
   await ensureStudentIdentity(tx, { halaqahId, id, name, username: null, active: true });
+  const pending = createdInTx.get(tx) ?? [];
+  pending.push({ halaqahId, id, name });
+  createdInTx.set(tx, pending);
   return id;
 }
 

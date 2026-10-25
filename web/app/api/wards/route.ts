@@ -1,4 +1,6 @@
 import { after } from "next/server";
+import { emitHalaqahEvent } from "@/lib/webhooks-db";
+import { progressRecordedPayload } from "@/lib/webhooks";
 import { currentStudent, currentTeacher, studentUnauthorized, unauthorized } from "@/lib/auth";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import {
@@ -118,7 +120,12 @@ export async function POST(request: Request) {
     }
 
     const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, reviewTracks, note, buddyStudentId);
-    const { previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
+    const { id: wardLogId, previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
+    await emitHalaqahEvent(
+      student.teacherId,
+      "progress.recorded",
+      progressRecordedPayload(wardLogId, student.teacherId, student.id, log),
+    );
 
     // إشعار المعلّم — لا يُفشل الحفظ إن تعذّر. عنوان مختلف لو كانت هذي
     // إعادة إرسال بعد "طلب إعادة" سابق (previousAttemptId من الخادم نفسه)

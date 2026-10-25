@@ -1,4 +1,6 @@
 import * as Sentry from "@sentry/nextjs";
+import { emitHalaqahEvent } from "@/lib/webhooks-db";
+import { studentCreatedPayload } from "@/lib/webhooks";
 import { checkInviteRateLimit, createGoogleStudentAccount, recordFailedInviteAttempt } from "@/lib/db";
 import { setStudentSessionCookie } from "@/lib/auth";
 import { recordLogin } from "@/lib/activity";
@@ -95,6 +97,11 @@ export async function POST(request: Request) {
       );
     }
 
+    await emitHalaqahEvent(
+      result.halaqahId,
+      "student.created",
+      studentCreatedPayload(result.halaqahId, result.studentId, studentName),
+    );
     await recordPrivacyConsent("student", `${result.halaqahId}:${result.studentId}`, clientIp(request));
     await setStudentSessionCookie(result.halaqahId, result.studentId);
     await recordLogin({ role: "student", halaqahId: result.halaqahId, studentId: result.studentId });

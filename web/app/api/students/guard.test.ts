@@ -31,6 +31,7 @@ vi.mock("@/lib/db", () => ({
   listStudents: mocks.listStudents,
   replaceStudents: mocks.replaceStudents,
 }));
+vi.mock("@/lib/webhooks-db", () => ({ emitHalaqahEvent: vi.fn(async () => undefined) }));
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: vi.fn(async () => true), rateLimited: vi.fn() }));
 vi.mock("@/lib/audit-log", () => ({ logSecurityEvent: vi.fn() }));
 

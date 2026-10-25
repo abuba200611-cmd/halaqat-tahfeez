@@ -1,4 +1,6 @@
 import { unauthorized } from "@/lib/mosque/admin-auth";
+import { emitHalaqahEvent } from "@/lib/webhooks-db";
+import { studentCreatedPayload } from "@/lib/webhooks";
 import { canAccessMosque } from "@/lib/mosque/access";
 import {
   claimRegistration,
@@ -51,5 +53,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "تعذّر إضافة الطالب للحلقة — حاول مرة ثانية" }, { status: 500 });
   }
   await setRegistrationStudent(registration.id, studentId);
+  await emitHalaqahEvent(halaqah.id, "student.created", studentCreatedPayload(halaqah.id, studentId, registration.name));
   return Response.json({ ok: true });
 }

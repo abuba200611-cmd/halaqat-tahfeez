@@ -87,7 +87,7 @@ export async function setAttendance(
 }
 
 /** "تحديد الكل حاضر": يخزّن حاضر لمن ليس له قرار صريح فقط — لا يمسّ غائباً/مستأذناً حدّده المعلّم */
-export async function markAllPresent(halaqahId: number, date: string, recordedBy: number): Promise<number> {
+export async function markAllPresent(halaqahId: number, date: string, recordedBy: number): Promise<string[]> {
   const rows = await db().sql`
     INSERT INTO attendance (halaqah_id, student_id, date, status, recorded_by, updated_at)
     SELECT s.teacher_id, s.id, ${date}::text, 'present', ${recordedBy}::int, now()
@@ -96,7 +96,7 @@ export async function markAllPresent(halaqahId: number, date: string, recordedBy
     ON CONFLICT (halaqah_id, student_id, date) DO NOTHING
     RETURNING student_id
   `;
-  return rows.length;
+  return rows.map((r) => r.student_id as string);
 }
 
 /** ملخّصات آخر ٣٠ يوماً — لطالب واحد (studentId) أو لكل طلاب الحلقة غير المحذوفين */

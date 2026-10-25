@@ -14,6 +14,8 @@ import { notifyParentsOfLadderEvents } from "@/lib/discipline-notify";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { logServerError } from "@/lib/dev-error-log";
+import { emitHalaqahEvent } from "@/lib/webhooks-db";
+import { attendanceRecordedPayload } from "@/lib/webhooks";
 
 /*
   STEP 62 — الحضور اليومي لمعلّمي الحلقة (المشرف والمساعدون بصلاحية
@@ -73,6 +75,12 @@ export async function PUT(request: Request) {
     const result = await setAttendance(teacher.halaqahId, studentId, date, body.status, note, teacher.id);
     if (!result.found) return bad("طالب غير موجود", 404);
 
+    await emitHalaqahEvent(
+      teacher.halaqahId,
+      "attendance.recorded",
+      attendanceRecordedPayload(teacher.halaqahId, date, [{ studentId, status: body.status }]),
+    );
+
     // إشعار أولياء الأمر عند أول تحويل إلى غائب ليوم اليوم فقط، وحساب سُلّم
     // الغياب (A2) عند أي تسجيل غياب — كلاهما بعد الرد ولا يُفشل الحفظ ولا يؤخّره
     if (body.status === "absent") {
@@ -118,6 +126,18 @@ export async function POST(request: Request) {
   if (err) return bad(err);
   if (body.action !== "markAllPresent") return bad("إجراء غير معروف");
 
-  const marked = await markAllPresent(teacher.halaqahId, body.date as string, teacher.id);
-  return Response.json({ ok: true, marked });
+  const markedIds = await markAllPresent(teacher.halaqahId, body.date as string, teacher.id);
+  // حدث واحد للدفعة كلها (لا حدث لكل طالب)
+  if (markedIds.length > 0) {
+    await emitHalaqahEvent(
+      teacher.halaqahId,
+      "attendance.recorded",
+      attendanceRecordedPayload(
+        teacher.halaqahId,
+        body.date as string,
+        markedIds.map((studentId) => ({ studentId, status: "present" })),
+      ),
+    );
+  }
+  return Response.json({ ok: true, marked: markedIds.length });
 }

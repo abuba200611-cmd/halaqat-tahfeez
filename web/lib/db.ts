@@ -663,13 +663,13 @@ export async function listStudents(teacherId: number): Promise<Student[]> {
   return rows.map(rowToStudent);
 }
 
-/** إدخال/تحديث طالب — الإدخال ينشئ معه هويته الموحّدة (M5) بنفس الترانزاكشن،
+/** إدخال/تحديث طالب (يرجع true إن كان إدخالاً جديداً) — الإدخال ينشئ معه هويته الموحّدة (M5) بنفس الترانزاكشن،
  * بنفس قاعدة backfill الترحيل: طالب بلا اسم مستخدم يُنشأ له مقبض اصطناعي. */
-export async function upsertStudent(teacherId: number, student: Student, sortOrder = 0): Promise<void> {
+export async function upsertStudent(teacherId: number, student: Student, sortOrder = 0): Promise<boolean> {
   const client = await db().pool.connect();
   try {
     await client.query("BEGIN");
-    await client.query(
+    const upserted = await client.query(
       `INSERT INTO students (id, teacher_id, name, group_name, ranges, mastery, active, rating, sort_order, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
        ON CONFLICT (teacher_id, id) DO UPDATE SET
@@ -678,7 +678,8 @@ export async function upsertStudent(teacherId: number, student: Student, sortOrd
          ranges = excluded.ranges,
          mastery = excluded.mastery,
          active = excluded.active,
-         rating = excluded.rating`,
+         rating = excluded.rating
+       RETURNING (xmax = 0) AS inserted`,
       [
         student.id,
         teacherId,
@@ -699,6 +700,7 @@ export async function upsertStudent(teacherId: number, student: Student, sortOrd
       active: !!student.active,
     });
     await client.query("COMMIT");
+    return upserted?.rows?.[0]?.inserted === true;
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;

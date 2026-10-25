@@ -47,6 +47,7 @@ const pushMocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/push", () => pushMocks);
 
+vi.mock("@/lib/webhooks-db", () => ({ emitHalaqahEvent: vi.fn(async () => undefined), emitMosqueEvent: vi.fn(async () => undefined) }));
 const { POST, PATCH } = await import("./route");
 
 function patchReq(body: unknown): Request {

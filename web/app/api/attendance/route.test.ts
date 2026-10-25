@@ -30,6 +30,7 @@ const rateMocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/rate-limit", () => rateMocks);
 
+vi.mock("@/lib/webhooks-db", () => ({ emitHalaqahEvent: vi.fn(async () => undefined), emitMosqueEvent: vi.fn(async () => undefined) }));
 const { GET, PUT, POST } = await import("./route");
 
 const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
@@ -180,7 +181,7 @@ describe("POST /api/attendance — تحديد الكل حاضر", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMocks.currentTeacher.mockResolvedValue(teacher("assistant"));
-    dbMocks.markAllPresent.mockResolvedValue(4);
+    dbMocks.markAllPresent.mockResolvedValue(["a", "b", "c", "d"]);
   });
 
   const post = (body: unknown) =>
@@ -194,6 +195,18 @@ describe("POST /api/attendance — تحديد الكل حاضر", () => {
     const res = await POST(post({ date: TODAY, action: "markAllPresent" }));
     expect(res.status).toBe(200);
     expect(dbMocks.markAllPresent).toHaveBeenCalledWith(3, TODAY, 7);
+    // حدث واحد للدفعة بمصفوفة سجلات
+    const { emitHalaqahEvent } = await import("@/lib/webhooks-db");
+    expect(emitHalaqahEvent).toHaveBeenCalledTimes(1);
+    expect(emitHalaqahEvent).toHaveBeenCalledWith(
+      3,
+      "attendance.recorded",
+      expect.objectContaining({
+        halaqah_id: 3,
+        date: TODAY,
+        records: expect.arrayContaining([{ student_id: "a", status: "present" }]),
+      }),
+    );
   });
 
   it("يرفض المستقبل والإجراء المجهول", async () => {
