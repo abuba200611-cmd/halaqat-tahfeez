@@ -63,6 +63,8 @@ export default function DevDataRequestsPage() {
         ))}
       </div>
 
+      <RetentionCard />
+
       {loading && !data && <Card className="p-4 text-sm text-muted-foreground">جارٍ التحميل…</Card>}
       {!loading && !data && (
         <Card className="p-4 text-sm text-destructive">
@@ -72,6 +74,74 @@ export default function DevDataRequestsPage() {
       {data && shown.length === 0 && <Card className="p-4 text-sm text-muted-foreground">لا طلبات في هذه الحالة.</Card>}
       {data && shown.map((r) => <RequestCard key={r.id} request={r} onChanged={reload} />)}
     </div>
+  );
+}
+
+type RetentionResult = { key: string; label: string; deleted: number; error?: true };
+
+/** تنظيف الاحتفاظ: يحذف المنتهي (رموز، عدّادات، طلبات مبتوت فيها قديمة…) عبر /api/dev/retention */
+function RetentionCard() {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<RetentionResult[] | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setError(null);
+    const result = await callApi<{ results: RetentionResult[] }>("/api/dev/retention", "POST");
+    setBusy(false);
+    setConfirming(false);
+    if (!result.ok || !result.data) {
+      setError(result.error);
+      return;
+    }
+    setResults(result.data.results);
+  }
+
+  const total = results?.reduce((sum, r) => sum + r.deleted, 0) ?? 0;
+
+  return (
+    <Card className="p-4">
+      <p className="text-base font-semibold">تنظيف البيانات المنتهية</p>
+      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+        يحذف رموز الاسترجاع والتأكيد والربط المنتهية، وعدّادات المحاولات الأقدم من أسبوع، وطلبات الحذف المبتوت فيها منذ
+        ١٨٠ يوماً، وأحداث الأمان الأقدم من ١٨٠ يوماً. الطلبات المعلّقة لا تُمسّ.
+      </p>
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+      {results && (
+        <div className="mt-3 rounded-md bg-muted px-3 py-2 text-sm leading-relaxed">
+          <p className="font-semibold">
+            حُذف <span className="tabular">{total}</span> صفاً.
+          </p>
+          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+            {results
+              .filter((r) => r.deleted > 0 || r.error)
+              .map((r) => (
+                <li key={r.key}>
+                  {r.label}: {r.error ? "تعذّر" : <span className="tabular">{r.deleted}</span>}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {!confirming ? (
+          <Button type="button" variant="ghost" disabled={busy} onClick={() => setConfirming(true)}>
+            تنظيف الآن
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="danger" disabled={busy} onClick={run}>
+              {busy ? "لحظة…" : "تأكيد الحذف"}
+            </Button>
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>
+              تراجع
+            </Button>
+          </>
+        )}
+      </div>
+    </Card>
   );
 }
 

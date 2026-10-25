@@ -5,7 +5,8 @@ import type { NextConfig } from "next";
   - 'self': كل أصول التطبيق (Next على Vercel يخدم نفسه).
   - frame-src youtube-nocookie وحده: أرشيف الأنشطة يضمّن فيديوهات يوتيوب
     به (أي مرفق آخر يُفتح برابط خارجي لا iframe، فلا يحتاج أصلاً).
-  - connect-src: 'self' + ingest.sentry.io (عميل Sentry عند ضبط DSN فقط).
+  - connect-src: 'self' + *.sentry.io (عميل Sentry عند ضبط DSN فقط؛ يشمل
+    نطاقات المناطق مثل oNNN.ingest.us.sentry.io التي لا يطابقها *.ingest.sentry.io).
   جوجل OAuth تحويلة مستوى أعلى (Response.redirect) لا قيد CSP عليها،
   وكاميرا QR تعمل بتطبيق الكاميرا الأصلي لا getUserMedia، فلا تحتاج شيئاً.
   'unsafe-inline' في script/style ضرورية لأن التطبيق يُبنى بصفحات ثابتة
@@ -21,7 +22,7 @@ const CSP = [
   "img-src 'self' data: blob:",
   "media-src 'self' blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.ingest.sentry.io",
+  "connect-src 'self' https://*.sentry.io",
   "frame-src https://www.youtube-nocookie.com",
   "worker-src 'self'",
   "object-src 'none'",
@@ -40,6 +41,9 @@ const SECURITY_HEADERS = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   { key: "Content-Security-Policy", value: CSP },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  // عزل نافذة التطبيق عن النوافذ التي تفتحها/تفتحه (جوجل OAuth تحويلة كاملة لا نافذة منبثقة)
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
 
 const nextConfig: NextConfig = {

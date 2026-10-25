@@ -3,6 +3,7 @@ import { setStudentSessionCookie, verifyPassword } from "@/lib/auth";
 import { recordLogin } from "@/lib/activity";
 import { peekRateLimit, rateLimited, recordRateLimitHit } from "@/lib/rate-limit";
 import { loginFailureKey } from "@/lib/login-key";
+import { logSecurityEvent } from "@/lib/audit-log";
 
 /** أول عنوان بترويسة x-forwarded-for، أو "unknown" محلياً بلا بروكسي — نفس نمط /api/auth/register */
 function clientIp(request: Request): string {
@@ -31,10 +32,12 @@ export async function POST(request: Request) {
   if (!student || !verifyPassword(password, student.passwordHash)) {
     if (usernameLimitKey) await recordRateLimitHit(usernameLimitKey, 900);
     await recordFailedLoginAttempt(ip);
+    await logSecurityEvent({ event: "login.failure", actorKind: "student", actorId: student ? `${student.teacherId}:${student.id}` : null, ip, identifier: username });
     return Response.json({ error: "اسم المستخدم أو كلمة المرور غير صحيحة" }, { status: 401 });
   }
 
   await setStudentSessionCookie(student.teacherId, student.id);
   await recordLogin({ role: "student", halaqahId: student.teacherId, studentId: student.id });
+  await logSecurityEvent({ event: "login.success", actorKind: "student", actorId: `${student.teacherId}:${student.id}`, ip });
   return Response.json({ student: { id: student.id, name: student.name } });
 }

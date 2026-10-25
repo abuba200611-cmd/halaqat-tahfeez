@@ -33,14 +33,30 @@ export async function logDevAction(
   }
 }
 
-/** آخر ٢٠٠ إجراء مسجَّل — الأحدث أولاً — لصفحة «سجل التدقيق» */
-export async function listDevAudit(limit = 200): Promise<DevAuditEntry[]> {
-  const rows = await db().sql`
-    SELECT id, at, action, target_kind, target_id, details
-    FROM dev_audit_log
-    ORDER BY id DESC
-    LIMIT ${limit}
-  `;
+export type DevAuditScope = "admin" | "security";
+
+/**
+ * آخر ٢٠٠ إجراء مسجَّل — الأحدث أولاً — لصفحة «سجل التدقيق». النطاق يفصل
+ * أحداث الأمان (security.* من lib/audit-log.ts: دخول، استرجاع…) عن إجراءات
+ * اللوحة الإدارية حتى لا تُغرقها محاولات الدخول.
+ */
+export async function listDevAudit(limit = 200, scope: DevAuditScope = "admin"): Promise<DevAuditEntry[]> {
+  const rows =
+    scope === "security"
+      ? await db().sql`
+          SELECT id, at, action, target_kind, target_id, details
+          FROM dev_audit_log
+          WHERE action LIKE 'security.%'
+          ORDER BY id DESC
+          LIMIT ${limit}
+        `
+      : await db().sql`
+          SELECT id, at, action, target_kind, target_id, details
+          FROM dev_audit_log
+          WHERE action NOT LIKE 'security.%'
+          ORDER BY id DESC
+          LIMIT ${limit}
+        `;
   return rows.map((row) => ({
     id: Number(row.id),
     at: new Date(row.at as string).toISOString(),

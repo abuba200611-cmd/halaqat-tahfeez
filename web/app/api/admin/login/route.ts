@@ -3,6 +3,7 @@ import { checkAdminLoginRateLimit, recordFailedAdminLoginAttempt } from "@/lib/d
 import { createAdminToken } from "@/lib/admin-session";
 import { expectedAdminSecret, safeEqual } from "@/lib/safe-equal";
 import { devHostGate } from "@/lib/host-gate";
+import { logSecurityEvent } from "@/lib/audit-log";
 
 export const ADMIN_COOKIE = "admin_session";
 
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
 
   if (!expected || !secret || !safeEqual(secret, expected)) {
     await recordFailedAdminLoginAttempt(ip);
+    await logSecurityEvent({ event: "admin_login.failure", actorKind: "developer", ip });
     return Response.json({ error: "كلمة السر غير صحيحة" }, { status: 401 });
   }
 
@@ -42,5 +44,6 @@ export async function POST(request: Request) {
     path: "/",
     maxAge: 60 * 60 * 12,
   });
+  await logSecurityEvent({ event: "admin_login.success", actorKind: "developer", ip });
   return Response.json({ ok: true });
 }
