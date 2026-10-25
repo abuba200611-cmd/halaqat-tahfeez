@@ -183,6 +183,10 @@ describe('"/" بلا جلسة → إعادة كتابة للترحيب، ومع 
     it(`"/" مع كوكي ${name} → لوحة الدور بلا إعادة كتابة`, async () => {
       expect(await decide("/", PUBLIC_HOST, { [name]: value })).toBe("allow");
     });
+    // الإنتاج يكتب الجلسات ببادئة __Host- — كان proxy يتجاهلها فيرتد المسجَّل للترحيب
+    it(`"/" مع كوكي __Host-${name} → لوحة الدور بلا إعادة كتابة`, async () => {
+      expect(await decide("/", PUBLIC_HOST, { [`__Host-${name}`]: value })).toBe("allow");
+    });
   }
 
   it('كوكي الترحيب وحده (mos_intro بلا جلسة) لا يمنع الترحيب على "/"', async () => {

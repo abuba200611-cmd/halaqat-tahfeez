@@ -18,6 +18,14 @@ export const SESSION_COOKIES: readonly string[] = [
   "association_admin_session", // مدير الجمعية
 ];
 
+/**
+ * هل كوكي جلسة الدور موجود؟ في الإنتاج تُكتب الجلسات ببادئة __Host-
+ * (lib/session-cookie.ts) والقديمة تبقى بلا بادئة حتى تنتهي — نفحص الاسمين.
+ */
+export function hasSessionCookieNamed(get: (name: string) => unknown, base: string): boolean {
+  return get(`__Host-${base}`) !== undefined || get(base) !== undefined;
+}
+
 /** كوكي «مرّ بالترحيب» — تضبطه صفحة /welcome عند عرضها (٣٠ يوماً) */
 export const INTRO_COOKIE = "mos_intro";
 

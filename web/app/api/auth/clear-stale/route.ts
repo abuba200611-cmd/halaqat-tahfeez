@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { SESSION_COOKIES } from "@/lib/landing";
+import { SESSION_COOKIES, hasSessionCookieNamed } from "@/lib/landing";
 import { clearStaleSessions, type RoleSessionCheck } from "@/lib/stale-session";
 import { clearSessionCookie, clearStudentSessionCookie, currentStudent, currentTeacher } from "@/lib/auth";
 import { clearParentSessionCookie, currentParent } from "@/lib/parent-auth";
@@ -16,7 +16,7 @@ import { clearAssociationAdminSession, currentAssociationAdmin } from "@/lib/ass
 
 export async function POST() {
   const store = await cookies();
-  const has = (name: string) => store.get(name) !== undefined;
+  const has = (name: string) => hasSessionCookieNamed((n) => store.get(n), name);
   const [teacher, student, parent, mosqueAdmin, association] = SESSION_COOKIES;
 
   const checks: RoleSessionCheck[] = [

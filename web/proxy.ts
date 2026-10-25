@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isDevConsoleHost, requestHost } from "@/lib/hosts";
-import { GOOGLE_HANDOFF_COOKIE, INTRO_COOKIE, SESSION_COOKIES, WELCOME_PATH, isRegistrationPath } from "@/lib/landing";
+import { GOOGLE_HANDOFF_COOKIE, INTRO_COOKIE, SESSION_COOKIES, WELCOME_PATH, hasSessionCookieNamed, isRegistrationPath } from "@/lib/landing";
 import { csrfBlocked } from "@/lib/csrf";
 
 /*
@@ -43,7 +43,7 @@ function isConsolePath(pathname: string): boolean {
 
 /** هل مع الطلب كوكي جلسة لأي دور؟ (فحص وجود متفائل فقط — التحقق الكامل خادمي) */
 function hasSessionCookie(request: NextRequest): boolean {
-  return SESSION_COOKIES.some((name) => request.cookies.get(name) !== undefined);
+  return SESSION_COOKIES.some((name) => hasSessionCookieNamed((n) => request.cookies.get(n), name));
 }
 
 export function proxy(request: NextRequest) {
