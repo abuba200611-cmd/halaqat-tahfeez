@@ -17,7 +17,7 @@ export function ParentHowToCard({ id }: { id?: string }) {
     <section
       id={id}
       aria-labelledby="parent-how-to-title"
-      className="rounded-2xl border border-accent/30 bg-accent-soft p-5"
+      className="force-light rounded-2xl border border-accent/30 bg-accent-soft p-5"
     >
       <h2 id="parent-how-to-title" className="text-sm font-bold text-accent-ink">
         كيف تدخل كولي أمر؟
