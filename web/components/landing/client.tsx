@@ -213,7 +213,8 @@ export function NextBanner() {
 
 const NAV = [
   { href: "#roles", label: "لمن المنصة" },
-  { href: "#features", label: "المزايا" },
+  { href: "#all-features", label: "كل المزايا" },
+  { href: "#faq", label: "الأسئلة" },
   { href: "#how", label: "كيف تبدأ" },
 ];
 

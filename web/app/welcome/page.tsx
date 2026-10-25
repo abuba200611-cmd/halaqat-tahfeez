@@ -26,6 +26,7 @@ import {
   SignupCta,
 } from "@/components/landing/client";
 import { ProductPreview } from "@/components/landing/preview";
+import { FAQ, TOUR_GROUPS } from "@/components/landing/tour";
 import "@/components/landing/landing.css";
 
 /* الصفحة الترحيبية العامة — ثابتة (SSG): next/كوكي mos_intro تتولاها مكوّنات العميل. */
@@ -178,7 +179,9 @@ export default function WelcomePage() {
                       className={`group flex h-full flex-col rounded-3xl border p-7 sm:p-8 ${
                         i === 0
                           ? "border-black bg-black text-white"
-                          : "border-[#E2D6C3] bg-white text-black shadow-[0_1px_0_rgba(255,255,255,0.9)_inset]"
+                          // force-light: التصميم ثابت الألوان حرفياً، ودونها تنقلب
+                          // البطاقة سطحاً داكناً في الوضع الداكن ويبقى نصها أسود
+                          : "force-light border-[#E2D6C3] bg-white text-black shadow-[0_1px_0_rgba(255,255,255,0.9)_inset]"
                       }`}
                     >
                       <span
@@ -328,6 +331,72 @@ export default function WelcomePage() {
           </div>
         </section>
 
+        {/* ————— كل المزايا (مجمّعة بالجمهور) ————— */}
+        <section id="all-features" className="scroll-mt-16 bg-[#F3EDE6] py-24 sm:py-32">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8">
+            <Reveal>
+              <SectionHead eyebrow="كل المزايا" title="كل ما تفعله المنصة، جمهوراً بجمهور" />
+            </Reveal>
+            <div className="mt-14 space-y-14">
+              {TOUR_GROUPS.map((group) => (
+                <Reveal key={group.id}>
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    <h3 className="font-display text-2xl leading-snug text-black sm:text-3xl">{group.title}</h3>
+                    <p className="text-sm font-semibold text-[#7F5636]">{group.blurb}</p>
+                  </div>
+                  <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4">
+                    {group.items.map((item) => (
+                      <li
+                        key={`${group.id}-${item.title}`}
+                        className="force-light flex gap-3 rounded-2xl border border-[#E2D6C3] bg-white p-4"
+                      >
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#F0E4D2] text-[#7F5636]">
+                          <item.icon size={18} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-black">{item.title}</p>
+                          <p className="mt-1 text-xs leading-[1.8] text-[#5F5344]">{item.text}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ————— الأسئلة الشائعة ————— */}
+        <section id="faq" className="scroll-mt-16 bg-white py-24 sm:py-32">
+          <div className="mx-auto max-w-3xl px-5 sm:px-8">
+            <Reveal>
+              <SectionHead eyebrow="الأسئلة الشائعة" title="أسئلة يطرحها الجميع" />
+            </Reveal>
+            <div className="mt-12 space-y-3">
+              {FAQ.map((f) => (
+                <Reveal key={f.q}>
+                  <details className="force-light group rounded-2xl border border-[#E2D6C3] bg-[#F3EDE6] px-5 py-4">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold text-black [&::-webkit-details-marker]:hidden">
+                      {f.q}
+                      <span aria-hidden className="text-xl leading-none text-[#7F5636] transition-transform duration-200 group-open:rotate-45">
+                        +
+                      </span>
+                    </summary>
+                    <p className="mt-3 text-sm leading-[1.9] text-[#5F5344]">
+                      {f.a}{" "}
+                      {f.link && (
+                        <Link href={f.link.href} className="font-bold text-[#7F5636] underline decoration-2 underline-offset-4">
+                          {f.link.label}
+                        </Link>
+                      )}
+                    </p>
+                  </details>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ————— كيف تبدأ ————— */}
         <section id="how" className="scroll-mt-16 bg-[#F3EDE6] py-24 sm:py-32">
           <div className="mx-auto max-w-7xl px-5 sm:px-8">
@@ -338,7 +407,7 @@ export default function WelcomePage() {
               {STEPS.map((s, i) => (
                 <li key={s.n}>
                   <Reveal delay={i * 0.1} className="h-full">
-                    <div className="relative h-full overflow-hidden rounded-3xl border border-[#E2D6C3] bg-white p-7 sm:p-8">
+                    <div className="force-light relative h-full overflow-hidden rounded-3xl border border-[#E2D6C3] bg-white p-7 sm:p-8">
                       <span aria-hidden className="font-display absolute -left-2 -top-6 select-none text-[9rem] leading-none text-[#F0E4D2]">
                         {s.n}
                       </span>
@@ -352,6 +421,30 @@ export default function WelcomePage() {
                 </li>
               ))}
             </ol>
+          </div>
+        </section>
+
+        {/* ————— للجمعيات ————— */}
+        <section className="relative overflow-hidden bg-black py-20 sm:py-24">
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-24 h-64 bg-[#AD7D56]/10 blur-[110px]" />
+          <div className="relative mx-auto max-w-4xl px-5 sm:px-8">
+            <Reveal>
+              <div className="rounded-3xl border border-[#AD7D56]/40 bg-[#AD7D56]/10 p-8 text-center sm:p-12">
+                <p className="text-sm font-bold tracking-wide text-[#AD7D56]">للجمعيات الخيرية</p>
+                <h2 className="font-display mt-4 text-3xl leading-[1.35] text-white sm:text-4xl">
+                  جمعية تدير جوامع؟ شوفوا أثركم كله في لوحة واحدة
+                </h2>
+                <p className="mx-auto mt-4 max-w-xl text-base leading-[1.9] text-[#CDB49E]">
+                  سجّلوا جمعيتكم، اربطوا جوامعكم بطلب وموافقة، وتابعوا الحفظ والحضور والاختبارات لكل جامع بتقارير مجمّعة.
+                </p>
+                <Link
+                  href="/register-association"
+                  className="mt-8 inline-flex items-center justify-center rounded-full bg-[#AD7D56] px-8 py-4 text-base font-bold text-black transition-colors hover:bg-[#c08d66] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#CDB49E]"
+                >
+                  سجّل جمعيتك
+                </Link>
+              </div>
+            </Reveal>
           </div>
         </section>
 
@@ -405,6 +498,9 @@ export default function WelcomePage() {
             </Link>
             <Link href="/register-mosque" className="hover:text-white">
               تسجيل جامع
+            </Link>
+            <Link href="/register-association" className="hover:text-white">
+              تسجيل جمعية
             </Link>
             <Link href="/signup" className="hover:text-white">
               حساب معلّم
