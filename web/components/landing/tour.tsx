@@ -57,6 +57,7 @@ const SHORT: Record<string, string> = {
   error_grading: "عدّ أخطاء الورد بأنواعها فتُحسب الدرجة والتقدير فورياً.",
   student_import: "رفع ملف إكسل لإضافة طلاب دفعة واحدة مع معاينة الأخطاء.",
   qr_attendance: "رمز QR يتجدد كل ٣٠ ثانية يمسحه الطلاب لتسجيل حضورهم.",
+  integrations: "مفاتيح API للقراءة وويب هوكس موقَّعة وتصدير CSV لربط بيانات الجامع بأنظمتك.",
 };
 
 /** عنصر جولة لمفتاح من السجل: الاسم من السجل والجملة من الخريطة أعلاه */
@@ -130,6 +131,7 @@ export const TOUR_GROUPS: readonly TourGroup[] = [
       fromRegistry("reports", ClipboardIcon),
       fromRegistry("archive", PlayIcon),
       fromRegistry("agent", HelpIcon),
+      fromRegistry("integrations", ClipboardIcon),
     ],
   },
   {

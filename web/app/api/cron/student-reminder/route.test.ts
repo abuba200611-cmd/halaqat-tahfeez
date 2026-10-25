@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const pushMocks = vi.hoisted(() => ({ runStudentDailyReminder: vi.fn() }));
 vi.mock("@/lib/push", () => pushMocks);
 vi.mock("@/lib/riyadh-date", () => ({ riyadhTodayISO: () => "2026-09-27" }));
+vi.mock("@/lib/webhooks-db", () => ({ deliverDueWebhooks: vi.fn(async () => null) }));
 
 const { GET } = await import("./route");
 

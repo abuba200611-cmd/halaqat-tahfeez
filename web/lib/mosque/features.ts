@@ -210,6 +210,14 @@ export const FEATURES: readonly Feature[] = [
     defaultEnabled: false,
     status: "ready",
   },
+  {
+    key: "integrations",
+    nameAr: "التكاملات وواجهة البرمجة",
+    descriptionAr:
+      "مفاتيح API للقراءة فقط (طلاب، حلقات، حضور، تقدّم)، وويب هوكس موقَّعة بأحداث الجامع، وتصدير CSV، وبطاقات موصّلات المزوّدين — كلها مقيّدة بجامعك وبلا أي بيانات حساسة.",
+    defaultEnabled: false,
+    status: "ready",
+  },
 ];
 
 /** ميزة من السجل بمفتاحها، أو undefined إن كان المفتاح غير معروف */

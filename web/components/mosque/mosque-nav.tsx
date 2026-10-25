@@ -59,6 +59,7 @@ export function mosqueNavItems(opts: {
   feature("teacher_eval", "teacher-eval", "تقييم المعلّمين والحوافز", <AwardIcon />);
   feature("supervisor_visits", "supervisor-visits", "زيارات المشرف التربوي", <ShieldIcon />);
   feature("fees", "fees", "الرسوم والاشتراكات", <ClipboardIcon />);
+  feature("integrations", "integrations", "التكاملات وAPI", <SettingsIcon />);
   feature("auto_assign", "enrollment", "التوزيع الآلي والانتظار", <UsersIcon />);
   feature("student_import", "import", "استيراد الطلاب", <ClipboardIcon />);
   feature("error_grading", "error-grading", "تقييم الورد بالنقاط", <StarIcon />);
