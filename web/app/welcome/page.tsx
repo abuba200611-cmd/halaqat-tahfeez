@@ -367,7 +367,7 @@ export default function WelcomePage() {
         </section>
 
         {/* ————— الأسئلة الشائعة ————— */}
-        <section id="faq" className="scroll-mt-16 bg-white py-24 sm:py-32">
+        <section id="faq" className="force-light scroll-mt-16 bg-white py-24 sm:py-32">
           <div className="mx-auto max-w-3xl px-5 sm:px-8">
             <Reveal>
               <SectionHead eyebrow="الأسئلة الشائعة" title="أسئلة يطرحها الجميع" />
