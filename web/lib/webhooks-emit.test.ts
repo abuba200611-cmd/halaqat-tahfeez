@@ -12,7 +12,7 @@ vi.mock("./dev-error-log", () => ({ logServerError: m.logServerError }));
 vi.mock("next/server", () => ({ after: m.after }));
 
 const { emitMosqueEvent, emitHalaqahEvent } = await import("./webhooks-db");
-const { attendanceRecordedPayload, progressRecordedPayload, studentCreatedPayload } = await import("./webhooks");
+const { attendanceRecordedPayload, progressApprovedPayload, progressRecordedPayload, studentCreatedPayload } = await import("./webhooks");
 
 const sqlText = (call: unknown[]) => (call[0] as string[]).join("?");
 
@@ -67,6 +67,13 @@ describe("emitMosqueEvent / emitHalaqahEvent", () => {
 });
 
 describe("حمولات الأحداث", () => {
+  it("progress.approved: نفس الشكل بحالة approved وبلا ملاحظات", () => {
+    const p = progressApprovedPayload(7, 2, "s", { date: "2026-10-20", reviewAyah: { fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7 } });
+    expect(p).toMatchObject({ id: 7, halaqah_id: 2, student_id: "s", status: "approved" });
+    expect(p.review).toEqual({ from_surah: 1, from_ayah: 1, to_surah: 1, to_ayah: 7 });
+    expect(JSON.stringify(p)).not.toContain("note");
+  });
+
   it("بلا ملاحظات ولا بيانات اتصال", () => {
     const p = progressRecordedPayload(1, 2, "s", {
       date: "2026-10-20",

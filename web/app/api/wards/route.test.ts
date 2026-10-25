@@ -47,7 +47,8 @@ const pushMocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/push", () => pushMocks);
 
-vi.mock("@/lib/webhooks-db", () => ({ emitHalaqahEvent: vi.fn(async () => undefined), emitMosqueEvent: vi.fn(async () => undefined) }));
+const whMocks = vi.hoisted(() => ({ emitHalaqahEvent: vi.fn(async () => undefined), emitMosqueEvent: vi.fn(async () => undefined) }));
+vi.mock("@/lib/webhooks-db", () => whMocks);
 const { POST, PATCH } = await import("./route");
 
 function patchReq(body: unknown): Request {
@@ -95,6 +96,23 @@ describe("PATCH /api/wards — الإشعار الفوري عبر after() لا �
     expect(afterMocks.after).toHaveBeenCalledTimes(1);
     // وتنفيذ ما جُدوِل لاحقاً (كما يفعل Next فعلياً) لا يرمي هو الآخر رغم فشل الإرسال
     await expect(afterMocks.lastCallback?.()).resolves.toBeUndefined();
+  });
+
+  it("الاعتماد يُصدر progress.approved بلا ملاحظات، وطلب الإعادة لا يُصدره", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue({
+      studentId: "s1",
+      log: { date: "2026-10-20", hifzAyah: { fromSurah: 2, fromAyah: 1, toSurah: 2, toAyah: 5 }, reviewAyah: null },
+    });
+    await PATCH(patchReq({ id: 17, status: "approved" }));
+    expect(whMocks.emitHalaqahEvent).toHaveBeenCalledWith(
+      FAKE_TEACHER.halaqahId,
+      "progress.approved",
+      expect.objectContaining({ id: 17, student_id: "s1", status: "approved", hifz: { from_surah: 2, from_ayah: 1, to_surah: 2, to_ayah: 5 } }),
+    );
+    whMocks.emitHalaqahEvent.mockClear();
+    dbMocks.setWardLogStatus.mockResolvedValue({ studentId: "s1" });
+    await PATCH(patchReq({ id: 17, status: "needs_revision", note: "x" }));
+    expect(whMocks.emitHalaqahEvent).not.toHaveBeenCalled();
   });
 
   it("طلب الإعادة ينجح أيضاً حتى لو تأخّر الإشعار أكثر من السقف (٣ ثوانٍ)", async () => {

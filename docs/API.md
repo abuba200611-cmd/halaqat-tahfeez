@@ -78,7 +78,7 @@ curl -H "Authorization: Bearer $MOS_KEY" \
 ## الويب هوكس
 
 تضيف نقطة (رابط **https** عام، منفذ 443) من اللوحة، وتحصل على سرّ توقيع `whsec_…` **يُعرض مرة واحدة**.
-الأحداث: `ping` (زرّ «اختبار»)، `student.created`، `attendance.recorded`، `progress.recorded`
+الأحداث: `ping` (زرّ «اختبار»)، `student.created`، `attendance.recorded`، `progress.recorded`، `progress.approved`
 (النقطة بلا اختيار أحداث تستقبل الكل). تُصدَر الأحداث الثلاثة الأخيرة بعد نجاح الكتابة الفعلية فقط، وإن كانت
 ميزة التكاملات مغلقة للجامع فلا شيء يُصَفّ. التسليم من صندوق صادر مع إعادة محاولة بتراجع (١د، ٥د، ٣٠د، ٢س، ٦س)
 وبحدّ ٦ محاولات. يُحاوَل التسليم فوراً بعد الحدث (best-effort)، ويبقى الـcron اليومي مسار إعادة المحاولة. النجاح = أي `2xx` خلال ٨ ثوانٍ؛ التحويلات (3xx) تُعدّ فشلاً.
@@ -94,6 +94,7 @@ curl -H "Authorization: Bearer $MOS_KEY" \
   `{ "halaqah_id": 3, "date": "2026-10-20", "records": [ { "student_id": "s_12", "status": "present" } ] }`
   — `records` مصفوفة دائماً. في «تحديد الكل حاضر» تشمل فقط من سُجّل حضورهم فعلاً.
 - `progress.recorded`: `{ "id": 91, "halaqah_id": 3, "student_id": "s_12", "date": "2026-10-20", "status": "new", "hifz": { "from_surah": 2, "from_ayah": 1, "to_surah": 2, "to_ayah": 5 }, "review": { "from_surah": null, "from_ayah": null, "to_surah": null, "to_ayah": null } }`
+- `progress.approved`: `{ "id": 91, "halaqah_id": 3, "student_id": "s_12", "date": "2026-10-20", "status": "approved", "hifz": { "from_surah": 2, "from_ayah": 1, "to_surah": 2, "to_ayah": 5 }, "review": { "from_surah": null, "from_ayah": null, "to_surah": null, "to_ayah": null } }` (عند اعتماد المعلّم للورد)
   — يُصدَر عند إرسال الطالب ورده؛ `status` هنا `new` وقت الإنشاء (لا حدث لاعتماد المعلّم لاحقاً).
 
 ### الطلب
