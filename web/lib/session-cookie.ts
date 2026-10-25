@@ -67,8 +67,10 @@ export function writeSessionCookie(
   value: string,
   maxAgeSeconds: number,
 ): void {
-  store.set(cookieNameForWrite(base), value, sessionCookieAttributes(maxAgeSeconds));
-  store.delete(base);
+  const name = cookieNameForWrite(base);
+  store.set(name, value, sessionCookieAttributes(maxAgeSeconds));
+  // خارج الإنتاج الاسمان متطابقان: الحذف كان يمسح الكوكي التي كُتبت للتوّ
+  if (name !== base) store.delete(base);
 }
 
 /** يمسح الاسمين معاً */

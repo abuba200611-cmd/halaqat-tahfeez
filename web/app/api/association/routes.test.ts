@@ -46,6 +46,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/client-ip", () => ({ clientIp: () => "1.2.3.4" }));
 vi.mock("@/lib/mosque/password", () => ({ verifyPassword: vi.fn(() => false) }));
+vi.mock("@/lib/association-registration-db", () => ({ associationLoginRequestStatus: vi.fn(async () => null) }));
 
 const dashboard = await import("./dashboard/route");
 const report = await import("./report/route");

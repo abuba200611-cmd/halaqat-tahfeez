@@ -3,6 +3,8 @@ import { setParentSessionCookie } from "@/lib/parent-auth";
 import { recordLogin } from "@/lib/activity";
 import { createParent, isValidParentEmail, normalizeParentEmail } from "@/lib/parent-db";
 import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
+import { hasPrivacyConsent, privacyConsentRequired } from "@/lib/privacy-consent-shared";
+import { recordPrivacyConsent } from "@/lib/privacy-consent";
 
 function clientIp(request: Request): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
@@ -16,6 +18,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!hasPrivacyConsent(body)) return privacyConsentRequired();
   const name = String(body.name ?? "").trim().slice(0, 80);
   const email = normalizeParentEmail(String(body.email ?? ""));
   const password = String(body.password ?? "");
@@ -31,6 +34,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "هذا البريد مسجّل مسبقاً — سجّل الدخول بدلاً من ذلك" }, { status: 409 });
   }
 
+  await recordPrivacyConsent("parent", id, clientIp(request));
   await setParentSessionCookie(id);
   await recordLogin({ role: "parent", parentId: id });
   return Response.json({ parent: { id, name, email } });

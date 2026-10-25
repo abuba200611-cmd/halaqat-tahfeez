@@ -5,6 +5,8 @@ import Link from "next/link";
 import { AuthCard, AuthShell } from "./auth-shell";
 import { BrandLockup } from "./brand";
 import { EyeIcon, EyeOffIcon, UserIcon } from "./icons";
+import { PrivacyConsentField } from "./privacy-consent-field";
+import { PRIVACY_CONSENT_REQUIRED_MESSAGE } from "@/lib/privacy-consent-shared";
 
 /*
   شاشة دخول/تسجيل المعلّم — استُخرجت من auth-gate.tsx (L1) لتُعرض في
@@ -72,6 +74,7 @@ export function TeacherAuthScreen({
   );
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   // كود يفسّر الخطأ فيعرض زراً مناسباً: لا حساب بالبريد، أو البريد مسجّل مسبقاً
   const [errorCode, setErrorCode] = useState<"no_account" | "account_exists" | null>(null);
   // تسليم جوجل (بريد/اسم موثّقان من جوجل بكوكي موقّع) — يُفعَّل عند ?google=1
@@ -110,6 +113,10 @@ export function TeacherAuthScreen({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (mode === "register" && !privacyConsent) {
+      setError(PRIVACY_CONSENT_REQUIRED_MESSAGE);
+      return;
+    }
     setBusy(true);
     setError(null);
     setErrorCode(null);
@@ -125,6 +132,7 @@ export function TeacherAuthScreen({
           halaqahName,
           joinCode: mode === "register" ? joinCode : undefined,
           googleHandoff: mode === "register" && googleHandoff ? true : undefined,
+          privacyConsent: mode === "register" ? privacyConsent : undefined,
         }),
       });
       const data = (await res.json()) as {
@@ -249,6 +257,8 @@ export function TeacherAuthScreen({
             </div>
           </label>
           )}
+
+          {mode === "register" && <PrivacyConsentField checked={privacyConsent} onChange={setPrivacyConsent} />}
 
           {mode === "login" && (
             <Link href="/forgot-password" className="block text-left text-xs text-white/60 hover:text-white hover:underline">

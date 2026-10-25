@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthCard, AuthShell } from "./auth-shell";
 import { BrandLockup } from "./brand";
 import { CheckCircleIcon } from "./icons";
 import { parseMosqueRegistrationBody } from "@/lib/mosque-registration";
+import { PrivacyConsentField } from "./privacy-consent-field";
+import { PRIVACY_CONSENT_REQUIRED_MESSAGE } from "@/lib/privacy-consent-shared";
 
 /*
   نموذج «تسجيل جامع» العام. تحقق العميل مرآة لتحقق الخادم (نفس
@@ -27,6 +29,7 @@ type Form = {
   password: string;
   confirmPassword: string;
   associationName: string;
+  associationId: string;
 };
 
 const EMPTY: Form = {
@@ -39,6 +42,7 @@ const EMPTY: Form = {
   password: "",
   confirmPassword: "",
   associationName: "",
+  associationId: "",
 };
 
 export function RegisterMosqueForm() {
@@ -47,13 +51,27 @@ export function RegisterMosqueForm() {
   const [badField, setBadField] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [associations, setAssociations] = useState<{ id: number; name: string }[]>([]);
 
-  const set = (key: keyof Form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  useEffect(() => {
+    fetch("/api/associations/public")
+      .then((res) => (res.ok ? res.json() : { associations: [] }))
+      .then((d: { associations?: { id: number; name: string }[] }) => setAssociations(d.associations ?? []))
+      .catch(() => {});
+  }, []);
+
+  const set = (key: keyof Form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     setBadField(null);
+    if (!privacyConsent) {
+      setError(PRIVACY_CONSENT_REQUIRED_MESSAGE);
+      setBadField("privacyConsent");
+      return;
+    }
     const checked = parseMosqueRegistrationBody(form);
     if (!checked.ok) {
       setError(checked.error);
@@ -65,7 +83,7 @@ export function RegisterMosqueForm() {
       const res = await fetch("/api/register-mosque", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, privacyConsent }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; field?: string };
       if (!res.ok) {
@@ -148,9 +166,20 @@ export function RegisterMosqueForm() {
           <Field label="تأكيد كلمة المرور">
             <input value={form.confirmPassword} onChange={set("confirmPassword")} required type="password" autoComplete="new-password" className={cls("confirmPassword")} />
           </Field>
-          <Field label="اسم الجمعية (اختياري)">
-            <input value={form.associationName} onChange={set("associationName")} maxLength={100} className={cls("associationName")} />
-          </Field>
+          {associations.length > 0 && (
+            <Field label="جمعيتك (اختياري) — يبقى الربط بانتظار موافقة الجمعية">
+              <select value={form.associationId} onChange={set("associationId")} className={cls("associationId")}>
+                <option value="" className="text-black">بلا جمعية</option>
+                {associations.map((a) => (
+                  <option key={a.id} value={a.id} className="text-black">
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
+
+          <PrivacyConsentField checked={privacyConsent} onChange={setPrivacyConsent} invalid={badField === "privacyConsent"} />
 
           {error && (
             <p role="alert" className="text-sm leading-relaxed text-destructive-light">

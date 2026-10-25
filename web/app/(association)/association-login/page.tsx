@@ -4,6 +4,7 @@ import { BrandLockup } from "@/components/brand";
 import { AuthBackLink } from "@/components/auth-back-link";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card } from "@/components/mosque/ui";
 
@@ -23,11 +24,13 @@ function AssociationLoginInner() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [requestState, setRequestState] = useState<"pending" | "rejected" | null>(null);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setRequestState(null);
     try {
       const res = await fetch("/api/association/login", {
         method: "POST",
@@ -39,7 +42,10 @@ function AssociationLoginInner() {
         return;
       }
       if (!res.ok) {
-        setError("بيانات الدخول غير صحيحة");
+        const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+        if (data.code === "registration_pending") setRequestState("pending");
+        else if (data.code === "registration_rejected") setRequestState("rejected");
+        setError(data.error ?? "بيانات الدخول غير صحيحة");
         return;
       }
       router.push("/association");
@@ -83,12 +89,36 @@ function AssociationLoginInner() {
               className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             />
           </label>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && requestState ? (
+            <p
+              role="status"
+              className={`rounded-md border px-3 py-2 text-sm leading-[1.8] ${
+                requestState === "pending" ? "border-border bg-muted text-foreground" : "border-destructive text-destructive"
+              }`}
+            >
+              {error}
+            </p>
+          ) : (
+            error && <p className="text-sm text-destructive">{error}</p>
+          )}
           <Button type="submit" disabled={busy} className="w-full">
             {busy ? "لحظة…" : "دخول"}
           </Button>
         </form>
       </Card>
+      <div className="mt-4 space-y-1.5 text-center text-xs text-muted-foreground">
+        <p>
+          جمعية جديدة؟{" "}
+          <Link href="/register-association" className="font-semibold text-accent-ink underline">
+            سجّل جمعيتك
+          </Link>
+        </p>
+        <p>
+          <Link href="/privacy" className="font-semibold text-accent-ink underline">
+            سياسة الخصوصية
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

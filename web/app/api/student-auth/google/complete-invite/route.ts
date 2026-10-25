@@ -3,6 +3,8 @@ import { checkInviteRateLimit, createGoogleStudentAccount, recordFailedInviteAtt
 import { setStudentSessionCookie } from "@/lib/auth";
 import { recordLogin } from "@/lib/activity";
 import { clientIp } from "@/lib/client-ip";
+import { hasPrivacyConsent, privacyConsentRequired } from "@/lib/privacy-consent-shared";
+import { recordPrivacyConsent } from "@/lib/privacy-consent";
 import {
   clearStudentGooglePendingCookie,
   readStudentGooglePendingCookie,
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!hasPrivacyConsent(body)) return privacyConsentRequired();
   const inviteCode = String(body.inviteCode ?? "").trim();
   const studentName = String(body.studentName ?? "").trim();
   if (!inviteCode || !studentName) {
@@ -92,6 +95,7 @@ export async function POST(request: Request) {
       );
     }
 
+    await recordPrivacyConsent("student", `${result.halaqahId}:${result.studentId}`, clientIp(request));
     await setStudentSessionCookie(result.halaqahId, result.studentId);
     await recordLogin({ role: "student", halaqahId: result.halaqahId, studentId: result.studentId });
     return Response.json({ ok: true });

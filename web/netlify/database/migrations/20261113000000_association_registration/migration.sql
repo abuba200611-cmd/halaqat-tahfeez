@@ -93,3 +93,10 @@ CREATE INDEX IF NOT EXISTS mosque_association_links_association_idx
 
 CREATE INDEX IF NOT EXISTS mosque_association_links_mosque_idx
   ON mosque_association_links (mosque_id, status);
+
+-- ————— جمعية يختارها الجامع عند تسجيله —————
+-- ADD COLUMN IF NOT EXISTS إضافي بحت (عمود اختياري بلا قيمة افتراضية ولا قيد):
+-- عند موافقة المطوّر على الطلب يُنشأ ربط معلّق (requested_by = 'mosque')
+-- تقرره الجمعية من لوحتها.
+ALTER TABLE mosque_registration_requests
+  ADD COLUMN IF NOT EXISTS requested_association_id INTEGER;

@@ -105,6 +105,7 @@ export const config = {
     "/api/:path*",
     "/signup",
     "/register-mosque",
+    "/register-association",
     "/student-join",
     "/student-link",
     "/parent/join",

@@ -6,6 +6,7 @@ import { Badge, Card, Empty, Stat } from "@/components/mosque/ui";
 import { useApi } from "@/components/mosque/use-api";
 import { inputClass } from "@/components/mosque/mosque-page";
 import { AssociationPage } from "@/components/association/association-page";
+import { AssociationLinkPanel } from "@/components/association/link-panel";
 import type { AssociationTotals, MosqueKpiRow } from "@/lib/association";
 
 /*
@@ -77,7 +78,7 @@ export default function AssociationDashboardPage() {
               <h2 className="font-display text-lg font-bold">الجوامع</h2>
               {data.mosques.length === 0 ? (
                 <Empty
-                  title="لا جوامع مرتبطة بجمعيتك بعد — يربطها مطوّر المنصة."
+                  title="لا جوامع مرتبطة بجمعيتك بعد — أرسل طلب «ربط جامع» من الأسفل."
                   action={
                     <Link href="/association/help" className="text-sm text-accent-ink underline">
                       كيف أستخدم المنصة؟
@@ -121,6 +122,8 @@ export default function AssociationDashboardPage() {
             </section>
           </>
         )}
+
+        <AssociationLinkPanel />
       </div>
     </AssociationPage>
   );

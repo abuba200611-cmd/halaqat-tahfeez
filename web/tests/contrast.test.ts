@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /*
@@ -75,6 +76,9 @@ const LITERAL_PAIRS: [fg: string, bg: string, label: string][] = [
   ["#AD7D56", "#000000", "بيج فرنسي على أسود (أيقونات/حواف)"],
   ["#000000", "#CDB49E", "أسود على رمل (شريط الكلمات)"],
   ["#000000", "#AD7D56", "أسود على بيج (أزرار/DTA)"],
+  ["#e9d9c6", "#000000", "نص الآية على بطاقة الهيرو السوداء"],
+  ["#e39b8d", "#000000", "رسالة خطأ فاتحة على قشرة الدخول السوداء"],
+  ["#CDB49E", "#241b12", "رمل على بطاقة داكنة بنية"],
   ["#5F5344", "#ffffff", "نص هامد على بطاقة بيضاء"],
   ["#5F5344", "#F3EDE6", "نص هامد على خلفية فاتحة"],
   ["#7F5636", "#F0E4D2", "حبر البيج على رقاقة بيج فاتح"],
@@ -110,5 +114,43 @@ describe("تباين رموز الهوية (globals.css)", () => {
     const blend = [173, 125, 86].map((v) => Math.round(0.8 * 0 + 0.2 * v));
     const fg = `#${blend.map((v) => v.toString(16).padStart(2, "0")).join("")}`;
     expect(contrastRatio(fg, "#AD7D56")).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+/*
+  فحص مصدري: عنصر واحد بخلفية داكنة صريحة (bg-black / bg-foreground / bg-primary
+  / hex قريب من الأسود) ونصّه بلون داكن في نفس سلسلة الأصناف الثابتة. السلاسل
+  ذات الشرط (\`...${}\`) تُستثنى لأن خلفيتها ونصها قد يقعان في فرعين مختلفين.
+  bg-foreground لا يُقبل أصلاً مع نص فاتح صريح لأنه ينقلب فاتحاً في الوضع الداكن.
+*/
+const DARK_BG = /(?<![\w:-])bg-(?:black|foreground|\[#[0-2][0-9a-fA-F]{5}\])(?![\w/-])/;
+const DARK_TEXT = /(?<![\w:-])text-(?:black|foreground|muted-foreground|stone-[1-9]00|\[#[0-5][0-9a-fA-F]{5}\])(?![\w/-])/;
+
+function walk(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === "node_modules" || name === ".next" || name.startsWith(".")) continue;
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) walk(full, out);
+    else if (name.endsWith(".tsx")) out.push(full);
+  }
+  return out;
+}
+
+describe("لا نص داكن على سطح داكن في أي مكوّن", () => {
+  it("لا سلسلة أصناف ثابتة تجمع خلفية داكنة ونصاً داكناً", () => {
+    const root = new URL("../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+    const offenders: string[] = [];
+    for (const file of [...walk(join(root, "app")), ...walk(join(root, "components"))]) {
+      const src = readFileSync(file, "utf8");
+      for (const m of src.matchAll(/className="([^"]*)"/g)) {
+        if (DARK_BG.test(m[1]) && DARK_TEXT.test(m[1])) offenders.push(`${file}: ${m[1].slice(0, 90)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("القوائم المنسدلة السوداء لا تستعمل bg-foreground (ينقلب فاتحاً بالوضع الداكن)", () => {
+    const src = readFileSync(new URL("../components/role-switcher.tsx", import.meta.url), "utf8");
+    expect(src).not.toMatch(/bg-foreground/);
   });
 });

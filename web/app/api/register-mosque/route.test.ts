@@ -12,6 +12,7 @@ vi.mock("@/lib/rate-limit", () => ({
 vi.mock("@/lib/mosque-registration-db", () => ({ createRegistrationRequest: mocks.createRegistrationRequest }));
 vi.mock("@/lib/mosque/password", () => ({ hashPassword: mocks.hashPassword }));
 vi.mock("@/lib/dev-error-log", () => ({ logServerError: vi.fn() }));
+vi.mock("@/lib/privacy-consent", () => ({ recordPrivacyConsent: vi.fn(async () => undefined) }));
 
 const { POST, REGISTER_MOSQUE_MAX_PER_HOUR } = await import("./route");
 
@@ -25,6 +26,7 @@ const GOOD = {
   password: "secret123",
   confirmPassword: "secret123",
   associationName: "",
+  privacyConsent: true,
 };
 
 const post = (body: unknown, ip = "1.2.3.4") =>
@@ -43,6 +45,12 @@ beforeEach(() => {
 });
 
 describe("POST /api/register-mosque", () => {
+  it("بلا موافقة على سياسة الخصوصية → 400 ولا تخزين", async () => {
+    const res = await post({ ...GOOD, privacyConsent: false });
+    expect(res.status).toBe(400);
+    expect(mocks.createRegistrationRequest).not.toHaveBeenCalled();
+  });
+
   it("طلب سليم → 200، تُجزَّأ كلمة المرور ولا تصل خاماً للتخزين", async () => {
     const res = await post(GOOD);
     expect(res.status).toBe(200);

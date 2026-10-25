@@ -6,6 +6,8 @@ import Link from "next/link";
 import { AuthCard, AuthShell } from "@/components/auth-shell";
 import { UserIcon } from "@/components/icons";
 import { BrandLockup } from "@/components/brand";
+import { PrivacyConsentField } from "@/components/privacy-consent-field";
+import { PRIVACY_CONSENT_REQUIRED_MESSAGE } from "@/lib/privacy-consent-shared";
 
 /*
   صفحة منعزلة عمداً — STEP 6A. لا تظهر داخل student-gate العام ولا في أي
@@ -74,7 +76,7 @@ function StartGoogle({ initialError, invite }: { initialError: string | null; in
       >
         الدخول بحساب جوجل
       </a>
-      <p className="mt-4 text-center text-xs text-white/60">
+      <p className="mt-2 text-center text-xs text-white/60">
         لديك حساب مسبقاً؟{" "}
         <Link href="/student" className="font-semibold text-white hover:underline">
           سجّل دخولك من هنا
@@ -114,6 +116,7 @@ function CompleteInviteForm({ initialInvite }: { initialInvite: string }) {
   const router = useRouter();
   const [studentName, setStudentName] = useState("");
   const [inviteCode, setInviteCode] = useState(initialInvite);
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -122,13 +125,17 @@ function CompleteInviteForm({ initialInvite }: { initialInvite: string }) {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (!privacyConsent) {
+      setError(PRIVACY_CONSENT_REQUIRED_MESSAGE);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/student-auth/google/complete-invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentName, inviteCode: extractInviteCode(inviteCode) }),
+        body: JSON.stringify({ studentName, inviteCode: extractInviteCode(inviteCode), privacyConsent }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
@@ -171,6 +178,7 @@ function CompleteInviteForm({ initialInvite }: { initialInvite: string }) {
             className="mt-1 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/35 outline-none transition-colors duration-200 focus-visible:border-white/40 focus-visible:bg-white/10"
           />
         </label>
+        <PrivacyConsentField checked={privacyConsent} onChange={setPrivacyConsent} />
         {error && (
           <div className="space-y-2 rounded-xl border border-destructive/20 bg-destructive/5 p-3">
             <p className="text-sm text-destructive-light">{error}</p>

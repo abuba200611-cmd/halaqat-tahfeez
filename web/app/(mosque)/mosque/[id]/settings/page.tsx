@@ -9,6 +9,8 @@ import { mosqueNavItems } from "@/components/mosque/mosque-nav";
 import { SettingsIcon } from "@/components/mosque/icons";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PasswordChangeForm } from "@/components/password-change-form";
+import { DataDeletionCard } from "@/components/data-deletion-card";
+import { MosqueLinkRequestsCard } from "@/components/mosque/link-requests-card";
 import type { MosqueFeature } from "@/lib/mosque/db";
 
 import { BackButton } from "@/components/back-button";
@@ -142,6 +144,8 @@ export default function MosqueSettingsPage() {
           </div>
         </Card>
 
+        {role === "mosque" && <MosqueLinkRequestsCard />}
+
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         {ready === null ? (
@@ -176,6 +180,7 @@ export default function MosqueSettingsPage() {
             note="تغيير كلمة المرور لا يُنهي جلسات الأجهزة الأخرى لهذا الدور."
           />
         )}
+        {role === "mosque" && <DataDeletionCard kind="mosque_admin" />}
         <ThemeToggle />
       </div>
     </DashboardShell>

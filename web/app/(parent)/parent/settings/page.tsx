@@ -7,6 +7,7 @@ import { ParentWhatsappCard } from "@/components/parent-whatsapp-card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileNameForm } from "@/components/profile-name-form";
 import { PasswordChangeForm } from "@/components/password-change-form";
+import { DataDeletionCard } from "@/components/data-deletion-card";
 
 const CARD = "rounded-2xl border border-stone-200 bg-white p-4";
 
@@ -49,6 +50,7 @@ export default function ParentSettingsPage() {
       </div>
       <ProfileNameForm key={parent.name} endpoint="/api/parent-auth/profile" initialName={parent.name} />
       <PasswordChangeForm endpoint="/api/parent-auth/change-password" />
+      <DataDeletionCard kind="parent" />
       <ThemeToggle />
     </div>
   );

@@ -18,6 +18,8 @@ export type MosqueRegistrationInput = {
   username: string;
   password: string;
   associationName: string;
+  /** جمعية قائمة اختارها مقدّم الطلب (ربط معلّق حتى توافق عليه الجمعية) */
+  associationId?: number | null;
 };
 
 export type ParsedMosqueRegistration =
@@ -37,6 +39,14 @@ export function parseMosqueRegistrationBody(body: unknown): ParsedMosqueRegistra
   const password = str(raw.password);
   const confirm = str(raw.confirmPassword);
   const associationName = str(raw.associationName).trim();
+  let associationId: number | null = null;
+  if (raw.associationId !== undefined && raw.associationId !== null && raw.associationId !== "") {
+    const n = Number(raw.associationId);
+    if (!Number.isSafeInteger(n) || n <= 0) {
+      return { ok: false, field: "associationId", error: "الجمعية المختارة غير صالحة" };
+    }
+    associationId = n;
+  }
 
   if (mosqueName.length < 2 || mosqueName.length > REG_MOSQUE_NAME_MAX) {
     return { ok: false, field: "mosqueName", error: `اسم الجامع من ٢ إلى ${REG_MOSQUE_NAME_MAX} حرفاً` };
@@ -59,7 +69,10 @@ export function parseMosqueRegistrationBody(body: unknown): ParsedMosqueRegistra
   if (associationName.length > REG_ASSOCIATION_MAX) {
     return { ok: false, field: "associationName", error: `اسم الجمعية حتى ${REG_ASSOCIATION_MAX} حرفاً` };
   }
-  return { ok: true, value: { mosqueName, city, applicantName, phone, email, username, password, associationName } };
+  return {
+    ok: true,
+    value: { mosqueName, city, applicantName, phone, email, username, password, associationName, associationId },
+  };
 }
 
 /** سبب الرفض: نص مطلوب من ٣ إلى ٣٠٠ حرف */

@@ -4,6 +4,8 @@ import { loginFailureKey } from "@/lib/login-key";
 import { findAssociationAdminByUsername, markAssociationAdminLogin } from "@/lib/association-db";
 import { setAssociationAdminSessionCookie } from "@/lib/association-auth";
 import { verifyPassword } from "@/lib/mosque/password";
+import { associationLoginRequestStatus } from "@/lib/association-registration-db";
+import { associationLoginStatusMessage } from "@/lib/association-registration";
 
 const MAX_FAILURES = 8;
 const WINDOW_SECONDS = 60 * 60;
@@ -27,6 +29,16 @@ export async function POST(request: Request) {
 
   const admin = await findAssociationAdminByUsername(username);
   if (!admin || !verifyPassword(password, admin.passwordHash)) {
+    // بيانات طلب تسجيل معلّق/مرفوض صحيحة؟ رسالة حالته بدل الخطأ العام (لا تُحتسب فشلاً)
+    if (!admin) {
+      const pending = await associationLoginRequestStatus(username, password);
+      if (pending) {
+        return Response.json(
+          { error: associationLoginStatusMessage(pending.status, pending.reason), code: `registration_${pending.status}` },
+          { status: 403 },
+        );
+      }
+    }
     await recordRateLimitHit(ipKey, WINDOW_SECONDS);
     await recordRateLimitHit(userKey, WINDOW_SECONDS);
     return Response.json({ error: "بيانات الدخول غير صحيحة" }, { status: 401 });

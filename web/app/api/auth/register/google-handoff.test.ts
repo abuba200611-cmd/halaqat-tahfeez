@@ -36,6 +36,7 @@ vi.mock("@/lib/auth", () => authMocks);
 vi.mock("@/lib/activity", () => ({ recordLogin: vi.fn() }));
 const mailMocks = vi.hoisted(() => ({ sendMail: vi.fn() }));
 vi.mock("@/lib/mail", () => mailMocks);
+vi.mock("@/lib/privacy-consent", () => ({ recordPrivacyConsent: vi.fn(async () => undefined) }));
 
 const { POST } = await import("./route");
 const { signGoogleHandoff } = await import("@/lib/google-handoff");
@@ -46,7 +47,7 @@ function req(body: Record<string, unknown>): Request {
   return new Request("http://localhost/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ privacyConsent: true, ...body }),
   });
 }
 
