@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useParentSession, type ParentSession } from "./parent-shell";
 import { PrivacyConsentField } from "./privacy-consent-field";
 import { PRIVACY_CONSENT_REQUIRED_MESSAGE } from "@/lib/privacy-consent-shared";
@@ -139,11 +138,6 @@ export function ParentAuthForm({
       >
         {busy ? "لحظة…" : mode === "login" ? "دخول" : "إنشاء الحساب"}
       </button>
-      <p className="text-center text-xs text-stone-600">
-        <Link href="/privacy" className="underline">
-          سياسة الخصوصية
-        </Link>
-      </p>
     </form>
   );
 }
