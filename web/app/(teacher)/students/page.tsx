@@ -3,10 +3,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge, Button, Card, Empty } from "@/components/ui";
+import {
+  BookIcon,
+  CalendarIcon,
+  ClipboardIcon,
+  PlusIcon,
+  SearchIcon,
+  UsersIcon,
+} from "@/components/icons";
 import { LinkPanel } from "@/components/link-button";
 import { ParentInviteLink } from "@/components/parent-invite-link";
 import { pageCount, studentJuzes } from "@/lib/pairing";
 import { juzLabel, juzToPages } from "@/lib/quran";
+import { avgMastery, computeStudentStats } from "@/lib/students-stats";
 import { useStudents } from "@/lib/store";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { STATUS_LABELS, type FeeStatus } from "@/lib/fees";
@@ -15,14 +24,16 @@ import type { Student } from "@/lib/types";
 type DeletedStudent = { id: string; name: string; deletedAt: string };
 type ParentEntry = { parentId: number; name: string; email: string };
 
-function avgMastery(student: Student): number {
-  const vals = Object.values(student.mastery);
-  if (vals.length === 0) return 0;
-  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
-}
+/** زر صغير ثانوي لأفعال الجدول — بأسلوب زر ghost لكن بمقاس مضغوط للصفوف */
+const rowActionClass =
+  "cursor-pointer rounded-md border border-border bg-surface px-2 py-1 text-xs font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+
+/** رابط ثانوي (زر بشكل رابط) لشريط الأدوات */
+const toolbarLinkClass =
+  "flex items-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export default function StudentsPage() {
-  const { students, loading, upsert, remove } = useStudents();
+  const { students, loading, upsert } = useStudents();
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
@@ -151,6 +162,11 @@ export default function StudentsPage() {
     return [...list].sort((a, b) => pageCount(b) - pageCount(a));
   }, [students, query]);
 
+  const stats = useMemo(
+    () => computeStudentStats({ students, attendance, fees }),
+    [students, attendance, fees],
+  );
+
   if (loading) {
     return <Empty title="جارٍ تحميل الطلاب…" />;
   }
@@ -159,7 +175,6 @@ export default function StudentsPage() {
     return (
       <div className="space-y-4">
         <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
-        <InviteLinksSection />
         <Empty
           title="القائمة فارغة."
           action={
@@ -183,36 +198,59 @@ export default function StudentsPage() {
   return (
     <div className="space-y-4">
       <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
-      <InviteLinksSection />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold">
-          الطلاب <span className="tabular text-base font-normal text-muted-foreground">({students.length})</span>
-        </h1>
-        <div className="no-print flex gap-2">
+
+      <h1 className="font-display text-2xl font-bold">
+        الطلاب <span className="tabular text-base font-normal text-muted-foreground">({students.length})</span>
+      </h1>
+
+      <div
+        className={`grid grid-cols-2 gap-3 sm:gap-4 ${
+          stats.feesOutstanding === null ? "lg:grid-cols-3" : "lg:grid-cols-4"
+        }`}
+      >
+        <StatCard icon={<UsersIcon size={20} />} label="عدد الطلاب" value={stats.total} />
+        <StatCard
+          icon={<CalendarIcon size={20} />}
+          label="متوسط الحضور (٣٠ يوماً)"
+          value={stats.avgAttendance === null ? "—" : `${stats.avgAttendance}٪`}
+        />
+        <StatCard
+          icon={<BookIcon size={20} />}
+          label="متوسط الإتقان"
+          value={stats.avgMastery === null ? "—" : `${stats.avgMastery}٪`}
+        />
+        {stats.feesOutstanding !== null && (
+          <StatCard icon={<ClipboardIcon size={20} />} label="رسوم مستحقة" value={stats.feesOutstanding} />
+        )}
+      </div>
+
+      <div className="no-print flex flex-wrap items-center gap-2">
+        <div className="relative min-w-40 flex-1 sm:max-w-xs">
+          <SearchIcon
+            size={16}
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+          />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="ابحث بالاسم أو المجموعة"
-            className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="w-full rounded-md border border-border bg-surface py-1.5 pl-3 pr-9 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
-          <a
-            href="/api/students/export"
-            className="flex items-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            تصدير CSV
-          </a>
-          {importEnabled && (
-            <Link
-              href="/students/import"
-              className="flex items-center rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              استيراد Excel
-            </Link>
-          )}
-          <Button onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "إغلاق" : "إضافة طالب"}
-          </Button>
         </div>
+        <Button onClick={() => setShowForm((v) => !v)} className="flex items-center gap-1.5">
+          {showForm ? "إغلاق" : <><PlusIcon size={14} /> إضافة طالب</>}
+        </Button>
+        <Link href="/students/invites" className={toolbarLinkClass}>
+          روابط الدعوة
+        </Link>
+        <a href="/api/students/export" className={toolbarLinkClass}>
+          تصدير CSV
+        </a>
+        {importEnabled && (
+          <Link href="/students/import" className={toolbarLinkClass}>
+            استيراد Excel
+          </Link>
+        )}
       </div>
 
       {showForm && <AddStudentForm onAdd={(s) => { upsert(s); setShowForm(false); }} />}
@@ -286,107 +324,96 @@ export default function StudentsPage() {
         </Card>
       )}
 
-      <Card className="overflow-x-auto">
-        <table className="w-full min-w-[36rem] text-right text-sm">
-          <thead className="border-b border-border bg-muted/50">
-            <tr className="text-xs text-muted-foreground">
-              <th className="px-3 py-2 font-medium">الاسم</th>
-              <th className="px-3 py-2 font-medium">المجموعة</th>
-              <th className="px-3 py-2 font-medium">المحفوظ</th>
-              <th className="px-3 py-2 font-medium">النطاق</th>
-              <th className="px-3 py-2 font-medium">الإتقان</th>
-              <th className="px-3 py-2 font-medium">الحضور (٣٠ يوماً)</th>
-              {fees && <th className="px-3 py-2 font-medium">الرسوم</th>}
-              <th className="no-print px-3 py-2 font-medium">تقييمك</th>
-              <th className="no-print px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((student) => {
-              const mastery = avgMastery(student);
-              return (
-                <tr key={student.id} className="transition-colors duration-200 hover:bg-muted/40">
-                  <td className="px-3 py-2">
-                    <Link href={`/students/${encodeURIComponent(student.id)}`} className="font-medium hover:underline">
-                      {student.name}
-                    </Link>
-                    {usernames[student.id] && (
-                      <span className="mr-2">
-                        <Badge>حساب</Badge>
-                      </span>
-                    )}
-                    {(parents[student.id]?.length ?? 0) > 0 && (
-                      <span className="mr-2 text-xs text-muted-foreground" title="أولياء أمور مرتبطون">
-                        👪 {parents[student.id].length}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{student.group}</td>
-                  <td className="tabular px-3 py-2">{pageCount(student)} ص</td>
-                  <td className="px-3 py-2 text-muted-foreground">{juzLabel(studentJuzes(student))}</td>
-                  <td className="px-3 py-2">
-                    <Badge tone={mastery >= 75 ? "good" : mastery >= 55 ? "neutral" : "warn"}>
-                      {mastery}٪
-                    </Badge>
-                  </td>
-                  <td className="tabular px-3 py-2 text-muted-foreground">
-                    {attendance[student.id]?.presentPct != null
-                      ? `${attendance[student.id].presentPct}٪ · غياب ${attendance[student.id].absent}`
-                      : "—"}
-                  </td>
-                  {fees && (
-                    <td className="px-3 py-2">
-                      {fees[student.id] ? (
-                        <span title={`الفترة ${fees[student.id].periodLabel}`}>
-                          <Badge tone={fees[student.id].status === "paid" ? "good" : fees[student.id].status === "waived" ? "neutral" : "warn"}>
-                            {STATUS_LABELS[fees[student.id].status]}
-                          </Badge>
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] whitespace-nowrap text-right text-sm">
+            <thead className="border-b border-border">
+              <tr>
+                <th className="sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">الاسم</th>
+                <th className="sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">المجموعة</th>
+                <th className="sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">المحفوظ</th>
+                <th className="sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">النطاق</th>
+                <th className="sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">الإتقان</th>
+                <th className="sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">الحضور (٣٠ يوماً)</th>
+                {fees && (
+                  <th className="sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">الرسوم</th>
+                )}
+                <th className="no-print sticky top-0 bg-surface px-3 py-2.5 text-xs font-medium text-muted-foreground">تقييمك</th>
+                <th className="no-print sticky top-0 bg-surface px-3 py-2.5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((student) => {
+                const mastery = avgMastery(student);
+                return (
+                  <tr key={student.id} className="transition-colors duration-200 hover:bg-accent-soft/40">
+                    <td className="px-3 py-2.5">
+                      <Link href={`/students/${encodeURIComponent(student.id)}`} className="font-medium hover:underline">
+                        {student.name}
+                      </Link>
+                      {usernames[student.id] && (
+                        <span className="mr-2">
+                          <Badge>حساب</Badge>
                         </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
+                      )}
+                      {(parents[student.id]?.length ?? 0) > 0 && (
+                        <span className="mr-2 text-xs text-muted-foreground" title="أولياء أمور مرتبطون">
+                          👪 {parents[student.id].length}
+                        </span>
                       )}
                     </td>
-                  )}
-                  <td className="no-print px-3 py-2">
-                    <StarRating value={student.rating} onChange={(rating) => upsert({ ...student, rating })} />
-                  </td>
-                  <td className="no-print px-3 py-2 text-left">
-                    {usernames[student.id] && (
-                      <button
-                        onClick={() => setCredentialFor(student)}
-                        className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                      >
-                        الحساب
-                      </button>
+                    <td className="px-3 py-2.5 text-muted-foreground">{student.group}</td>
+                    <td className="tabular px-3 py-2.5">{pageCount(student)} ص</td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{juzLabel(studentJuzes(student))}</td>
+                    <td className="px-3 py-2.5">
+                      <Badge tone={mastery >= 75 ? "good" : mastery >= 55 ? "neutral" : "warn"}>
+                        {mastery}٪
+                      </Badge>
+                    </td>
+                    <td className="tabular px-3 py-2.5 text-muted-foreground">
+                      {attendance[student.id]?.presentPct != null
+                        ? `${attendance[student.id].presentPct}٪ · غياب ${attendance[student.id].absent}`
+                        : "—"}
+                    </td>
+                    {fees && (
+                      <td className="px-3 py-2.5">
+                        {fees[student.id] ? (
+                          <span title={`الفترة ${fees[student.id].periodLabel}`}>
+                            <Badge tone={fees[student.id].status === "paid" ? "good" : fees[student.id].status === "waived" ? "neutral" : "warn"}>
+                              {STATUS_LABELS[fees[student.id].status]}
+                            </Badge>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                     )}
-                    <button
-                      onClick={() => setParentsFor(student)}
-                      className="cursor-pointer rounded px-2 py-1 text-xs font-semibold text-accent-ink transition-colors duration-200 hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      دعوة ولي الأمر
-                    </button>
-                    <button
-                      onClick={() => setLinkFor(student)}
-                      className="cursor-pointer rounded px-2 py-1 text-xs text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      {links[student.id] ? "تحديث" : "حالة الربط"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        remove(student.id);
-                        setTimeout(loadDeleted, 500);
-                      }}
-                      className="cursor-pointer rounded px-2 py-1 text-xs text-destructive transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      حذف
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </Card>
+                    <td className="no-print px-3 py-2.5">
+                      <StarRating value={student.rating} onChange={(rating) => upsert({ ...student, rating })} />
+                    </td>
+                    <td className="no-print px-3 py-2.5 text-left">
+                      <div className="flex items-center justify-end gap-1">
+                        {usernames[student.id] && (
+                          <button onClick={() => setCredentialFor(student)} className={rowActionClass}>
+                            الحساب
+                          </button>
+                        )}
+                        <button onClick={() => setParentsFor(student)} className={rowActionClass}>
+                          دعوة ولي الأمر
+                        </button>
+                        {links[student.id] && <Badge tone="good">مرتبط</Badge>}
+                        <button onClick={() => setLinkFor(student)} className={rowActionClass}>
+                          {links[student.id] ? "تحديث" : "حالة الربط"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {filtered.length === 0 && (
         <p className="py-6 text-center text-sm text-muted-foreground">لا نتائج مطابقة للبحث.</p>
@@ -395,205 +422,16 @@ export default function StudentsPage() {
   );
 }
 
-/**
- * رابط دعوة ثابت لهذه الحلقة — يشاركه المعلّم مع طلابه (قروب واتساب
- * مثلاً)، وكل من يفتحه وينشئ حسابه بنظام تسجيل الورد ينضم فوراً لهذه
- * الحلقة بلا أي إدخال يدوي (لا إضافة طالب، ولا ربط اسم مستخدم).
- */
-type TeamMember = {
-  id: number;
-  teacherName: string;
-  username: string;
-  role: "supervisor" | "assistant";
-  deactivatedAt: string | null;
-};
-
-/** حقل رابط بزر نسخ — نفس الشكل يتكرّر لكل نوع رابط دعوة بالقسم أدناه */
-function CopyLinkField({ link }: { link: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // بعض المتصفحات تمنع الكتابة للحافظة بلا HTTPS — الرابط ظاهر بالحقل أصلاً
-    }
-  }
-
+/** بطاقة إحصائية علوية — أيقونة بدائرة بيج فاتح، رقم كبير، ووصف صغير */
+function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
   return (
-    <div className="flex gap-2">
-      <input
-        readOnly
-        value={link}
-        onFocus={(e) => e.currentTarget.select()}
-        className="w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-muted-foreground"
-      />
-      <Button onClick={copy} className="shrink-0">
-        {copied ? "نُسخ ✓" : "نسخ"}
-      </Button>
+    <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
+        {icon}
+      </span>
+      <div className="tabular mt-3 text-2xl font-semibold text-foreground sm:text-3xl">{value}</div>
+      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
     </div>
-  );
-}
-
-/** زر تجديد رابط دعوة الطلاب — مع تأكيد لأنه يُبطل الرابط الحالي فوراً */
-function RotateInviteButton({ onRotated }: { onRotated: (link: string) => void }) {
-  const [busy, setBusy] = useState(false);
-
-  async function rotate() {
-    if (!confirm("تجديد الرابط يُبطل الرابط الحالي — الطلاب الذين لم يسجّلوا بعد سيحتاجون الرابط الجديد. المتابعة؟")) {
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await fetch("/api/teacher/invite/rotate", { method: "POST" });
-      if (res.ok) {
-        const data = (await res.json()) as { link?: string };
-        if (data.link) onRotated(data.link);
-      }
-    } catch {
-      // فشل التجديد لا يغيّر الرابط المعروض — الرابط القديم ما زال صالحاً
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Button variant="ghost" onClick={rotate} disabled={busy} className="shrink-0">
-      {busy ? "…" : "تجديد رابط الدعوة"}
-    </Button>
-  );
-}
-
-/**
- * قسم واحد يجمع كل روابط دعوة الحلقة — بدل ما تكون بطاقات متفرّقة يصعب
- * تمييزها، كل نوع رابط له أيقونة وعنوان واضح يفرّقه عن الثاني فوراً:
- * 🎓 للطلاب (ينضمّون بأنفسهم لتسجيل ورد) مقابل 👥 لمعلّم مساعد (ينضم
- * بصلاحيات مطابقة تماماً لنفس الحلقة).
- */
-function InviteLinksSection() {
-  const [studentLink, setStudentLink] = useState<string | null>(null);
-  const [teacherLink, setTeacherLink] = useState<string | null>(null);
-  const [team, setTeam] = useState<TeamMember[]>([]);
-  // زر الإيقاف/التفعيل للمشرف فقط — الدور من الخادم (/api/teacher/settings)،
-  // لا من أي افتراض بالواجهة
-  const [isSupervisor, setIsSupervisor] = useState(false);
-  const [busyAssistantId, setBusyAssistantId] = useState<number | null>(null);
-
-  const loadTeam = useCallback(() => {
-    fetch("/api/teacher/invite-colleague")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { link?: string; team?: TeamMember[] } | null) => {
-        if (data?.link) setTeacherLink(data.link);
-        if (data?.team) setTeam(data.team);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/teacher/invite")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { link?: string } | null) => {
-        if (data?.link) setStudentLink(data.link);
-      })
-      .catch(() => {});
-
-    loadTeam();
-
-    fetch("/api/teacher/settings")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { role?: "supervisor" | "assistant" } | null) => {
-        if (data?.role) setIsSupervisor(data.role === "supervisor");
-      })
-      .catch(() => {});
-  }, [loadTeam]);
-
-  async function toggleAssistant(member: TeamMember, active: boolean) {
-    if (!active) {
-      const name = member.teacherName || member.username;
-      if (!confirm(`إيقاف ${name} يمنعه من الدخول ويُنهي جلساته فوراً — بياناته وأفعاله السابقة تبقى كما هي. المتابعة؟`)) {
-        return;
-      }
-    }
-    setBusyAssistantId(member.id);
-    try {
-      const res = await fetch(`/api/teacher/assistants/${member.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active }),
-      });
-      if (res.ok) loadTeam();
-    } catch {
-      // فشل الطلب يُبقي الحالة المعروضة كما هي — القائمة تُعاد جلبها لاحقاً
-    } finally {
-      setBusyAssistantId(null);
-    }
-  }
-
-  if (!studentLink && !teacherLink) return null;
-
-  return (
-    <Card className="no-print p-4">
-      <h2 className="mb-3 text-sm font-semibold">روابط الدعوة</h2>
-
-      <div className="space-y-4 divide-y divide-border [&>*+*]:pt-4">
-        {studentLink && (
-          <div>
-            <p className="mb-1 flex items-center gap-1.5 text-sm font-medium">
-              <span aria-hidden>🎓</span> للطلاب
-            </p>
-            <p className="mb-2 text-xs text-muted-foreground">
-              شاركه مع طلابك (بقروب واتساب مثلاً) — كل من يفتحه ويسجّل بحساب جوجل ويكتب اسمه
-              ينضم لحلقتك تلقائياً، بلا ما تحتاج تضيفه أو تربطه يدوياً.
-            </p>
-            <div className="flex gap-2">
-              <div className="min-w-0 flex-1">
-                <CopyLinkField link={studentLink} />
-              </div>
-              <RotateInviteButton onRotated={setStudentLink} />
-            </div>
-          </div>
-        )}
-
-        {teacherLink && (
-          <div>
-            <p className="mb-1 flex items-center gap-1.5 text-sm font-medium">
-              <span aria-hidden>👥</span> لمعلّم مساعد
-            </p>
-            <p className="mb-2 text-xs text-muted-foreground">
-              رابط مختلف تماماً عن رابط الطلاب أعلاه — من يفتحه وينشئ حسابه ينضم كمساعد مشرف
-              لنفس حلقتك (يشوف طلابك ويدير كل شيء بصلاحيات مطابقة لك)، بدل ما ينشئ حلقة جديدة.
-            </p>
-            <CopyLinkField link={teacherLink} />
-            {team.length > 0 && (
-              <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1.5">
-                {team.map((t) => (
-                  <li key={t.id} className="flex items-center gap-1.5">
-                    <Badge tone={t.role === "supervisor" ? "good" : "neutral"}>
-                      {t.teacherName || t.username} — {t.role === "supervisor" ? "مشرف" : "مساعد"}
-                    </Badge>
-                    {t.deactivatedAt && <Badge tone="warn">موقوف</Badge>}
-                    {isSupervisor && t.role === "assistant" && (
-                      <button
-                        type="button"
-                        onClick={() => toggleAssistant(t, t.deactivatedAt === null)}
-                        disabled={busyAssistantId === t.id}
-                        className={`cursor-pointer rounded px-2 py-1 text-xs transition-colors duration-200 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60 ${
-                          t.deactivatedAt ? "text-primary" : "text-destructive"
-                        }`}
-                      >
-                        {busyAssistantId === t.id ? "…" : t.deactivatedAt ? "إعادة تفعيل" : "إيقاف"}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
-    </Card>
   );
 }
 

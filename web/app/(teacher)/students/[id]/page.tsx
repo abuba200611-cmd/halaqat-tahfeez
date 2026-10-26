@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Empty } from "@/components/ui";
+import { useParams, useRouter } from "next/navigation";
+import { Button, Empty } from "@/components/ui";
+import { resetStore } from "@/lib/store";
 import { ParentInviteLink } from "@/components/parent-invite-link";
 import { WardListItem } from "@/components/ward-list";
 import { JuzProgressCard } from "@/components/juz-progress";
@@ -27,6 +28,21 @@ type StudentDetail = {
 export default function TeacherStudentPage() {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = useState<StudentDetail | "error" | null>(null);
+  // زر الحذف للمشرف فقط — الدور من الخادم (/api/teacher/settings)، لا افتراض بالواجهة
+  const [isSupervisor, setIsSupervisor] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/teacher/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { role?: "supervisor" | "assistant" } | null) => {
+        if (!cancelled && data?.role) setIsSupervisor(data.role === "supervisor");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +107,91 @@ export default function TeacherStudentPage() {
           </ul>
         )}
       </section>
+
+      {isSupervisor && <DangerZone studentId={detail.student.id} name={detail.student.name} />}
     </div>
+  );
+}
+
+/**
+ * منطقة الخطر — حذف الطالب (للمشرف فقط). الحذف ناعم: يظهر شريط «استرجاع»
+ * بصفحة الطلاب لمدة ٢٤ ساعة. نفس واجهة الـAPI السابقة (DELETE /api/students).
+ */
+function DangerZone({ studentId, name }: { studentId: string; name: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirmDelete() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/students", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: studentId }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(data.error ?? "تعذّر الحذف");
+        return;
+      }
+      resetStore(); // تُعاد قائمة الطلاب من الخادم عند فتح صفحة الطلاب
+      router.push("/students");
+    } catch {
+      setError("تعذّر الاتصال بالخادم");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="no-print space-y-2 rounded-2xl border border-destructive/40 bg-surface p-4">
+      <h2 className="text-sm font-semibold text-destructive">منطقة الخطر</h2>
+      <p className="text-xs text-muted-foreground">
+        حذف {name} يخفيه من حلقتك. يمكنك التراجع واسترجاعه خلال ٢٤ ساعة من صفحة الطلاب.
+      </p>
+      <Button variant="danger" onClick={() => setOpen(true)}>
+        حذف الطالب
+      </Button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) setOpen(false);
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-student-title"
+            className="w-full max-w-sm space-y-3 rounded-2xl border border-border bg-surface p-5 shadow-xl"
+          >
+            <h3 id="delete-student-title" className="text-base font-semibold text-foreground">
+              حذف {name}؟
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              سيُحذف الطالب من قائمتك ويمكن استرجاعه خلال ٢٤ ساعة فقط.
+            </p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy} autoFocus>
+                إلغاء
+              </Button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={busy}
+                className="cursor-pointer rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-white transition-colors duration-200 hover:bg-destructive-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? "جارٍ الحذف…" : "نعم، احذف"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
