@@ -34,6 +34,8 @@ function wardLog(partial: Partial<Pick<WardLog, "date" | "reviewSegments" | "rev
     reviewedBy: null,
     reviewedAt: null,
     reviewNote: null,
+    recordedByTeacherId: null,
+    recordedVia: "student",
     buddy: null,
     ...partial,
   };

@@ -23,6 +23,8 @@ function ward(overrides: Partial<WardLog>): WardLog {
     reviewedBy: null,
     reviewedAt: null,
     reviewNote: null,
+    recordedByTeacherId: null,
+    recordedVia: "student",
     ...overrides,
   };
 }

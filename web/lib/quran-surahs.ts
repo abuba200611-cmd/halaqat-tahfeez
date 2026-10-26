@@ -14,6 +14,8 @@
   بالمصحف (الناس ١١٤:٦) بصفحة ٦٠٤.
 */
 
+import type { AyahRange } from "./types";
+
 export const SURAH_COUNT = 114;
 export const TOTAL_AYAHS = 6236;
 export const TOTAL_MUSHAF_PAGES = 604;
@@ -161,6 +163,46 @@ export function pageRangeOfAyahRange(
   toAyah: number,
 ): { from: number; to: number } {
   return { from: pageOfAyah(fromSurah, fromAyah), to: pageOfAyah(toSurah, toAyah) };
+}
+
+/** الموضع (سورة، آية) لمعرّف عالمي بترتيب المصحف (١..٦٢٣٦) — عكس globalAyahOrder */
+function ayahOfGlobalOrder(globalId: number): { surah: number; ayah: number } {
+  let lo = 0;
+  let hi = SURAH_FIRST_GLOBAL_ID.length - 1;
+  let ans = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (SURAH_FIRST_GLOBAL_ID[mid] <= globalId) {
+      ans = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return { surah: ans + 1, ayah: globalId - SURAH_FIRST_GLOBAL_ID[ans] + 1 };
+}
+
+/**
+ * نطاق الآيات الذي يغطي صفحات (من–إلى) بالضبط — الدالة العكسية
+ * لـpageRangeOfAyahRange: من أول آية بالصفحة الأولى إلى آخر آية
+ * بالصفحة الأخيرة. إدخال الحفظ بالصفحات/الأوجه (ثانوي/جامعي) يُحوَّل
+ * بها إلى آيات فيبقى كل شيء (webhooks، تقييم الأخطاء، تقدّم الأجزاء)
+ * قائماً على الآيات كما هو (001 US3 — التخزين لا يتغيّر).
+ */
+export function ayahRangeOfPageRange(fromPage: number, toPage: number): AyahRange {
+  if (
+    !Number.isInteger(fromPage) ||
+    !Number.isInteger(toPage) ||
+    fromPage < 1 ||
+    toPage < fromPage ||
+    toPage > TOTAL_MUSHAF_PAGES
+  ) {
+    throw new Error("نطاق الصفحات خارج حدود المصحف");
+  }
+  const from = ayahOfGlobalOrder(PAGE_START_GLOBAL_ID[fromPage - 1]);
+  const lastGlobalId = toPage < TOTAL_MUSHAF_PAGES ? PAGE_START_GLOBAL_ID[toPage] - 1 : TOTAL_AYAHS;
+  const to = ayahOfGlobalOrder(lastGlobalId);
+  return { fromSurah: from.surah, fromAyah: from.ayah, toSurah: to.surah, toAyah: to.ayah };
 }
 
 /**

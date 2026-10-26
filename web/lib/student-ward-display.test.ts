@@ -22,6 +22,8 @@ function makeLog(hifz: PageRange | null, opts: { date?: string; hifzAyah?: AyahR
     reviewedBy: null,
     reviewedAt: null,
     reviewNote: null,
+    recordedByTeacherId: null,
+    recordedVia: "student",
   };
 }
 

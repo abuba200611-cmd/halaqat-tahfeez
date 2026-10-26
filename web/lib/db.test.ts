@@ -38,11 +38,13 @@ vi.mock("@netlify/database", () => ({
 
 const {
   carryOverReviewTracks,
+  createApprovedWardLog,
   createWardLog,
   updateWardLog,
   setWardReviewTracks,
   listHalaqahMates,
   listPendingBuddyRequestsForStudent,
+  listWardLogs,
   respondToBuddyRequest,
 } = await import("./db");
 
@@ -691,5 +693,137 @@ describe("setWardReviewTracks — قفل صف الورد قبل فحص الحا�
     expect(begin).toBeGreaterThanOrEqual(0);
     expect(lock).toBeGreaterThan(begin);
     expect(upd).toBeGreaterThan(lock);
+  });
+});
+
+describe("قراءة الأوراد — recordedVia (001 T014)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+  });
+
+  function wardRow(overrides: Record<string, unknown>) {
+    return {
+      id: 1,
+      student_id: "s1",
+      student_name: "طالب",
+      date: "2026-10-26",
+      hifz_from: null,
+      hifz_to: null,
+      review_from: null,
+      review_to: null,
+      hifz_from_surah: null,
+      hifz_from_ayah: null,
+      hifz_to_surah: null,
+      hifz_to_ayah: null,
+      review_from_surah: null,
+      review_from_ayah: null,
+      review_to_surah: null,
+      review_to_ayah: null,
+      note: "",
+      status: "approved",
+      created_at: "x",
+      previous_attempt_id: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      review_note: null,
+      ...overrides,
+    };
+  }
+
+  it("recorded_via NULL (ورد قديم) تُقرأ «student»، وأورد المعلّم تُقرأ كما هي", async () => {
+    sqlMock.mockResolvedValue([
+      wardRow({ id: 1, recorded_by_teacher_id: null, recorded_via: null }),
+      wardRow({ id: 2, recorded_by_teacher_id: 5, recorded_via: "teacher" }),
+      wardRow({ id: 3, recorded_by_teacher_id: 5, recorded_via: "queue" }),
+    ]);
+    const logs = await listWardLogs(2);
+    expect(logs[0]).toMatchObject({ id: 1, recordedVia: "student", recordedByTeacherId: null });
+    expect(logs[1]).toMatchObject({ id: 2, recordedVia: "teacher", recordedByTeacherId: 5 });
+    expect(logs[2]).toMatchObject({ id: 3, recordedVia: "queue", recordedByTeacherId: 5 });
+  });
+});
+
+describe("createApprovedWardLog — ورد معتمد باسم المسجِّل (001 T015)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+    connectMock.mockReset();
+    sqlMock.mockResolvedValue([]); // لا محاولة إعادة مفتوحة، ولا زميل (بلا buddyStudentId)
+  });
+
+  function insertClient(id: number) {
+    const client = makeFakeClient(1);
+    client.query.mockImplementation(async (text: string, params?: unknown[]) => {
+      client.calls.push({ text, params });
+      if (text.trim().startsWith("INSERT INTO ward_logs")) return { rows: [{ id }] };
+      return { rowCount: 1, rows: [] };
+    });
+    return client;
+  }
+
+  it("يُدرج status='approved' مع المسجِّل وصاحب القرار بمعاملة واحدة", async () => {
+    const client = insertClient(77);
+    connectMock.mockResolvedValue(client);
+
+    const result = await createApprovedWardLog(2, "student-1", sampleLog, { recordedVia: "teacher", recordedByTeacherId: 2 });
+
+    expect(result).toEqual({ id: 77, previousAttemptId: null });
+    const insertCall = client.calls.find((c) => c.text.trim().startsWith("INSERT INTO ward_logs"));
+    expect(insertCall?.text).toContain("'approved'");
+    expect(insertCall?.params?.[18]).toBe(2); // reviewed_by = من سجّل
+    expect(insertCall?.params?.[20]).toBe(2); // recorded_by_teacher_id
+    expect(insertCall?.params?.[21]).toBe("teacher"); // recorded_via
+    // المقاطع تُدرج داخل المعاملة نفسها (نفس createWardLog)
+    expect(client.calls.some((c) => c.text.trim().startsWith("INSERT INTO ward_review_segments"))).toBe(true);
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts).toContain("BEGIN");
+    expect(texts).toContain("COMMIT");
+    expect(texts).not.toContain("ROLLBACK");
+    expect(client.release).toHaveBeenCalledOnce();
+  });
+
+  it("client خارجي (لمعاملة الطابور 002): يُدرج بدونه BEGIN/COMMIT ولا يُتخلَّص من الاتصال", async () => {
+    const client = insertClient(78);
+    // غلاف بنفس توقيع المعاملة الخارجية — التسجيل يبقى داخل client.query
+    const query = client.query as unknown as (text: string, params?: unknown[]) => Promise<unknown>;
+    const txClient = { query };
+
+    const result = await createApprovedWardLog(2, "student-1", sampleLog, { recordedVia: "queue", recordedByTeacherId: 9 }, txClient);
+
+    expect(result.id).toBe(78);
+    expect(client.calls.find((c) => c.text.trim().startsWith("INSERT INTO ward_logs"))?.params?.[21]).toBe("queue");
+    const texts = client.calls.map((c) => c.text.trim());
+    expect(texts).not.toContain("BEGIN");
+    expect(texts).not.toContain("COMMIT");
+    expect(client.release).not.toHaveBeenCalled();
+  });
+
+  it("يربط محاولة الإعادة المفتوحة كـprevious_attempt_id كما في createWardLog", async () => {
+    sqlMock.mockImplementation((strings: TemplateStringsArray) => {
+      const text = strings.join("");
+      if (text.includes("SELECT id FROM ward_logs") && text.includes("needs_revision")) {
+        return Promise.resolve([{ id: 55 }]);
+      }
+      return Promise.resolve([]);
+    });
+    const client = insertClient(79);
+    connectMock.mockResolvedValue(client);
+
+    const result = await createApprovedWardLog(2, "student-1", sampleLog, { recordedVia: "teacher", recordedByTeacherId: 2 });
+
+    expect(result.previousAttemptId).toBe(55);
+    expect(client.calls.find((c) => c.text.trim().startsWith("INSERT INTO ward_logs"))?.params?.[17]).toBe(55);
+  });
+
+  it("زميل غير صالح: يفشل قبل فتح أي اتصال بقاعدة البيانات (نفس حارس createWardLog)", async () => {
+    sqlMock.mockImplementation((strings: TemplateStringsArray) => {
+      const text = strings.join("");
+      if (text.includes("FROM students")) return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+
+    await expect(
+      createApprovedWardLog(2, "student-1", { ...sampleLog, buddyStudentId: "ghost" }, { recordedVia: "teacher", recordedByTeacherId: 2 }),
+    ).rejects.toThrow("هذا الزميل غير متاح");
+    expect(connectMock).not.toHaveBeenCalled();
   });
 });

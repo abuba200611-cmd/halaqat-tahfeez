@@ -33,15 +33,15 @@ description: "Task list — أنماط تسجيل الورد حسب الفئة �
 
 **Purpose**: كل القرارات القابلة للاختبار قبل لمس قاعدة البيانات.
 
-- [ ] T004 [P] [FND] اختبار `lib/halaqah-stage.test.ts`: `STAGES` أربع قيم؛ `profileFor(null)` = ملف `legacy` مطابق للسلوك الحالي (unit `ayah_page`، `teacherRecords:false`، `reviewTracksDefault:true`)؛ `parseStage(unknown)` يرفض غير المعروف ويقبل `null`؛ جدول كل فئة حسب data-model §1.
-- [ ] T005 [P] [FND] تنفيذ `lib/halaqah-stage.ts` (STAGES, `HalaqahStage`, `WardUnit`, `StageProfile`, `profileFor`, `parseStage`, `STAGE_LABEL_AR`). يعتمد T004.
-- [ ] T006 [P] [US3] اختبار `lib/quran-surahs.test.ts` (إضافة) و`lib/ward-units.test.ts`: `ayahRangeOfPageRange(from,to)` — round-trip لكل الصفحات ١..٦٠٤ مع `pageRangeOfAyahRange`، وحدود (١، ٦٠٤، صفحة تبدأ في منتصف سورة)؛ `formatWardByUnit` لكل وحدة (مثال: `الفيل ١–٥`، `٣ أوجه (ص ٥٠٢–٥٠٤)`، `جزء ٣٠`)؛ ورد قديم بلا آيات يُعرض بكل وحدة دون فقد.
-- [ ] T007 [P] [US3] تنفيذ `lib/quran-surahs.ts` (إضافة `ayahRangeOfPageRange`) و`lib/ward-units.ts` (`formatWardByUnit`, `parseHifzPagesInput`, `WARD_UNIT_LABEL_AR`, `wholeSurahRange(surah)`). يعتمد T006.
-- [ ] T008 [P] [US2] اختبار `lib/ward-policy.test.ts`: `canTeacherRecord(profile)` (primary فقط)؛ `initialStatusFor({recordedVia})` (teacher/queue→approved، student→new)؛ `findSameDayDuplicate(existing[], {date, via})` (يُرجع الأقدم غير `needs_revision`)؛ `canReopen({status, recordedVia})` (true فقط لـapproved + teacher/queue)؛ `clampBackdateDays` (≤ ٣).
-- [ ] T009 [P] [US2] تنفيذ `lib/ward-policy.ts`. يعتمد T008.
+- [x] T004 [P] [FND] اختبار `lib/halaqah-stage.test.ts`: `STAGES` أربع قيم؛ `profileFor(null)` = ملف `legacy` مطابق للسلوك الحالي (unit `ayah_page`، `teacherRecords:false`، `reviewTracksDefault:true`)؛ `parseStage(unknown)` يرفض غير المعروف ويقبل `null`؛ جدول كل فئة حسب data-model §1.
+- [x] T005 [P] [FND] تنفيذ `lib/halaqah-stage.ts` (STAGES, `HalaqahStage`, `WardUnit`, `StageProfile`, `profileFor`, `parseStage`, `STAGE_LABEL_AR`). يعتمد T004.
+- [x] T006 [P] [US3] اختبار `lib/quran-surahs.test.ts` (إضافة) و`lib/ward-units.test.ts`: `ayahRangeOfPageRange(from,to)` — round-trip لكل الصفحات ١..٦٠٤ مع `pageRangeOfAyahRange`، وحدود (١، ٦٠٤، صفحة تبدأ في منتصف سورة)؛ `formatWardByUnit` لكل وحدة (مثال: `الفيل ١–٥`، `٣ أوجه (ص ٥٠٢–٥٠٤)`، `جزء ٣٠`)؛ ورد قديم بلا آيات يُعرض بكل وحدة دون فقد.
+- [x] T007 [P] [US3] تنفيذ `lib/quran-surahs.ts` (إضافة `ayahRangeOfPageRange`) و`lib/ward-units.ts` (`formatWardByUnit`, `parseHifzPagesInput`, `WARD_UNIT_LABEL_AR`, `wholeSurahRange(surah)`). يعتمد T006.
+- [x] T008 [P] [US2] اختبار `lib/ward-policy.test.ts`: `canTeacherRecord(profile)` (primary فقط)؛ `initialStatusFor({recordedVia})` (teacher/queue→approved، student→new)؛ `findSameDayDuplicate(existing[], {date, via})` (يُرجع الأقدم غير `needs_revision`)؛ `canReopen({status, recordedVia})` (true فقط لـapproved + teacher/queue)؛ `clampBackdateDays` (≤ ٣).
+- [x] T009 [P] [US2] تنفيذ `lib/ward-policy.ts`. يعتمد T008.
 - [ ] T010 [P] [US5] اختبار `lib/points.test.ts`: `parsePointsConfig` (قص/تصحيح/افتراضيات/مفاتيح دخيلة)، `pointsForApproval(config, {stage, mastered, errorScore})`، `balanceOf(entries)`، `validateRedemption({balance, cost, active})` يرجع `missing`، `isPointsEnabled(config, stage, featureEnabled)`.
 - [ ] T011 [P] [US5] تنفيذ `lib/points.ts`. يعتمد T010.
-- [ ] T012 [P] [US6] اختبار `lib/stage-review-tracks.test.ts` ثم تنفيذ `lib/stage-review-tracks.ts`: `reviewTracksVisible(profile, mosqueEnabled)` — جامع معطّل ⇒ false مهما كانت الفئة؛ جامع مفعّل + primary ⇒ false؛ + secondary ⇒ true؛ بلا جامع ⇒ الافتراضيات. (الاختبار أولاً داخل المهمة).
+- [x] T012 [P] [US6] اختبار `lib/stage-review-tracks.test.ts` ثم تنفيذ `lib/stage-review-tracks.ts`: `reviewTracksVisible(profile, mosqueEnabled)` — جامع معطّل ⇒ false مهما كانت الفئة؛ جامع مفعّل + primary ⇒ false؛ + secondary ⇒ true؛ بلا جامع ⇒ الافتراضيات. (الاختبار أولاً داخل المهمة).
 
 **Checkpoint**: `npx vitest run` أخضر؛ لم يُلمس أي ملف تطبيق.
 
@@ -49,11 +49,11 @@ description: "Task list — أنماط تسجيل الورد حسب الفئة �
 
 ## Phase 2: Foundational (بعد T001) — يحجب كل القصص
 
-- [ ] T013 [FND] أنشئ ملف المايقريشن المعتمد `netlify/database/migrations/20261115000000_halaqah_stages/migration.sql` (نسخ حرفي من data-model §2). **لا تُطبَّق من الوكيل.** يعتمد T001.
-- [ ] T014 [FND] `lib/types.ts` + `lib/db.ts`: أضف `recordedByTeacherId`, `recordedVia` إلى `WardLog`، وعمودي `recorded_by_teacher_id, recorded_via` إلى أعمدة SELECT في `listWardLogs` و`listApprovedWardLogs` وكل استعلامات الأوراد الأخرى الموجودة (ابحث `FROM ward_logs`)؛ `recordedVia ?? "student"` عند القراءة. لا تغيير في حمولة `/api/v1` (اختبار يؤكد).
-- [ ] T015 [FND] `lib/db.ts`: دالة `createApprovedWardLog(halaqahId, studentId, log, {recordedVia, recordedByTeacherId, supersedePendingId?, repeatMore?}, client?)` (الخياران الأخيران يُعرَّفان في التوقيع الآن ويُفعَّلان بتنفيذ 002/T014 بعد M3) — معاملة واحدة: إدراج `status='approved'` + `reviewed_by/reviewed_at` + المقاطع/الزميل كما في `createWardLog`، وتقبل `client` خارجي (يستعمله الطابور 002). + اختبار `lib/db.test.ts` (إضافة) على نمط المحاكاة القائم. يعتمد T014.
-- [ ] T016 [FND] `lib/halaqah-stage-db.ts` (`getHalaqahStage`, `setHalaqahStage`, `getStageForStudent`) + إضافة أنواع الأحداث `halaqah.stage_change` (و`points.redeem`, `points.cancel`, `points.reward_edit`) إلى `lib/audit-log-entry.ts` (+ تحديث `lib/audit-log.test.ts`).
-- [ ] T017 [FND] استخراج `lib/ward-notify.ts` (`notifyWardDecision({halaqahId, studentId, wardId, status, note})` من كتلة `after()` في PATCH بـ`app/api/wards/route.ts` **بسلوك مطابق حرفياً**، و`emitApprovedWardEvents({halaqahId, studentId, wardId, log})` تُصدر `progress.recorded` ثم `progress.approved` — تستعملهما 001/T024 و002/T029)؛ يبقى `app/api/wards/route.test.ts` أخضر دون تعديل توقعاته. (ملف واحد يُعدَّل + ملف جديد).
+- [x] T013 [FND] أنشئ ملف المايقريشن المعتمد `netlify/database/migrations/20261115000000_halaqah_stages/migration.sql` (نسخ حرفي من data-model §2). **لا تُطبَّق من الوكيل.** يعتمد T001.
+- [x] T014 [FND] `lib/types.ts` + `lib/db.ts`: أضف `recordedByTeacherId`, `recordedVia` إلى `WardLog`، وعمودي `recorded_by_teacher_id, recorded_via` إلى أعمدة SELECT في `listWardLogs` و`listApprovedWardLogs` وكل استعلامات الأوراد الأخرى الموجودة (ابحث `FROM ward_logs`)؛ `recordedVia ?? "student"` عند القراءة. لا تغيير في حمولة `/api/v1` (اختبار يؤكد).
+- [x] T015 [FND] `lib/db.ts`: دالة `createApprovedWardLog(halaqahId, studentId, log, {recordedVia, recordedByTeacherId, supersedePendingId?, repeatMore?}, client?)` (الخياران الأخيران يُعرَّفان في التوقيع الآن ويُفعَّلان بتنفيذ 002/T014 بعد M3) — معاملة واحدة: إدراج `status='approved'` + `reviewed_by/reviewed_at` + المقاطع/الزميل كما في `createWardLog`، وتقبل `client` خارجي (يستعمله الطابور 002). + اختبار `lib/db.test.ts` (إضافة) على نمط المحاكاة القائم. يعتمد T014.
+- [x] T016 [FND] `lib/halaqah-stage-db.ts` (`getHalaqahStage`, `setHalaqahStage`, `getStageForStudent`) + إضافة أنواع الأحداث `halaqah.stage_change` (و`points.redeem`, `points.cancel`, `points.reward_edit`) إلى `lib/audit-log-entry.ts` (+ تحديث `lib/audit-log.test.ts`).
+- [x] T017 [FND] استخراج `lib/ward-notify.ts` (`notifyWardDecision({halaqahId, studentId, wardId, status, note})` من كتلة `after()` في PATCH بـ`app/api/wards/route.ts` **بسلوك مطابق حرفياً**، و`emitApprovedWardEvents({halaqahId, studentId, wardId, log})` تُصدر `progress.recorded` ثم `progress.approved` — تستعملهما 001/T024 و002/T029)؛ يبقى `app/api/wards/route.test.ts` أخضر دون تعديل توقعاته. (ملف واحد يُعدَّل + ملف جديد).
 
 **Checkpoint**: الأساسيات جاهزة؛ القصص تبدأ.
 

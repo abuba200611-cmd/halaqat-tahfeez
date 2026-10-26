@@ -6,6 +6,7 @@ import {
   TOTAL_AYAHS,
   TOTAL_MUSHAF_PAGES,
   allSurahs,
+  ayahRangeOfPageRange,
   globalAyahOrder,
   isValidAyah,
   isValidSurah,
@@ -101,5 +102,40 @@ describe("بيانات المصحف الثابتة", () => {
   it("surahAtPage يقرّب صفحة خارج الحدود لأقرب طرف صالح", () => {
     expect(surahAtPage(0)).toBe(1);
     expect(surahAtPage(700)).toBe(114);
+  });
+});
+
+describe("ayahRangeOfPageRange (001) — الدالة العكسية لـpageRangeOfAyahRange", () => {
+  it("صفحة ١ = الفاتحة كاملة (١:١ إلى ١:٧)", () => {
+    expect(ayahRangeOfPageRange(1, 1)).toEqual({ fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7 });
+  });
+
+  it("صفحة ٢ تبدأ بالبقرة ١ وتنتهي بالبقرة ٥", () => {
+    expect(ayahRangeOfPageRange(2, 2)).toEqual({ fromSurah: 2, fromAyah: 1, toSurah: 2, toAyah: 5 });
+  });
+
+  it("صفحة ٥٦٢ تبدأ بالملك ١ (صفحة تبدأ في أول سورة)", () => {
+    expect(ayahRangeOfPageRange(562, 562)).toMatchObject({ fromSurah: 67, fromAyah: 1 });
+  });
+
+  it("المصحف كاملاً: ١:١ إلى الناس ١١٤:٦", () => {
+    expect(ayahRangeOfPageRange(1, 604)).toEqual({ fromSurah: 1, fromAyah: 1, toSurah: 114, toAyah: 6 });
+  });
+
+  it("round-trip لكل الصفحات ١..٦٠٤ مع pageRangeOfAyahRange", () => {
+    for (let p = 1; p <= TOTAL_MUSHAF_PAGES; p++) {
+      const r = ayahRangeOfPageRange(p, p);
+      expect(pageRangeOfAyahRange(r.fromSurah, r.fromAyah, r.toSurah, r.toAyah)).toEqual({ from: p, to: p });
+    }
+    // ونطاق متعدد الصفحات يرجع طرفيه كما دخلا
+    const full = ayahRangeOfPageRange(502, 504);
+    expect(pageRangeOfAyahRange(full.fromSurah, full.fromAyah, full.toSurah, full.toAyah)).toEqual({ from: 502, to: 504 });
+  });
+
+  it("يرفض نطاقاً غير صالح برسالة عربية", () => {
+    expect(() => ayahRangeOfPageRange(0, 5)).toThrow("نطاق الصفحات خارج حدود المصحف");
+    expect(() => ayahRangeOfPageRange(5, 4)).toThrow("نطاق الصفحات خارج حدود المصحف");
+    expect(() => ayahRangeOfPageRange(1, 605)).toThrow("نطاق الصفحات خارج حدود المصحف");
+    expect(() => ayahRangeOfPageRange(1.5, 3)).toThrow("نطاق الصفحات خارج حدود المصحف");
   });
 });

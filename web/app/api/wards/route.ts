@@ -13,11 +13,11 @@ import {
   type NewReviewSegment,
   type NewWardLog,
 } from "@/lib/db";
-import { sendPushToHalaqah, sendPushToParentsOfStudent, sendPushToStudent } from "@/lib/push";
-import { sendWhatsappToParentsOfStudent } from "@/lib/notify/outbox";
+import { sendPushToHalaqah, sendPushToStudent } from "@/lib/push";
 import { reviewTrackConfigForHalaqah } from "@/lib/mosque/review-tracks-db";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import { parseReviewTracks } from "@/lib/review-tracks";
+import { notifyWardDecision } from "@/lib/ward-notify";
 import { logServerError } from "@/lib/dev-error-log";
 import type { ReviewTrack, WardStatus } from "@/lib/types";
 
@@ -319,54 +319,11 @@ export async function PATCH(request: Request) {
   }
 
   // إشعار فوري للطالب عند قرار المعلّم — لا عند "اطّلع" (seen)، فذاك
-  // ليس قراراً بعد. after() (لا promise معلّق بلا await، يضيع لو أنهى
-  // Vercel الدالة فور إرسال الرد) يجدول الإرسال بعد إرجاع الرد — Next
-  // يبقي الدالة حيّة له. سقف ٣ ثوانٍ + try/catch يضمنان ألا يؤثر فشل أو
-  // تعليق الإشعار على نتيجة الاعتماد بأي حال (اطمئنان إضافي فوق كون
-  // sendPushToStudent نفسها لا ترمي أصلاً لكل اشتراك على حدة).
+  // ليس قراراً بعد. سقف ٣ ثوانٍ وضمانات عدم التأثير على النتيجة داخل
+  // notifyWardDecision نفسها (مستخرَجة من هذا المسار حرفياً، وتستعملها
+  // أيضاً تسجيل المعلّم للابتدائي ونتيجة الطابور).
   if (status === "approved" || status === "needs_revision") {
-    const notifyPayload = {
-      title: status === "approved" ? "تم اعتماد وردك ✅" : "وردك يحتاج مراجعة",
-      body: status === "approved" ? "أحسنت! معلّمك اعتمد وردك." : note ?? "",
-      url: "/student",
-      tag: "ward-status",
-    };
-    after(async () => {
-      try {
-        await Promise.race([
-          sendPushToStudent(teacher.halaqahId, result.studentId, notifyPayload),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch {
-        // فشل الإشعار لا يغيّر نتيجة الاعتماد أبداً — الرد أُرسل مسبقاً بالفعل
-      }
-      // STEP 61: أولياء الأمور المرتبطون بالطالب — بمحاولة وسقف ٣ ثوانٍ مستقلَّين
-      // عن إشعار الطالب أعلاه، فلا يؤخّر أحدهما الآخر ولا يُفشله
-      try {
-        await Promise.race([
-          sendPushToParentsOfStudent(teacher.halaqahId, result.studentId, status),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch {
-        // نفس مبدأ الطالب: فشل إشعار الولي لا يؤثر على شيء
-      }
-      // B1: واتساب لأولياء الأمور — بوابة الميزة والموافقة والسقف داخل المُرسِل،
-      // فلا شيء يحدث البتة لجامع لم يفعّل «إشعارات واتساب»
-      try {
-        await Promise.race([
-          sendWhatsappToParentsOfStudent({
-            halaqahId: teacher.halaqahId,
-            studentId: result.studentId,
-            template: status === "approved" ? "ward_approved" : "ward_needs_revision",
-            paramsFor: (studentName) => ({ student_name: studentName }),
-            refPrefix: `ward:${id}:${status}`,
-          }),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch {
-        // نفس مبدأ الويب بوش — فشل واتساب لا يؤثر على شيء
-      }
-    });
+    notifyWardDecision({ halaqahId: teacher.halaqahId, studentId: result.studentId, wardId: id, status, note });
   }
 
   return Response.json({ ok: true, newCount: await countNewWards(teacher.halaqahId) });
