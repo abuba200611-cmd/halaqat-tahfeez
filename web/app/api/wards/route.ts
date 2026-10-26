@@ -15,6 +15,7 @@ import {
 } from "@/lib/db";
 import { sendPushToHalaqah, sendPushToParentsOfStudent, sendPushToStudent } from "@/lib/push";
 import { sendWhatsappToParentsOfStudent } from "@/lib/notify/outbox";
+import { reviewTrackConfigForHalaqah } from "@/lib/mosque/review-tracks-db";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import { parseReviewTracks } from "@/lib/review-tracks";
 import { logServerError } from "@/lib/dev-error-log";
@@ -256,7 +257,7 @@ export async function DELETE(request: Request) {
   return Response.json({ ok: true });
 }
 
-/** وارد المعلّم: قائمة الأوراد وعدد الجديد منها */
+/** وارد المعلّم: قائمة الأوراد وعدد الجديد منها، مع إعدادات تصنيف المراجعة بحلقته */
 export async function GET(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
@@ -265,6 +266,7 @@ export async function GET(request: Request) {
   return Response.json({
     wards: await listWardLogs(teacher.halaqahId, onlyNew),
     newCount: await countNewWards(teacher.halaqahId),
+    reviewTrackConfig: await reviewTrackConfigForHalaqah(teacher.halaqahId),
   });
 }
 

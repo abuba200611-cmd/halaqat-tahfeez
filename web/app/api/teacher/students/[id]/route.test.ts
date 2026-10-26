@@ -14,6 +14,9 @@ vi.mock("@/lib/auth", () => authMocks);
 const dbMocks = vi.hoisted(() => ({ listStudents: vi.fn(), listAllWardLogsForStudent: vi.fn() }));
 vi.mock("@/lib/db", () => dbMocks);
 
+const reviewTrackMocks = vi.hoisted(() => ({ reviewTrackConfigForHalaqah: vi.fn() }));
+vi.mock("@/lib/mosque/review-tracks-db", () => reviewTrackMocks);
+
 const { GET } = await import("./route");
 
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
@@ -25,6 +28,7 @@ describe("GET /api/teacher/students/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMocks.currentTeacher.mockResolvedValue(TEACHER);
+    reviewTrackMocks.reviewTrackConfigForHalaqah.mockResolvedValue({ enabled: true, kubraPages: 10, naming: "standard" });
   });
 
   it("بلا جلسة معلّم: 401 ولا قائمة أصلاً", async () => {

@@ -3,6 +3,7 @@
 import { canEditWard } from "@/lib/ward-ayah";
 import { hifzRangeText, reviewRangeText, statusTone, STATUS_LABEL } from "@/lib/student-ward-display";
 import { reviewTextWithTracks } from "@/lib/review-tracks";
+import type { ReviewTrackConfig } from "@/lib/review-track-config";
 import { formatScore } from "@/lib/error-grading";
 import type { WardLog } from "@/lib/types";
 
@@ -10,16 +11,20 @@ import type { WardLog } from "@/lib/types";
  * صفّ ورد واحد بقائمة — مشترك بين لوحة الطالب الرئيسية (آخر 5، تعديل
  * فقط) وصفحة "أورادي" الكاملة (تعديل وحذف)، STEP 58. onEdit وonDelete
  * اختياريان: تمريرهما فقط يُظهر الزرّ المقابل، وبس للأوراد القابلة
- * للتعديل (canEditWard) كما بالتصميم الأصلي.
+ * للتعديل (canEditWard) كما بالتصميم الأصلي. trackConfig (اختياري)
+ * بإعدادات جامع الحلقة: التسمية تحدّد أسماء المسارات، والتعطيل يحذف
+ * لاحقة التصنيف من نص المراجعة.
  */
 export function WardListItem({
   log,
   onEdit,
   onDelete,
+  trackConfig,
 }: {
   log: WardLog;
   onEdit?: (log: WardLog) => void;
   onDelete?: (log: WardLog) => void;
+  trackConfig?: ReviewTrackConfig;
 }) {
   const editable = canEditWard(log.status);
 
@@ -56,8 +61,8 @@ export function WardListItem({
 
       <div className="mt-1 space-y-0.5 text-sm text-stone-500">
         {hifzRangeText(log.hifz, log.hifzAyah) && <p>حفظ: {hifzRangeText(log.hifz, log.hifzAyah)}</p>}
-        {reviewTextWithTracks(log, reviewRangeText(log)) && (
-          <p>مراجعة: {reviewTextWithTracks(log, reviewRangeText(log))}</p>
+        {reviewTextWithTracks(log, reviewRangeText(log), trackConfig) && (
+          <p>مراجعة: {reviewTextWithTracks(log, reviewRangeText(log), trackConfig)}</p>
         )}
         {log.note && <p className="text-stone-700">{log.note}</p>}
       </div>

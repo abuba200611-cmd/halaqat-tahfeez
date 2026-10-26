@@ -2,6 +2,7 @@ import { currentTeacher, unauthorized } from "@/lib/auth";
 import { listAllWardLogsForStudent, listStudents } from "@/lib/db";
 import { computeJuzProgress } from "@/lib/juz-progress";
 import { countReviewTrackPages } from "@/lib/review-tracks";
+import { reviewTrackConfigForHalaqah } from "@/lib/mosque/review-tracks-db";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 
 /**
@@ -30,6 +31,7 @@ export async function GET(_request: Request, { params }: Ctx) {
       days7: countReviewTrackPages(logs, 7, today),
       days30: countReviewTrackPages(logs, 30, today),
     },
+    reviewTrackConfig: await reviewTrackConfigForHalaqah(teacher.halaqahId),
     wards: logs.slice(0, 30),
   });
 }

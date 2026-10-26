@@ -11,6 +11,13 @@ import { juzLabel, juzesOfRange } from "@/lib/quran";
 import { pageRangeOfAyahRange } from "@/lib/quran-surahs";
 import { formatAyahRange, formatReviewSegments } from "@/lib/ward-ayah";
 import { kubraWindow, reviewTextWithTracks, suggestReviewTrackFor } from "@/lib/review-tracks";
+import {
+  DEFAULT_REVIEW_TRACK_CONFIG,
+  parseReviewTrackConfig,
+  reviewTrackLabels,
+  reviewTrackTermsText,
+  type ReviewTrackConfig,
+} from "@/lib/review-track-config";
 import type { AyahRange, PageRange, ReviewTrack, WardLog, WardStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<WardStatus, string> = {
@@ -53,6 +60,9 @@ export default function InboxPage() {
   const [loading, setLoading] = useState(true);
   const [onlyNew, setOnlyNew] = useState(false);
 
+  // B3: إعدادات تصنيف المراجعة من جامع الحلقة — التفعيل والصفحات والتسمية
+  const [reviewTrackConfig, setReviewTrackConfig] = useState<ReviewTrackConfig>(DEFAULT_REVIEW_TRACK_CONFIG);
+
   // حالة نموذج "طلب إعادة" — ورد واحد مفتوح كحد أقصى في كل مرة
   const [revisionOpenId, setRevisionOpenId] = useState<number | null>(null);
   const [revisionNote, setRevisionNote] = useState("");
@@ -90,8 +100,11 @@ export default function InboxPage() {
   const load = useCallback(() => {
     fetch("/api/wards")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { wards?: WardLog[] } | null) => {
-        if (data) setWards(data.wards ?? []);
+      .then((data: { wards?: WardLog[]; reviewTrackConfig?: ReviewTrackConfig } | null) => {
+        if (data) {
+          setWards(data.wards ?? []);
+          if (data.reviewTrackConfig) setReviewTrackConfig(parseReviewTrackConfig(data.reviewTrackConfig));
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -103,6 +116,7 @@ export default function InboxPage() {
 
   const newCount = useMemo(() => wards.filter((w) => w.status === "new").length, [wards]);
   const shown = onlyNew ? wards.filter((w) => w.status === "new") : wards;
+  const trackLabels = useMemo(() => reviewTrackLabels(reviewTrackConfig.naming), [reviewTrackConfig.naming]);
 
   async function setStatus(id: number, status: WardStatus) {
     // تحديث متفائل ثم مزامنة
@@ -135,10 +149,11 @@ export default function InboxPage() {
    * مخزَّنة يُعبَّى مسبقاً بالاقتراح (يغيّره المعلّم قبل «حفظ التصنيف» إن
    * شاء). بهذه الصفحة لا سجلّ حفظ كامل للطالب — حفظ هذا الورد نفسه هو
    * آخر نطاق معروف، فيحدّد الاتجاهَ قاعدةُ النصف الثاني من المصحف وحدها.
+   * نافذة «الكبرى» بعدد صفحات جامع الحلقة (١٠ افتراضياً).
    */
   function openTrackDraft(ward: WardLog) {
     const count = ward.reviewSegments?.length ?? 0;
-    const kubra = kubraWindow([ward.hifz]);
+    const kubra = kubraWindow([ward.hifz], reviewTrackConfig.kubraPages);
     setTrackDrafts((prev) => ({
       ...prev,
       [ward.id]: Array.from({ length: count }, (_, i) => {
@@ -293,8 +308,8 @@ export default function InboxPage() {
 
               <div className="mt-2 space-y-0.5 text-sm text-muted-foreground">
                 {rangeText(ward.hifz, ward.hifzAyah) && <p>حفظ: {rangeText(ward.hifz, ward.hifzAyah)}</p>}
-                {reviewTextWithTracks(ward, reviewRangeText(ward)) && (
-                  <p>مراجعة: {reviewTextWithTracks(ward, reviewRangeText(ward))}</p>
+                {reviewTextWithTracks(ward, reviewRangeText(ward), reviewTrackConfig) && (
+                  <p>مراجعة: {reviewTextWithTracks(ward, reviewRangeText(ward), reviewTrackConfig)}</p>
                 )}
                 {ward.note && <p className="text-foreground">«{ward.note}»</p>}
                 {ward.status === "needs_revision" && ward.reviewNote && (
@@ -330,17 +345,16 @@ export default function InboxPage() {
                     </Button>
                   </div>
 
-                  {(ward.reviewSegments?.length ?? 0) > 0 && !trackDrafts[ward.id] && (
+                  {reviewTrackConfig.enabled && (ward.reviewSegments?.length ?? 0) > 0 && !trackDrafts[ward.id] && (
                     <Button variant="ghost" onClick={() => openTrackDraft(ward)} className="text-xs">
-                      تصنيف المراجعة (الكبرى/الصغرى)
+                      تصنيف المراجعة ({trackLabels.sabqi}/{trackLabels.manzil})
                     </Button>
                   )}
 
-                  {trackDrafts[ward.id] && (
+                  {reviewTrackConfig.enabled && trackDrafts[ward.id] && (
                     <div className="space-y-2 rounded-md border border-border bg-surface p-3">
                       <p className="text-xs text-muted-foreground">
-                        صنّف كل مقطع: الكبرى (المراجعة بعد الحفظ الجديد مباشرة، ١٠ صفحات افتراضياً) أو الصغرى (ما بعد الكبرى
-                        من المحفوظ) — الحفظ الجديد نفسه بلا تصنيف.
+                        صنّف كل مقطع: {reviewTrackTermsText(reviewTrackConfig)} — الحفظ الجديد نفسه بلا تصنيف.
                       </p>
                       <ul className="space-y-1.5">
                         {ward.reviewSegments!.map((segment, i) => (
@@ -349,6 +363,7 @@ export default function InboxPage() {
                             <ReviewTrackSelect
                               id={`inbox-track-${ward.id}-${i}`}
                               value={trackDrafts[ward.id][i] ?? null}
+                              labels={trackLabels}
                               onChange={(next) =>
                                 setTrackDrafts((prev) => ({
                                   ...prev,

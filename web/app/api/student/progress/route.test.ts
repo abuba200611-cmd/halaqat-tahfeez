@@ -14,6 +14,9 @@ vi.mock("@/lib/auth", () => authMocks);
 const dbMocks = vi.hoisted(() => ({ listAllWardLogsForStudent: vi.fn() }));
 vi.mock("@/lib/db", () => dbMocks);
 
+const reviewTrackMocks = vi.hoisted(() => ({ reviewTrackConfigForHalaqah: vi.fn() }));
+vi.mock("@/lib/mosque/review-tracks-db", () => reviewTrackMocks);
+
 const { GET } = await import("./route");
 
 function wardLog(date: string, hifzFrom: number, hifzTo: number) {
@@ -29,6 +32,7 @@ describe("GET /api/student/progress", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMocks.currentStudent.mockResolvedValue({ teacherId: 3, id: "s1", name: "طالب", halaqahName: "ح" });
+    reviewTrackMocks.reviewTrackConfigForHalaqah.mockResolvedValue({ enabled: true, kubraPages: 10, naming: "standard" });
   });
 
   it("بلا جلسة: 401 ولا قراءة تاريخ", async () => {

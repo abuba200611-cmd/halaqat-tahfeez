@@ -10,6 +10,7 @@ import { useStudentWards } from "@/components/use-student-wards";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
 import { kubraWindow, suggestReviewTrackFor } from "@/lib/review-tracks";
+import { reviewTrackLabels, reviewTrackTermsText } from "@/lib/review-track-config";
 import type { AyahRange, HalaqahMate, ReviewTrack, WardLog } from "@/lib/types";
 
 const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
@@ -74,7 +75,7 @@ export default function StudentLogPage() {
   const searchParams = useSearchParams();
   const editParam = searchParams.get("edit");
   const formRef = useRef<HTMLDivElement>(null);
-  const { logs, loadingLogs, reload } = useStudentWards();
+  const { logs, loadingLogs, reload, reviewTrackConfig } = useStudentWards();
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingDate, setEditingDate] = useState<string | null>(null);
@@ -177,10 +178,16 @@ export default function StudentLogPage() {
     setError(null);
   }
 
-  // B3: نافذة «الكبرى» = ١٠ صفحات ملاصقة لآخر حفظ باتجاه الحفظ نفسه.
-  // أوراد الطالب تصل من الخادم أحدثها أولاً، وkubraWindow تتوقع الأقدم
-  // فالأحدث، فتُعكس هنا قبل التمرير — والاقتراح يتجدّد مع تقدّم الحفظ
-  const kubra = useMemo(() => kubraWindow([...logs].reverse().map((l) => l.hifz)), [logs]);
+  // B3: نافذة «الكبرى» = صفحات kubraPages (١٠ افتراضياً — إعداد جامع
+  // الحلقة) ملاصقة لآخر حفظ باتجاه الحفظ نفسه. أوراد الطالب تصل من
+  // الخادم أحدثها أولاً، وkubraWindow تتوقع الأقدم فالأحدث، فتُعكس هنا
+  // قبل التمرير — والاقتراح يتجدّد مع تقدّم الحفظ
+  const kubra = useMemo(
+    () => kubraWindow([...logs].reverse().map((l) => l.hifz), reviewTrackConfig.kubraPages),
+    [logs, reviewTrackConfig.kubraPages],
+  );
+  const trackLabels = useMemo(() => reviewTrackLabels(reviewTrackConfig.naming), [reviewTrackConfig.naming]);
+  const trackTerms = useMemo(() => reviewTrackTermsText(reviewTrackConfig), [reviewTrackConfig]);
 
   /** اقتراح مسار مقطع من نطاقه (بقيمته الجديدة لا القديمة) — null للمقطع الفارغ/غير المكتمل بعد */
   function suggestTrackFor(segment: AyahRangeInput): ReviewTrack | null {
@@ -276,9 +283,11 @@ export default function StudentLogPage() {
             onChange={setReviewSegments}
             segmentErrors={reviewInfo.errors}
             pagesTotal={reviewInfo.pagesTotal}
-            tracks={reviewTracks}
-            onTracksChange={setReviewTracks}
-            suggestFor={(_, segment) => suggestTrackFor(segment)}
+            tracks={reviewTrackConfig.enabled ? reviewTracks : undefined}
+            onTracksChange={reviewTrackConfig.enabled ? setReviewTracks : undefined}
+            suggestFor={reviewTrackConfig.enabled ? (_, segment) => suggestTrackFor(segment) : undefined}
+            labels={trackLabels}
+            termsText={trackTerms}
           />
 
           <label className="block">
@@ -340,7 +349,7 @@ export default function StudentLogPage() {
         ) : (
           <ul className="space-y-2">
             {recent.map((log) => (
-              <WardListItem key={log.id} log={log} onEdit={startEdit} onDelete={deleteLog} />
+              <WardListItem key={log.id} log={log} onEdit={startEdit} onDelete={deleteLog} trackConfig={reviewTrackConfig} />
             ))}
           </ul>
         )}
