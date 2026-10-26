@@ -15,7 +15,9 @@ import { LinkPanel } from "@/components/link-button";
 import { ParentInviteLink } from "@/components/parent-invite-link";
 import { pageCount, studentJuzes } from "@/lib/pairing";
 import { juzLabel, juzToPages } from "@/lib/quran";
-import { avgMastery, computeStudentStats } from "@/lib/students-stats";
+import { avgMastery, computeStudentStats, masteredCount } from "@/lib/students-stats";
+import { StudentsPanels } from "@/components/students-dashboard/panels";
+import { Chip, softCardClass } from "@/components/students-dashboard/panel";
 import { useStudents } from "@/lib/store";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { STATUS_LABELS, type FeeStatus } from "@/lib/fees";
@@ -166,6 +168,11 @@ export default function StudentsPage() {
     () => computeStudentStats({ students, attendance, fees }),
     [students, attendance, fees],
   );
+  const mastered = useMemo(() => masteredCount(students), [students]);
+  const absentTotal = useMemo(
+    () => Object.values(attendance).reduce((sum, s) => sum + s.absent, 0),
+    [attendance],
+  );
 
   if (loading) {
     return <Empty title="جارٍ تحميل الطلاب…" />;
@@ -196,7 +203,7 @@ export default function StudentsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="fx-wash -mx-1 space-y-4 px-1 sm:space-y-5">
       <DeletedBanner deleted={deleted} onRestore={restoreStudent} />
 
       <h1 className="font-display text-2xl font-bold">
@@ -213,18 +220,22 @@ export default function StudentsPage() {
           icon={<CalendarIcon size={20} />}
           label="متوسط الحضور (٣٠ يوماً)"
           value={stats.avgAttendance === null ? "—" : `${stats.avgAttendance}٪`}
+          chip={absentTotal > 0 ? <Chip tone="destructive">غياب {absentTotal}</Chip> : undefined}
         />
         <StatCard
           icon={<BookIcon size={20} />}
           label="متوسط الإتقان"
           value={stats.avgMastery === null ? "—" : `${stats.avgMastery}٪`}
+          chip={mastered > 0 ? <Chip tone="success" arrow="up">{mastered} متقن</Chip> : undefined}
         />
         {stats.feesOutstanding !== null && (
           <StatCard icon={<ClipboardIcon size={20} />} label="رسوم مستحقة" value={stats.feesOutstanding} />
         )}
       </div>
 
-      <div className="no-print flex flex-wrap items-center gap-2">
+      <StudentsPanels students={students} attendance={attendance} fees={fees} avgAttendance={stats.avgAttendance} />
+
+      <div className={`no-print flex flex-wrap items-center gap-2 p-3 ${softCardClass}`}>
         <div className="relative min-w-40 flex-1 sm:max-w-xs">
           <SearchIcon
             size={16}
@@ -324,7 +335,13 @@ export default function StudentsPage() {
         </Card>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <div id="students-table" className={`scroll-mt-4 overflow-hidden ${softCardClass}`}>
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3 sm:px-5">
+          <h2 className="text-sm font-semibold text-foreground">قائمة الطلاب</h2>
+          <span className="tabular rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-ink">
+            {filtered.length}
+          </span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[36rem] whitespace-nowrap text-right text-sm">
             <thead className="border-b border-border">
@@ -423,13 +440,26 @@ export default function StudentsPage() {
 }
 
 /** بطاقة إحصائية علوية — أيقونة بدائرة بيج فاتح، رقم كبير، ووصف صغير */
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | number }) {
+function StatCard({
+  icon,
+  label,
+  value,
+  chip,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  chip?: React.ReactNode;
+}) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
+    <div className={`${softCardClass} p-4 sm:p-5`}>
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
         {icon}
       </span>
-      <div className="tabular mt-3 text-2xl font-semibold text-foreground sm:text-3xl">{value}</div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="tabular text-2xl font-semibold text-foreground sm:text-3xl">{value}</span>
+        {chip}
+      </div>
       <div className="mt-1 text-xs text-muted-foreground">{label}</div>
     </div>
   );
