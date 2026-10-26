@@ -20,6 +20,7 @@ import { JuzProgressCard } from "@/components/juz-progress";
 import { ReviewTrackCountsCard } from "@/components/review-track-bits";
 import type { JuzProgress } from "@/lib/juz-progress";
 import type { ReviewTrackCounts } from "@/lib/review-tracks";
+import { reviewTrackLabels, type ReviewTrackConfig } from "@/lib/review-track-config";
 import type { BuddyRequest } from "@/lib/types";
 
 const MOTIVATIONS = [
@@ -166,16 +167,35 @@ function useMyPlan(): PlanView | null {
 /**
  * B3 — تقدّم الأجزاء وعدّادات المسارات من التاريخ الكامل (لا آخر ٣٠
  * ورداً) — صامتة عند أي فشل، فتختفي البطاقتان فقط ولا تتعطل اللوحة.
+ * الإعدادات معها: تعطيل التصنيف بجامع الحلقة يخفي عدّادات المسارات.
  */
-function useMyProgress(): { progress: JuzProgress; trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts } } | null {
-  const [data, setData] = useState<{ progress: JuzProgress; trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts } } | null>(null);
+function useMyProgress(): {
+  progress: JuzProgress;
+  trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts };
+  reviewTrackConfig: ReviewTrackConfig | null;
+} | null {
+  const [data, setData] = useState<{
+    progress: JuzProgress;
+    trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts };
+    reviewTrackConfig: ReviewTrackConfig | null;
+  } | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetch("/api/student/progress")
       .then((res) => (res.ok ? res.json() : null))
-      .then((json: { progress?: JuzProgress; trackCounts?: { days7: ReviewTrackCounts; days30: ReviewTrackCounts } } | null) => {
-        if (!cancelled && json?.progress && json.trackCounts) setData({ progress: json.progress, trackCounts: json.trackCounts });
-      })
+      .then(
+        (
+          json: {
+            progress?: JuzProgress;
+            trackCounts?: { days7: ReviewTrackCounts; days30: ReviewTrackCounts };
+            reviewTrackConfig?: ReviewTrackConfig;
+          } | null,
+        ) => {
+          if (!cancelled && json?.progress && json.trackCounts) {
+            setData({ progress: json.progress, trackCounts: json.trackCounts, reviewTrackConfig: json.reviewTrackConfig ?? null });
+          }
+        },
+      )
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -187,7 +207,7 @@ function useMyProgress(): { progress: JuzProgress; trackCounts: { days7: ReviewT
 export default function StudentDashboardPage() {
   const router = useRouter();
   const student = useStudentSession();
-  const { logs, loadingLogs, months, loadingMonths } = useStudentWards();
+  const { logs, loadingLogs, months, loadingMonths, reviewTrackConfig } = useStudentWards();
   const reminderEnabled = useReminderEnabled();
   const attendance = useMyAttendance();
   const monthlyPlan = useMyPlan();
@@ -288,10 +308,11 @@ export default function StudentDashboardPage() {
             />
           )}
 
-          {myProgress && (
+          {myProgress && myProgress.reviewTrackConfig?.enabled !== false && (
             <ReviewTrackCountsCard
               days7={myProgress.trackCounts.days7}
               days30={myProgress.trackCounts.days30}
+              labels={reviewTrackLabels((myProgress.reviewTrackConfig ?? reviewTrackConfig).naming)}
             />
           )}
 
@@ -330,6 +351,7 @@ export default function StudentDashboardPage() {
                   key={log.id}
                   log={log}
                   onEdit={canEditWard(log.status) ? () => router.push(`/student/log?edit=${log.id}`) : undefined}
+                  trackConfig={reviewTrackConfig}
                 />
               ))}
             </ul>

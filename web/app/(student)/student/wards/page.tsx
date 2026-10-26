@@ -9,7 +9,7 @@ import type { WardLog } from "@/lib/types";
 /** "أورادي" — كل أوراد الطالب (STEP 58)، التعديل ينقل لصفحة "سجّل وردي" مع تعبئة النموذج تلقائياً */
 export default function StudentWardsPage() {
   const router = useRouter();
-  const { logs, loadingLogs, reload } = useStudentWards();
+  const { logs, loadingLogs, reload, reviewTrackConfig } = useStudentWards();
 
   function editLog(log: WardLog) {
     router.push(`/student/log?edit=${log.id}`);
@@ -44,7 +44,7 @@ export default function StudentWardsPage() {
       ) : (
         <ul className="space-y-2">
           {logs.map((log) => (
-            <WardListItem key={log.id} log={log} onEdit={editLog} onDelete={deleteLog} />
+            <WardListItem key={log.id} log={log} onEdit={editLog} onDelete={deleteLog} trackConfig={reviewTrackConfig} />
           ))}
         </ul>
       )}

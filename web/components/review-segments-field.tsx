@@ -4,6 +4,8 @@ import { AyahRangeInputs } from "./ayah-range-field";
 import { ReviewTrackSelect } from "./review-track-bits";
 import { CloseIcon, PlusIcon } from "./icons";
 import { MAX_REVIEW_SEGMENTS, type AyahRangeInput } from "@/lib/ward-ayah";
+import { REVIEW_TRACK_LABEL } from "@/lib/review-tracks";
+import { reviewTrackTermsText, DEFAULT_REVIEW_TRACK_CONFIG } from "@/lib/review-track-config";
 import type { ReviewTrack } from "@/lib/types";
 
 const EMPTY_SEGMENT: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
@@ -20,7 +22,8 @@ export { EMPTY_SEGMENT };
  * المصنَّفة (null) تُقترح تلقائياً من الأب عبر suggestFor (بنطاق المقطع
  * الجديد) عند إضافة المقطع أو تغيير نطاقه؛ اختيار المستخدم الصريح
  * (الكبرى/الصغرى) لا يُمس، و«بلا تصنيف» يعني تركه فارغاً حتى يتغيّر
- * النطاق من جديد.
+ * النطاق من جديد. تسمية الجامع (labels/termsText من إعداداته) تحدّد
+ * الأسماء وشرحها — وإياها فالافتراضيات القياسية.
  */
 export function ReviewSegmentsField({
   label,
@@ -33,6 +36,8 @@ export function ReviewSegmentsField({
   tracks,
   onTracksChange,
   suggestFor,
+  labels = REVIEW_TRACK_LABEL,
+  termsText,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -48,6 +53,10 @@ export function ReviewSegmentsField({
   onTracksChange?: (next: (ReviewTrack | null)[]) => void;
   /** اقتراح مسار مقطع (الكبرى/الصغرى) من نطاقه الجديد — null لعدم اقتراح شيء */
   suggestFor?: (index: number, range: AyahRangeInput) => ReviewTrack | null;
+  /** أسماء المسارات بتسمية الجامع — والافتراضي القياسي */
+  labels?: Record<ReviewTrack, string>;
+  /** شرح المصطلحات بإعدادات الجامع (reviewTrackTermsText) — والافتراضي القياسي */
+  termsText?: string;
 }) {
   function updateSegment(index: number, next: AyahRangeInput) {
     onChange(segments.map((s, i) => (i === index ? next : s)));
@@ -79,7 +88,7 @@ export function ReviewSegmentsField({
 
       {tracks && (
         <p className="text-xs text-stone-400">
-          «الكبرى» المراجعة بعد الحفظ الجديد مباشرة (١٠ صفحات افتراضياً)، و«الصغرى» ما بعد الكبرى من المحفوظ — التصنيف اختياري.
+          {termsText ?? reviewTrackTermsText(DEFAULT_REVIEW_TRACK_CONFIG)} — التصنيف اختياري.
         </p>
       )}
 
@@ -97,6 +106,7 @@ export function ReviewSegmentsField({
                   <ReviewTrackSelect
                     id={`review-track-${i}`}
                     value={tracks[i] ?? null}
+                    labels={labels}
                     onChange={(next) => onTracksChange(tracks.map((t, k) => (k === i ? next : t)))}
                   />
                 )}

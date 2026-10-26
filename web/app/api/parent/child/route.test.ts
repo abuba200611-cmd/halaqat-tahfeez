@@ -12,6 +12,9 @@ vi.mock("@/lib/parent-db", () => parentDbMocks);
 const dbMocks = vi.hoisted(() => ({ listAllWardLogsForStudent: vi.fn() }));
 vi.mock("@/lib/db", () => dbMocks);
 
+const reviewTrackMocks = vi.hoisted(() => ({ reviewTrackConfigForHalaqah: vi.fn() }));
+vi.mock("@/lib/mosque/review-tracks-db", () => reviewTrackMocks);
+
 const { GET } = await import("./route");
 
 const req = (qs: string) => new Request(`http://localhost/api/parent/child?${qs}`);
@@ -20,6 +23,7 @@ describe("GET /api/parent/child — قراءة الأبناء المرتبطين
   beforeEach(() => {
     vi.clearAllMocks();
     authMocks.currentParent.mockResolvedValue({ id: 5, name: "أب", email: "a@b.c", sessionVersion: 0 });
+    reviewTrackMocks.reviewTrackConfigForHalaqah.mockResolvedValue({ enabled: true, kubraPages: 10, naming: "standard" });
   });
 
   it("بلا جلسة: 401 ولا قراءة بيانات", async () => {

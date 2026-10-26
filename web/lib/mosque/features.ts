@@ -163,6 +163,14 @@ export const FEATURES: readonly Feature[] = [
     status: "ready",
   },
   {
+    key: "review_tracks",
+    nameAr: "تصنيف المراجعة",
+    descriptionAr:
+      "تصنيف مراجعة الطالب اليومية إلى الكبرى (المجاورة للحفظ الجديد) والصغرى (ما بعدها) في سجل الطالب ووارد المعلّم، مع ضبط عدد الصفحات المجاورة والتسمية لكل جامع.",
+    defaultEnabled: true,
+    status: "ready",
+  },
+  {
     key: "supervisor_visits",
     nameAr: "زيارات المشرف التربوي",
     descriptionAr:

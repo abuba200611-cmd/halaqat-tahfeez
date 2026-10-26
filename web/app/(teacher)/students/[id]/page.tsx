@@ -11,12 +11,14 @@ import { JuzProgressCard } from "@/components/juz-progress";
 import { ReviewTrackCountsCard } from "@/components/review-track-bits";
 import type { JuzProgress } from "@/lib/juz-progress";
 import type { ReviewTrackCounts } from "@/lib/review-tracks";
+import { reviewTrackLabels, DEFAULT_REVIEW_TRACK_CONFIG, type ReviewTrackConfig } from "@/lib/review-track-config";
 import type { WardLog } from "@/lib/types";
 
 type StudentDetail = {
   student: { id: string; name: string; group: string };
   progress: JuzProgress;
   trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts };
+  reviewTrackConfig?: ReviewTrackConfig;
   wards: WardLog[];
 };
 
@@ -78,7 +80,13 @@ export default function TeacherStudentPage() {
 
       <JuzProgressCard progress={detail.progress} />
 
-      <ReviewTrackCountsCard days7={detail.trackCounts.days7} days30={detail.trackCounts.days30} />
+      {detail.reviewTrackConfig?.enabled !== false && (
+        <ReviewTrackCountsCard
+          days7={detail.trackCounts.days7}
+          days30={detail.trackCounts.days30}
+          labels={reviewTrackLabels((detail.reviewTrackConfig ?? DEFAULT_REVIEW_TRACK_CONFIG).naming)}
+        />
+      )}
 
       {/* دعوة ولي الأمر — نفس آلية رابط الدعوة بصفحة الطلاب (لا آلية جديدة) */}
       <section className="space-y-2 rounded-2xl border border-border bg-surface p-4">
@@ -102,7 +110,7 @@ export default function TeacherStudentPage() {
         ) : (
           <ul className="space-y-2">
             {detail.wards.map((log) => (
-              <WardListItem key={log.id} log={log} />
+              <WardListItem key={log.id} log={log} trackConfig={detail.reviewTrackConfig} />
             ))}
           </ul>
         )}

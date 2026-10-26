@@ -17,6 +17,7 @@ import type { PlanView } from "@/lib/monthly-plan";
 import type { ParentChildSummary } from "@/lib/parent-summary";
 import { JuzProgressCard } from "@/components/juz-progress";
 import { ReviewTrackCountsCard } from "@/components/review-track-bits";
+import { reviewTrackLabels, DEFAULT_REVIEW_TRACK_CONFIG, type ReviewTrackConfig } from "@/lib/review-track-config";
 import { STATUS_LABEL, statusTone } from "@/lib/student-ward-display";
 import { formatScore } from "@/lib/error-grading";
 
@@ -24,6 +25,7 @@ type Child = { halaqahId: number; studentId: string; studentName: string; halaqa
 type ChildDetail = {
   child: { name: string; halaqahName: string };
   summary: ParentChildSummary;
+  reviewTrackConfig?: ReviewTrackConfig;
 };
 
 const keyOf = (c: { halaqahId: number; studentId: string }) => `${c.halaqahId}:${c.studentId}`;
@@ -257,7 +259,13 @@ function ChildPanel({ child }: { child: Child }) {
         }
       />
 
-      <ReviewTrackCountsCard days7={summary.trackCounts.days7} days30={summary.trackCounts.days30} />
+      {detail.reviewTrackConfig?.enabled !== false && (
+        <ReviewTrackCountsCard
+          days7={summary.trackCounts.days7}
+          days30={summary.trackCounts.days30}
+          labels={reviewTrackLabels((detail.reviewTrackConfig ?? DEFAULT_REVIEW_TRACK_CONFIG).naming)}
+        />
+      )}
 
       <MonthlyPlanCard view={monthlyPlan} title="خطة هذا الشهر" />
 

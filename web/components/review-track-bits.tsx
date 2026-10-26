@@ -7,8 +7,18 @@ import type { ReviewTrack } from "@/lib/types";
  * B3 — عدّادات المراجعة لكل مسار (الكبرى/الصغرى) لآخر ٧ و٣٠ يوماً،
  * بالصفحات. الحفظ الجديد ليس هنا — له قسم الحفظ في الورد نفسه. ما صُنِّف
  * بلا مسار يظهر كـ«بلا تصنيف» ولا يُخفى، حتى يظهر أثر التصنيف الناقص.
+ * labels بتسمية الجامع (reviewTrackLabels) — وميزة التصنيف معطّلة عند
+ * الأصل فلا تُعرض البطاقة أصلاً.
  */
-export function ReviewTrackCountsCard({ days7, days30 }: { days7: ReviewTrackCounts; days30: ReviewTrackCounts }) {
+export function ReviewTrackCountsCard({
+  days7,
+  days30,
+  labels = REVIEW_TRACK_LABEL,
+}: {
+  days7: ReviewTrackCounts;
+  days30: ReviewTrackCounts;
+  labels?: Record<ReviewTrack, string>;
+}) {
   const total = days30.sabqi + days30.manzil + days30.untagged;
   if (total === 0) return null;
 
@@ -26,11 +36,11 @@ export function ReviewTrackCountsCard({ days7, days30 }: { days7: ReviewTrackCou
             <p className="mb-1.5 text-[11px] font-semibold text-accent-ink">{label}</p>
             <ul className="space-y-1 text-xs">
               <li className="flex items-center justify-between">
-                <span className="text-muted-foreground">{REVIEW_TRACK_LABEL.sabqi}</span>
+                <span className="text-muted-foreground">{labels.sabqi}</span>
                 <span className="tabular font-semibold text-foreground">{counts.sabqi} ص</span>
               </li>
               <li className="flex items-center justify-between">
-                <span className="text-muted-foreground">{REVIEW_TRACK_LABEL.manzil}</span>
+                <span className="text-muted-foreground">{labels.manzil}</span>
                 <span className="tabular font-semibold text-foreground">{counts.manzil} ص</span>
               </li>
               {counts.untagged > 0 && (
@@ -49,18 +59,21 @@ export function ReviewTrackCountsCard({ days7, days30 }: { days7: ReviewTrackCou
 
 /**
  * منتقي مسار مقطع مراجعة واحد — الكبرى/الصغرى أو بلا تصنيف. مشترك بين
- * نموذج الطالب (مع قيمة مقترحة) وتصحيح المعلّم بالوارد.
+ * نموذج الطالب (مع قيمة مقترحة) وتصحيح المعلّم بالوارد. labels بتسمية
+ * الجامع (reviewTrackLabels) والافتراضي القياسي.
  */
 export function ReviewTrackSelect({
   id,
   value,
   onChange,
   disabled = false,
+  labels = REVIEW_TRACK_LABEL,
 }: {
   id: string;
   value: ReviewTrack | null;
   onChange: (next: ReviewTrack | null) => void;
   disabled?: boolean;
+  labels?: Record<ReviewTrack, string>;
 }) {
   return (
     <select
@@ -72,8 +85,8 @@ export function ReviewTrackSelect({
       aria-label="مسار المراجعة"
     >
       <option value="">بلا تصنيف</option>
-      <option value="sabqi">{REVIEW_TRACK_LABEL.sabqi}</option>
-      <option value="manzil">{REVIEW_TRACK_LABEL.manzil}</option>
+      <option value="sabqi">{labels.sabqi}</option>
+      <option value="manzil">{labels.manzil}</option>
     </select>
   );
 }

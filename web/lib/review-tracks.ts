@@ -11,6 +11,7 @@
 */
 import { TOTAL_PAGES } from "./quran";
 import { formatReviewSegments } from "./ward-ayah";
+import { reviewTrackLabels, type ReviewTrackConfig } from "./review-track-config";
 import type { PageRange, ReviewTrack, WardLog } from "./types";
 
 export type ReviewTrackCounts = {
@@ -22,10 +23,8 @@ export type ReviewTrackCounts = {
   untagged: number;
 };
 
-export const REVIEW_TRACK_LABEL: Record<ReviewTrack, string> = {
-  sabqi: "الكبرى",
-  manzil: "الصغرى",
-};
+/** التسمية القياسية — للتوافق مع ما قائم؛ إعدادات الجامع عبر reviewTrackLabels */
+export const REVIEW_TRACK_LABEL: Record<ReviewTrack, string> = reviewTrackLabels("standard");
 
 /**
  * يتحقّق من قائمة تصنيفات المقاطع القادمة من الجسم — مصفوفة محاذية
@@ -158,16 +157,22 @@ export function countReviewTrackPages(
 /**
  * نص مقاطع المراجعة مع تصنيف كل مقطع بين قوسين — «الملك 1–15 (الكبرى)،
  * البقرة 5–20 (الصغرى)». مقطع بلا تصنيف يُعرض بدونه. الوارد بلا مقاطع
- * أصلاً أو بلا أي تصنيف يرجع null ليعرض النص القديم كما هو.
+ * أصلاً أو بلا أي تصنيف يرجع النص القديم كما هو.
+ *
+ * config اختياري: تسمية الجامع تحدّد الأسماء (قياسية أو مبدَّلة)، وعطله
+ * (enabled=false) يعرض المقاطع بلا لاحقة تصنيف إطلاقاً. غيابه = التسمية
+ * القياسية (توافق ما قائم).
  */
-export function reviewTextWithTracks(log: WardLog, plainText: string | null): string | null {
+export function reviewTextWithTracks(log: WardLog, plainText: string | null, config?: ReviewTrackConfig): string | null {
   const segments = log.reviewSegments;
   const tracks = log.reviewSegmentTracks;
   if (!segments || segments.length === 0 || !tracks || tracks.length !== segments.length) return plainText;
   if (!tracks.some((t) => t !== null)) return plainText;
+  const labels =
+    config !== undefined && !config.enabled ? null : reviewTrackLabels(config?.naming ?? "standard");
   return segments
     .map((segment, i) => {
-      const label = tracks[i] ? ` (${REVIEW_TRACK_LABEL[tracks[i]!]})` : "";
+      const label = labels && tracks[i] ? ` (${labels[tracks[i]!]})` : "";
       return `${formatReviewSegments([segment])}${label}`;
     })
     .join("، ");

@@ -2,6 +2,7 @@ import { listAllWardLogsForStudent } from "@/lib/db";
 import { currentParent, parentUnauthorized } from "@/lib/parent-auth";
 import { getParentChild } from "@/lib/parent-db";
 import { buildParentChildSummary } from "@/lib/parent-summary";
+import { reviewTrackConfigForHalaqah } from "@/lib/mosque/review-tracks-db";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 
 /**
@@ -26,5 +27,6 @@ export async function GET(request: Request) {
   return Response.json({
     child: { halaqahId: child.halaqahId, studentId: child.studentId, name: child.studentName, halaqahName: child.halaqahName },
     summary: buildParentChildSummary(logs, riyadhTodayISO()),
+    reviewTrackConfig: await reviewTrackConfigForHalaqah(child.halaqahId),
   });
 }
