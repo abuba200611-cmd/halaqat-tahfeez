@@ -76,4 +76,30 @@ describe("GET /api/parent/child — قراءة الأبناء المرتبطين
     expect(text).not.toContain("سرّ");
     expect(dbMocks.listAllWardLogsForStudent).toHaveBeenCalledWith(1, "s1");
   });
+
+  it("001 T030: ورد سجّله المعلّم يظهر للولي بملاحظته وشارة من سجّله", async () => {
+    parentDbMocks.getParentChild.mockResolvedValue({
+      halaqahId: 1,
+      studentId: "s1",
+      studentName: "أحمد",
+      halaqahName: "حلقة",
+    });
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+    dbMocks.listAllWardLogsForStudent.mockResolvedValue([
+      {
+        id: 2, studentId: "s1", studentName: "أحمد", date: today,
+        hifz: { from: 603, to: 603 }, review: null, hifzAyah: null, reviewAyah: null, reviewSegments: null,
+        note: "ما شاء الله، أتقن كامل السورة", status: "approved", createdAt: "x", previousAttemptId: null,
+        reviewedBy: 2, reviewedAt: null, reviewNote: null, buddy: null,
+        recordedByTeacherId: 2, recordedVia: "teacher",
+      },
+    ]);
+
+    const res = await GET(req("halaqah=1&student=s1"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.summary.wards[0].recordedVia).toBe("teacher");
+    expect(body.summary.wards[0].teacherNote).toBe("ما شاء الله، أتقن كامل السورة");
+  });
 });

@@ -4,7 +4,7 @@
   (FR-005)، أهلية «طلب إعادة» على المعتمد (FR-009)، وسقف الرجوع بالتاريخ.
 */
 import type { StageProfile } from "./halaqah-stage";
-import type { WardStatus } from "./types";
+import type { AyahRange, PageRange, WardStatus } from "./types";
 
 /** من سجّل الورد — NULL بالعمود يُقرأ «student» (الأوراد القديمة كلها للطالب) */
 export type WardRecordVia = "student" | "teacher" | "queue";
@@ -22,7 +22,18 @@ export function initialStatusFor(input: { recordedVia: WardRecordVia }): WardSta
   return input.recordedVia === "student" ? "new" : "approved";
 }
 
-export type SameDayWard = { id: number; date: string; recordedVia: WardRecordVia; status: WardStatus };
+/**
+ * الحد الأدنى من ورد اليوم الذي يحتاجه الحارس — الحفظ (صفحات/آيات) يرافقه
+ * لعرض ملخّص الورد القائم في تحذير التكرار (409 DUPLICATE_TODAY).
+ */
+export type SameDayWard = {
+  id: number;
+  date: string;
+  recordedVia: WardRecordVia;
+  status: WardStatus;
+  hifz: PageRange | null;
+  hifzAyah: AyahRange | null;
+};
 
 /**
  * حارس التكرار اليومي (FR-005): أقدم ورد لنفس الطالب بنفس اليوم يُعدّ

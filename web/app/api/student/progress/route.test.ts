@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => dbMocks);
 const reviewTrackMocks = vi.hoisted(() => ({ reviewTrackConfigForHalaqah: vi.fn() }));
 vi.mock("@/lib/mosque/review-tracks-db", () => reviewTrackMocks);
 
+const stageDbMocks = vi.hoisted(() => ({ getHalaqahStage: vi.fn() }));
+vi.mock("@/lib/halaqah-stage-db", () => stageDbMocks);
+
 const { GET } = await import("./route");
 
 function wardLog(date: string, hifzFrom: number, hifzTo: number) {
@@ -33,6 +36,7 @@ describe("GET /api/student/progress", () => {
     vi.clearAllMocks();
     authMocks.currentStudent.mockResolvedValue({ teacherId: 3, id: "s1", name: "طالب", halaqahName: "ح" });
     reviewTrackMocks.reviewTrackConfigForHalaqah.mockResolvedValue({ enabled: true, kubraPages: 10, naming: "standard" });
+    stageDbMocks.getHalaqahStage.mockResolvedValue(null);
   });
 
   it("بلا جلسة: 401 ولا قراءة تاريخ", async () => {
@@ -57,5 +61,23 @@ describe("GET /api/student/progress", () => {
     expect(body.progress.cells[1]).toBe("memorized");
     expect(body.progress.cells[2]).toBe("not_started");
     expect(body.trackCounts).toBeDefined();
+  });
+
+  it("يرجع فئة الحلقة ووحدتها (001 T022) — null تعني الوحدة الافتراضية", async () => {
+    dbMocks.listAllWardLogsForStudent.mockResolvedValue([]);
+    stageDbMocks.getHalaqahStage.mockResolvedValue("secondary");
+
+    const res = await GET();
+    const body = (await res.json()) as { stage: string | null; unit: string };
+
+    expect(stageDbMocks.getHalaqahStage).toHaveBeenCalledWith(3);
+    expect(body.stage).toBe("secondary");
+    expect(body.unit).toBe("page_wajh");
+
+    stageDbMocks.getHalaqahStage.mockResolvedValue(null);
+    const legacy = await GET();
+    const legacyBody = (await legacy.json()) as { stage: string | null; unit: string };
+    expect(legacyBody.stage).toBeNull();
+    expect(legacyBody.unit).toBe("ayah_page");
   });
 });

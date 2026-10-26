@@ -4,7 +4,11 @@ import { MessagesBadge } from "@/components/messages-badge";
 import { NewWardBadge } from "@/components/new-ward-badge";
 import { PendingRecitationsBadge } from "@/components/pending-recitations-badge";
 import { ImpersonationBannerBar } from "@/components/dev/banner-server";
-import { ChartIcon, CalendarIcon, ClipboardIcon, HelpIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, SettingsIcon, ShuffleIcon, StarIcon, UsersIcon } from "@/components/icons";
+import { ChartIcon, CalendarIcon, ClipboardIcon, HelpIcon, HomeIcon, MailIcon, MessageIcon, MicIcon, SearchIcon, SettingsIcon, ShuffleIcon, StarIcon, UsersIcon, BookIcon } from "@/components/icons";
+import { currentTeacher } from "@/lib/auth";
+import { getHalaqahStage } from "@/lib/halaqah-stage-db";
+import { canTeacherRecord } from "@/lib/ward-policy";
+import { profileFor } from "@/lib/halaqah-stage";
 import type { Metadata } from "next";
 
 /** عنوان تبويب قسم المعلّم — الاسم العربي للقسم يبقى، مع وسم MOS الموحّد (M5) */
@@ -65,12 +69,32 @@ const NAV: NavGroup<NavItem>[] = [
   },
 ];
 
+/** عنصر «تسجيل الورد» (001 T027) — يُضاف فوق الوارد لحلقات الابتدائي فقط */
+const RECORD_ITEM: NavItem = item(
+  "/record",
+  "تسجيل الورد",
+  "سمِّع واعتمد أوراد طلابك واحداً بعد الآخر",
+  <BookIcon size={ic} />,
+);
+
 export default async function TeacherLayout({ children }: { children: React.ReactNode }) {
+  // عنصر «تسجيل الورد» يظهر لحلقات الابتدائي فقط (FR-003: التسجيل عن
+  // الطالب للابتدائي) — الحلقات الأخرى لا ترى الخيار أصلاً (الدستور VII)
+  let nav = NAV;
+  const teacher = await currentTeacher();
+  if (teacher && canTeacherRecord(profileFor(await getHalaqahStage(teacher.halaqahId)))) {
+    nav = nav.map((group) =>
+      group.id === "top"
+        ? { ...group, items: [group.items[0], RECORD_ITEM, ...group.items.slice(1)] }
+        : group,
+    );
+  }
+
   // شريط «أنت تشاهد كـ» يظهر أعلى كل صفحات المعلّم أثناء العرض المنتحَل
   return (
     <>
       <ImpersonationBannerBar />
-      <AuthGate nav={NAV}>{children}</AuthGate>
+      <AuthGate nav={nav}>{children}</AuthGate>
     </>
   );
 }

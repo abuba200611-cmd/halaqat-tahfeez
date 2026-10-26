@@ -23,6 +23,14 @@ export type ParentWardRow = {
   hifz: string | null;
   review: string | null;
   status: WardStatus;
+  /** 001 T030: من سجّل الورد — شارة «سجّله المعلّم» لورد المعلّم/الطابور */
+  recordedVia: "student" | "teacher" | "queue";
+  /**
+   * ملاحظة المعلّم لولي الأمر (US2 سيناريو ٣): لورد سجّله المعلّم ملاحظته
+   * (note)، ولأي ورد ملاحظة طلب الإعادة (review_note). أوراد الطالب نفسه
+   * تبقى بلا نص حرّ للولي كما في STEP 61.
+   */
+  teacherNote: string | null;
   /** درجة وتقدير تقييم نقاط الأخطاء (ميزة error_grading) — غائبان لورد لم يُقيَّم بالنقاط. الدرجة والتقدير فقط، لا عدّادات الأخطاء */
   score?: number;
   band?: string;
@@ -52,13 +60,23 @@ export function buildParentChildSummary(logs: WardLog[], today: string): ParentC
   const wards = logs
     .filter((l) => l.date >= since && l.date <= today)
     .sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1))
-    .map((l) => ({
-      date: l.date,
-      hifz: hifzRangeText(l.hifz, l.hifzAyah),
-      review: reviewRangeText(l),
-      status: l.status,
-      ...(l.errorScore !== undefined && l.errorBand ? { score: l.errorScore, band: l.errorBand } : {}),
-    }));
+    .map((l) => {
+      // NULL بالعمود = ورد قديم سجّله الطالب — يُقرأ «student» دائماً
+      const via = l.recordedVia ?? "student";
+      return {
+        date: l.date,
+        hifz: hifzRangeText(l.hifz, l.hifzAyah),
+        review: reviewRangeText(l),
+        status: l.status,
+        recordedVia: via,
+        // نص حرّ للولي فقط لورد سجّله المعلّم/الطابور (ملاحظته هي للولي
+        // أساساً — US2 سيناريو ٣)؛ أوراد الطالب نفسه تبقى بلا ملاحظات
+        // للولي إطلاقاً ولو رافقها طلب إعادة (STEP 61)
+        teacherNote:
+          via === "student" ? null : (l.note?.trim() || l.reviewNote?.trim() || null),
+        ...(l.errorScore !== undefined && l.errorBand ? { score: l.errorScore, band: l.errorBand } : {}),
+      };
+    });
 
   return {
     streak: computeStreak(

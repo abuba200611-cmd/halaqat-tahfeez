@@ -7,6 +7,7 @@ import {
   countNewWards,
   createWardLog,
   deleteWardLog,
+  listSameDayWardStubs,
   listWardLogs,
   setWardLogStatus,
   updateWardLog,
@@ -15,6 +16,10 @@ import {
 } from "@/lib/db";
 import { sendPushToHalaqah, sendPushToStudent } from "@/lib/push";
 import { reviewTrackConfigForHalaqah } from "@/lib/mosque/review-tracks-db";
+import { getHalaqahStage } from "@/lib/halaqah-stage-db";
+import { profileFor } from "@/lib/halaqah-stage";
+import { formatWardByUnit } from "@/lib/ward-units";
+import { findSameDayDuplicate } from "@/lib/ward-policy";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import { parseReviewTracks } from "@/lib/review-tracks";
 import { notifyWardDecision } from "@/lib/ward-notify";
@@ -120,7 +125,30 @@ export async function POST(request: Request) {
       throw new Error("سجّل حفظاً أو مراجعة قبل الإرسال");
     }
 
-    const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, reviewTracks, note, buddyStudentId);
+    // حارس التكرار اليومي (001 T029، FR-005): ورد سجّله المعلّم/الطابور
+    // لنفس اليوم يمنع الإرسال إلا بتأكيد صريح — ورد الطالب نفسه لا يمنعه
+    // (تعديله متاح له من مساره)، والمحاولة المرفوضة تُستأنف بمحاولة جديدة
+    const date = new Date().toISOString().slice(0, 10);
+    const sameDay = await listSameDayWardStubs(student.teacherId, student.id, date);
+    const duplicate = findSameDayDuplicate(sameDay, { date, via: "student" });
+    if (duplicate && body.confirmDuplicate !== true) {
+      const stage = await getHalaqahStage(student.teacherId);
+      return Response.json(
+        {
+          code: "DUPLICATE_TODAY",
+          error: "سجّل معلّمك ورداً لك هذا اليوم بالفعل",
+          existing: {
+            id: duplicate.id,
+            recordedVia: duplicate.recordedVia,
+            status: duplicate.status,
+            summary: formatWardByUnit(profileFor(stage).unit, duplicate.hifz, duplicate.hifzAyah) ?? "ورد",
+          },
+        },
+        { status: 409 },
+      );
+    }
+
+    const log = buildLog(date, hifz, review, reviewTracks, note, buddyStudentId);
     const { id: wardLogId, previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
     await emitHalaqahEvent(
       student.teacherId,

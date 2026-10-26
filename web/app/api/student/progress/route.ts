@@ -3,6 +3,8 @@ import { listAllWardLogsForStudent } from "@/lib/db";
 import { computeJuzProgress } from "@/lib/juz-progress";
 import { countReviewTrackPages } from "@/lib/review-tracks";
 import { reviewTrackConfigForHalaqah } from "@/lib/mosque/review-tracks-db";
+import { getHalaqahStage } from "@/lib/halaqah-stage-db";
+import { profileFor } from "@/lib/halaqah-stage";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 
 /**
@@ -17,6 +19,7 @@ export async function GET() {
 
   const logs = await listAllWardLogsForStudent(student.teacherId, student.id);
   const today = riyadhTodayISO();
+  const stage = await getHalaqahStage(student.teacherId);
 
   return Response.json({
     progress: computeJuzProgress(logs.map((l) => l.hifz)),
@@ -25,5 +28,8 @@ export async function GET() {
       days30: countReviewTrackPages(logs, 30, today),
     },
     reviewTrackConfig: await reviewTrackConfigForHalaqah(student.teacherId),
+    // 001 T022: فئة الحلقة ووحدة العرض — التخزين لا يتغيّر
+    stage,
+    unit: profileFor(stage).unit,
   });
 }

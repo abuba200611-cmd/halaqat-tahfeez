@@ -19,6 +19,7 @@ import type {
   WardStatus,
 } from "./types";
 import type { SavedSchedule, SavedScheduleInfo, SavedScheduleRecord } from "./schedule";
+import type { SameDayWard } from "./ward-policy";
 
 /*
   نظام المعلّم — قاعدة بيانات Postgres (Netlify DB). المخطط في
@@ -1696,6 +1697,85 @@ export async function listAllWardLogsForStudent(teacherId: number, studentId: st
     ORDER BY w.date DESC, w.id DESC
   `;
   return rows.map(rowToWard);
+}
+
+// ————— تسجيل المعلّم عن طالب الابتدائي (001 US2) —————
+
+/**
+ * طالب فعّال غير محذوف بحلقة بعينها — شرط الحلقة والفعالية كله داخل
+ * الاستعلام، فلا يكشف مسار المعلّم شيئاً عن طلاب حلقة أخرى (404 موحّدة).
+ */
+export async function getActiveStudentInHalaqah(
+  halaqahId: number,
+  studentId: string,
+): Promise<{ id: string; name: string } | null> {
+  const rows = await db().sql`
+    SELECT id, name FROM students
+    WHERE teacher_id = ${halaqahId} AND id = ${studentId}
+      AND active = TRUE AND deleted_at IS NULL
+  `;
+  return rows[0] ? { id: rows[0].id as string, name: rows[0].name as string } : null;
+}
+
+/** صف ورد اليوم الخام المطلوب لحارس التكرار وملخّص تحذيره — SameDayWard من ward-policy */
+function rowToSameDayWard(row: Record<string, unknown>): SameDayWard {
+  const hifzFrom = row.hifz_from as number | null;
+  const hifzTo = row.hifz_to as number | null;
+  return {
+    id: Number(row.id),
+    date: row.date as string,
+    recordedVia: (row.recorded_via as "student" | "teacher" | "queue" | null) ?? "student",
+    status: row.status as WardStatus,
+    hifz: hifzFrom !== null && hifzTo !== null ? { from: hifzFrom, to: hifzTo } : null,
+    hifzAyah: ayahRangeFromRow(row, "hifz_from_surah", "hifz_from_ayah", "hifz_to_surah", "hifz_to_ayah"),
+  };
+}
+
+/**
+ * أوراد طالب بتاريخ واحد (حارس التكرار اليومي FR-005): الحد الأدنى من
+ * الأعمدة — لا ملاحظات ولا مقاطع ولا بيانات طالب أخرى.
+ */
+export async function listSameDayWardStubs(halaqahId: number, studentId: string, date: string): Promise<SameDayWard[]> {
+  const rows = await db().sql`
+    SELECT id, date, recorded_via, status, hifz_from, hifz_to,
+           hifz_from_surah, hifz_from_ayah, hifz_to_surah, hifz_to_ayah
+    FROM ward_logs
+    WHERE teacher_id = ${halaqahId} AND student_id = ${studentId} AND date = ${date}
+    ORDER BY id
+  `;
+  return rows.map(rowToSameDayWard);
+}
+
+/** طالب حلقة مع أوراد اليوم (خام) — لقائمة «تسجيل الورد» وشارة «سُجِّل اليوم» وترتيب التتابع */
+export type StudentWithTodayWard = { id: string; name: string; todayWard: SameDayWard | null };
+
+/**
+ * طلاب الحلقة الفعّالون بترتيب القائمة نفسه، ومع كل واحد أقدم ورد له
+ * اليوم (null لو لم يُسجَّل له) — القائمة تجمع بترتيب sort_order ثم الاسم
+ * كـ listStudents، فلا يتغيّر على المعلّم ترتيب أسماء تسجيله المتتابع.
+ */
+export async function listStudentsWithTodayWard(halaqahId: number, date: string): Promise<StudentWithTodayWard[]> {
+  const rows = await db().sql`
+    SELECT s.id, s.name,
+           (SELECT json_build_object(
+              'id', w.id, 'date', w.date, 'recorded_via', w.recorded_via, 'status', w.status,
+              'hifz_from', w.hifz_from, 'hifz_to', w.hifz_to,
+              'hifz_from_surah', w.hifz_from_surah, 'hifz_from_ayah', w.hifz_from_ayah,
+              'hifz_to_surah', w.hifz_to_surah, 'hifz_to_ayah', w.hifz_to_ayah
+            )::text
+            FROM ward_logs w
+            WHERE w.teacher_id = s.teacher_id AND w.student_id = s.id AND w.date = ${date}
+            ORDER BY w.id LIMIT 1
+           ) AS today_ward_json
+    FROM students s
+    WHERE s.teacher_id = ${halaqahId} AND s.active = TRUE AND s.deleted_at IS NULL
+    ORDER BY s.sort_order, s.name
+  `;
+  return rows.map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    todayWard: r.today_ward_json ? rowToSameDayWard(JSON.parse(r.today_ward_json as string)) : null,
+  }));
 }
 
 /**

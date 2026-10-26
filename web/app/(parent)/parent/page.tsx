@@ -296,12 +296,21 @@ function ChildPanel({ child }: { child: Child }) {
               <li key={`${w.date}-${i}`} className="rounded-2xl border border-stone-200 bg-white p-3.5">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="tabular text-sm font-semibold text-stone-700">{w.date}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone(w.status)}`}>
-                    {STATUS_LABEL[w.status]}
+                  <span className="flex items-center gap-1.5">
+                    {/* 001 T030: شارة «سجّله المعلّم» لورده سجّله المعلّم عن الطالب */}
+                    {w.recordedVia === "teacher" && (
+                      <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent-ink">
+                        سجّله المعلّم
+                      </span>
+                    )}
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone(w.status)}`}>
+                      {STATUS_LABEL[w.status]}
+                    </span>
                   </span>
                 </div>
                 {w.hifz && <p className="text-sm text-stone-600">حفظ: {w.hifz}</p>}
                 {w.review && <p className="text-sm text-stone-600">مراجعة: {w.review}</p>}
+                {w.teacherNote && <p className="mt-1 text-sm text-stone-600">ملاحظة المعلّم: {w.teacherNote}</p>}
                 {w.score !== undefined && w.band && (
                   <p className="tabular mt-1 text-sm font-semibold text-accent-ink">
                     الدرجة {formatScore(w.score)} · {w.band}

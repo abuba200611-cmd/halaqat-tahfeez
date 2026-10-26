@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button, Card } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
-import { BuddyResetSetting, ClassmatesVisibleSetting } from "@/components/halaqah-settings";
+import { BuddyResetSetting, ClassmatesVisibleSetting, StageSetting } from "@/components/halaqah-settings";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ProfileNameForm } from "@/components/profile-name-form";
 import { PasswordChangeForm } from "@/components/password-change-form";
@@ -44,6 +44,7 @@ export default function TeacherSettingsPage() {
 
       <section className="space-y-3" aria-labelledby="set-halaqah">
         <h2 id="set-halaqah" className="text-sm font-semibold text-muted-foreground">إعدادات الحلقة</h2>
+        <StageSetting />
         <BuddyResetSetting />
         <ClassmatesVisibleSetting />
       </section>

@@ -6,6 +6,7 @@ import { Badge, Button, Card, Empty, Stat } from "@/components/mosque/ui";
 import { ApiState, MosquePage, inputClass } from "@/components/mosque/mosque-page";
 import { callApi, useApi } from "@/components/mosque/use-api";
 import { LEVELS, LEVEL_LABELS, occupancyRatio, type Level } from "@/lib/enrollment";
+import { LEGACY_STAGE_LABEL_AR, STAGES, STAGE_LABEL_AR, type HalaqahStage } from "@/lib/halaqah-stage";
 
 /*
   التوزيع الآلي وقائمة الانتظار لمدير الجامع: سعة كل حلقة ومعاييرها مع شريط إشغال،
@@ -22,6 +23,7 @@ type Halaqah = {
   minAge: number | null;
   maxAge: number | null;
   level: Level | null;
+  stage: HalaqahStage | null;
 };
 type WaitItem = {
   id: number;
@@ -80,7 +82,7 @@ export default function EnrollmentPage() {
             ) : (
               <div className="grid gap-3 lg:grid-cols-2">
                 {data.halaqahs.map((h) => (
-                  <HalaqahCard key={`${h.id}:${h.capacity}:${h.minAge}:${h.maxAge}:${h.level}`} base={base} halaqah={h} onSaved={reload} />
+                  <HalaqahCard key={`${h.id}:${h.capacity}:${h.minAge}:${h.maxAge}:${h.level}:${h.stage}`} base={base} halaqah={h} onSaved={reload} />
                 ))}
               </div>
             )}
@@ -152,8 +154,27 @@ function HalaqahCard({ base, halaqah, onSaved }: { base: string; halaqah: Halaqa
   const [minAge, setMinAge] = useState(halaqah.minAge?.toString() ?? "");
   const [maxAge, setMaxAge] = useState(halaqah.maxAge?.toString() ?? "");
   const [level, setLevel] = useState<string>(halaqah.level ?? "");
+  const [stage, setStage] = useState<string>(halaqah.stage ?? "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  // فئة الحلقة العمرية (001 T021): تُحفَظ فوراً بمسارها الخاص — تتغيّر نادراً
+  // ولا تُخلط بمعايير السعة/العمر. الحلقة بلا فئة = «افتراضي» (النمط الحالي).
+  async function changeStage(next: string) {
+    const previous = stage;
+    setStage(next);
+    setBusy(true);
+    setMessage(null);
+    const res = await callApi(`${base}/halaqahs/${halaqah.id}/stage`, "PATCH", { stage: next || null });
+    setBusy(false);
+    if (!res.ok) {
+      setStage(previous);
+      setMessage(res.error ?? "تعذّر حفظ الفئة");
+      return;
+    }
+    setMessage("حُفظت الفئة");
+    onSaved();
+  }
 
   async function save() {
     setBusy(true);
@@ -180,6 +201,17 @@ function HalaqahCard({ base, halaqah, onSaved }: { base: string; halaqah: Halaqa
         {halaqah.teacherName && <div className="text-xs text-muted-foreground">{halaqah.teacherName}</div>}
       </div>
       <OccupancyBar halaqah={halaqah} />
+      <label className="block text-xs text-muted-foreground">
+        الفئة العمرية
+        <select value={stage} onChange={(e) => changeStage(e.target.value)} disabled={busy} className={`${inputClass} mt-1`}>
+          <option value="">{LEGACY_STAGE_LABEL_AR}</option>
+          {STAGES.map((s) => (
+            <option key={s} value={s}>
+              {STAGE_LABEL_AR[s]}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <label className="block text-xs text-muted-foreground">
           السعة

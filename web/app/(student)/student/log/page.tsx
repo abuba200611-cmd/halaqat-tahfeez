@@ -90,6 +90,8 @@ export default function StudentLogPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  /** تحذير التكرار (001 T029): ورد سجّله المعلّم اليوم — ملخّصه حتى يقرّر الطالب */
+  const [duplicate, setDuplicate] = useState<{ summary: string } | null>(null);
 
   // STEP 56: زملاء الحلقة لاختيار "راجعت معه" — الاسم فقط، تحميل مرة واحدة
   useEffect(() => {
@@ -209,11 +211,11 @@ export default function StudentLogPage() {
   const hasBlockingError = !!hifzInfo.error || reviewInfo.blocking;
   const submitDisabled = busy || !hasContent || hasBlockingError;
 
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  async function send(confirmDuplicate: boolean) {
     setBusy(true);
     setError(null);
     setSent(false);
+    setDuplicate(null);
     try {
       const body: Record<string, unknown> = {
         hifz: isRangeTouched(hifz) ? hifz : null,
@@ -226,13 +228,24 @@ export default function StudentLogPage() {
       if (isEditing) {
         body.id = editingId;
         body.date = editingDate;
+      } else {
+        // حارس التكرار اليومي: يُرسل true فقط بعد تحذير 409 وقرار صريح
+        body.confirmDuplicate = confirmDuplicate;
       }
       const res = await fetch("/api/wards", {
         method: isEditing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+        existing?: { summary?: string };
+      };
+      if (res.status === 409 && data.code === "DUPLICATE_TODAY") {
+        setDuplicate({ summary: data.existing?.summary ?? "" });
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? (isEditing ? "تعذّر حفظ التعديل" : "تعذّر إرسال الورد"));
         return;
@@ -245,6 +258,11 @@ export default function StudentLogPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
+    void send(false);
   }
 
   const field =
@@ -326,6 +344,32 @@ export default function StudentLogPage() {
           </label>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {duplicate && (
+            <div role="alert" className="space-y-2 rounded-xl border border-accent bg-accent-soft p-3.5">
+              <p className="text-sm font-semibold text-accent-ink">
+                سجّل معلّمك ورداً لك هذا اليوم بالفعل{duplicate.summary ? `: ${duplicate.summary}` : ""}
+              </p>
+              <p className="text-xs text-muted-foreground">هل تريد إرسال ورد إضافي مع ذلك؟</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void send(true)}
+                  disabled={busy}
+                  className="min-h-11 flex-1 cursor-pointer rounded-xl border border-border bg-surface px-3 py-2.5 text-sm font-semibold text-foreground transition-colors duration-200 hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {busy ? "لحظة…" : "نعم، أرسل مع ذلك"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDuplicate(null)}
+                  disabled={busy}
+                  className="min-h-11 flex-1 cursor-pointer rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground underline hover:no-underline disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  رجوع
+                </button>
+              </div>
+            </div>
+          )}
           {sent && <p className="text-sm text-success">{editingId !== null ? "تم حفظ التعديل ✓" : "تم إرسال وردك إلى معلّمك ✓"}</p>}
 
           <button

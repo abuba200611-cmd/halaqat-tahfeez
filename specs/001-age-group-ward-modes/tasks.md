@@ -65,11 +65,11 @@ description: "Task list — أنماط تسجيل الورد حسب الفئة �
 
 **Independent Test**: تغيير الفئة من الإعدادات ثم قراءة `GET /api/teacher/settings` والتأكد من `stageProfile`؛ المساعد يتلقى 403 عند PATCH.
 
-- [ ] T018 [US1] اختبار `app/api/teacher/settings/route.test.ts` (إضافة): GET يُرجع `stage`/`stageProfile`؛ PATCH `stage` ينجح للمشرف، 403 للمساعد، 400 لقيمة غير معروفة، وسجّل حدث التدقيق. ثم تنفيذ التعديل في `app/api/teacher/settings/route.ts`. (FR-001, FR-002)
-- [ ] T019 [P] [US1] مسار مدير الجامع `app/api/mosques/[id]/halaqahs/[halaqahId]/stage/route.ts` + `route.test.ts` (404 لحلقة جامع آخر، 401 بلا صلاحية، 429). (FR-002)
-- [ ] T020 [P] [US1] واجهة المعلّم: `components/halaqah-settings.tsx` + `app/(teacher)/settings/page.tsx` — محدّد فئة (قراءة فقط للمساعد، رسالة «الفئة الافتراضية مطبّقة» عند `null`). رموز الهوية فقط، يعمل على 375px. (US1 سيناريو 1–3)
-- [ ] T021 [P] [US1] واجهة مدير الجامع: محدّد الفئة في قائمة حلقات الجامع — حدِّد الملف بالبحث في `app/(mosque)/mosque/` عن مكوّن قائمة الحلقات (يُذكر الملف في التسليم)، واستدعِ مسار T019.
-- [ ] T022 [US1] تمرير `stage` للعملاء: `app/api/wards/mine/route.ts` و`app/api/student/progress/route.ts` (+ اختباراتهما إن وُجدت) يرجعان `stage` و`unit` من `profileFor`. (يحجب US3 واجهة الطالب)
+- [x] T018 [US1] اختبار `app/api/teacher/settings/route.test.ts` (إضافة): GET يُرجع `stage`/`stageProfile`؛ PATCH `stage` ينجح للمشرف، 403 للمساعد، 400 لقيمة غير معروفة، وسجّل حدث التدقيق. ثم تنفيذ التعديل في `app/api/teacher/settings/route.ts`. (FR-001, FR-002)
+- [x] T019 [P] [US1] مسار مدير الجامع `app/api/mosques/[id]/halaqahs/[halaqahId]/stage/route.ts` + `route.test.ts` (404 لحلقة جامع آخر، 401 بلا صلاحية، 429). (FR-002)
+- [x] T020 [P] [US1] واجهة المعلّم: `components/halaqah-settings.tsx` + `app/(teacher)/settings/page.tsx` — محدّد فئة (قراءة فقط للمساعد، رسالة «الفئة الافتراضية مطبّقة» عند `null`). رموز الهوية فقط، يعمل على 375px. (US1 سيناريو 1–3)
+- [x] T021 [P] [US1] واجهة مدير الجامع: محدّد الفئة في قائمة حلقات الجامع — حدِّد الملف بالبحث في `app/(mosque)/mosque/` عن مكوّن قائمة الحلقات (يُذكر الملف في التسليم)، واستدعِ مسار T019.
+- [x] T022 [US1] تمرير `stage` للعملاء: `app/api/wards/mine/route.ts` و`app/api/student/progress/route.ts` (+ اختباراتهما إن وُجدت) يرجعان `stage` و`unit` من `profileFor`. (يحجب US3 واجهة الطالب)
 
 **Checkpoint**: US1 تعمل وحدها؛ الحلقات بلا فئة لا تتغير (SC-005).
 
@@ -81,14 +81,14 @@ description: "Task list — أنماط تسجيل الورد حسب الفئة �
 
 **Independent Test**: من حساب معلّم حلقة `primary` سجّل ورداً لطالب؛ يظهر معتمداً في سجل الطالب والتقارير، ويُرفض في حلقة غير ابتدائية.
 
-- [ ] T023 [US2] اختبار `app/api/teacher/wards/route.test.ts`: 403 `STAGE_NOT_PRIMARY`، نجاح مع `status:'approved'` و`recorded_via:'teacher'`، `wholeSurah`، 404 لطالب خارج الحلقة، 409 `DUPLICATE_TODAY` ثم نجاح مع `confirmDuplicate`، 429، `nextStudentId`، إصدار `progress.recorded` و`progress.approved`. (FR-003, FR-005)
-- [ ] T024 [US2] تنفيذ `app/api/teacher/wards/route.ts` (POST) باستعمال `parseAyahRange`/`parseReviewSegments`/`ward-policy`/`createApprovedWardLog`/`notifyWardDecision`/`emitHalaqahEvent`؛ ويعتمد T015, T017, T009, T005.
-- [ ] T025 [P] [US2] `app/api/teacher/wards/roster/route.ts` (GET) + اختبار صغير (يُرجع `recordedToday`، 403 لغير الابتدائي، لا حقول حساسة).
-- [ ] T026 [US2] `components/teacher-ward-form.tsx`: نموذج بأزرار كبيرة — اختيار السورة (القصيرة أولاً: ترتيب ١١٤→١ مع بحث)، «سورة كاملة»، من آية إلى آية، مراجعة اختيارية، ملاحظة، زر «متقن» عند تفعيل النقاط، تحذير التكرار بزرين. يستعمل `ayah-range-field.tsx` القائم. (FR-004, US2 سيناريو 1)
-- [ ] T027 [US2] `app/(teacher)/record/page.tsx`: قائمة الطلاب مع شارة «سُجِّل اليوم»، فتح النموذج، وبعد الحفظ الانتقال التلقائي إلى `nextStudentId` دون العودة للرئيسية. إضافة عنصر «تسجيل الورد» في `app/(teacher)/layout.tsx` ظاهر للابتدائي فقط. (US2 سيناريو 2, SC-001)
-- [ ] T028 [P] [US2] `app/(teacher)/students/[id]/page.tsx`: زر «تسجيل ورد» يظهر لحلقة `primary` فقط (سيناريو 4)، يفتح `record?student=`.
-- [ ] T029 [US2] حارس التكرار من جهة الطالب: `app/api/wards/route.ts` (POST) يرجع 409 `DUPLICATE_TODAY` عند وجود ورد معلّم لنفس اليوم + عرض الرسالة في `app/(student)/student/log/page.tsx`. اختبار في `app/api/wards/route.test.ts` (إضافة). (FR-005)
-- [ ] T030 [P] [US2] متابعة ولي الأمر: `app/api/parent/child/route.ts` يضيف `recordedVia` و`note`؛ وعرض «سجّله المعلّم» في صفحة ولي الأمر (حدِّد الملف في `app/(parent)/parent/`). (US2 سيناريو 3)
+- [x] T023 [US2] اختبار `app/api/teacher/wards/route.test.ts`: 403 `STAGE_NOT_PRIMARY`، نجاح مع `status:'approved'` و`recorded_via:'teacher'`، `wholeSurah`، 404 لطالب خارج الحلقة، 409 `DUPLICATE_TODAY` ثم نجاح مع `confirmDuplicate`، 429، `nextStudentId`، إصدار `progress.recorded` و`progress.approved`. (FR-003, FR-005)
+- [x] T024 [US2] تنفيذ `app/api/teacher/wards/route.ts` (POST) باستعمال `parseAyahRange`/`parseReviewSegments`/`ward-policy`/`createApprovedWardLog`/`notifyWardDecision`/`emitHalaqahEvent`؛ ويعتمد T015, T017, T009, T005.
+- [x] T025 [P] [US2] `app/api/teacher/wards/roster/route.ts` (GET) + اختبار صغير (يُرجع `recordedToday`، 403 لغير الابتدائي، لا حقول حساسة).
+- [x] T026 [US2] `components/teacher-ward-form.tsx`: نموذج بأزرار كبيرة — اختيار السورة (القصيرة أولاً: ترتيب ١١٤→١ مع بحث)، «سورة كاملة»، من آية إلى آية، مراجعة اختيارية، ملاحظة، زر «متقن» عند تفعيل النقاط، تحذير التكرار بزرين. يستعمل `ayah-range-field.tsx` القائم. (FR-004, US2 سيناريو 1)
+- [x] T027 [US2] `app/(teacher)/record/page.tsx`: قائمة الطلاب مع شارة «سُجِّل اليوم»، فتح النموذج، وبعد الحفظ الانتقال التلقائي إلى `nextStudentId` دون العودة للرئيسية. إضافة عنصر «تسجيل الورد» في `app/(teacher)/layout.tsx` ظاهر للابتدائي فقط. (US2 سيناريو 2, SC-001)
+- [x] T028 [P] [US2] `app/(teacher)/students/[id]/page.tsx`: زر «تسجيل ورد» يظهر لحلقة `primary` فقط (سيناريو 4)، يفتح `record?student=`.
+- [x] T029 [US2] حارس التكرار من جهة الطالب: `app/api/wards/route.ts` (POST) يرجع 409 `DUPLICATE_TODAY` عند وجود ورد معلّم لنفس اليوم + عرض الرسالة في `app/(student)/student/log/page.tsx`. اختبار في `app/api/wards/route.test.ts` (إضافة). (FR-005)
+- [x] T030 [P] [US2] متابعة ولي الأمر: `app/api/parent/child/route.ts` يضيف `recordedVia` و`note`؛ وعرض «سجّله المعلّم» في صفحة ولي الأمر (حدِّد الملف في `app/(parent)/parent/`). (US2 سيناريو 3)
 
 **Checkpoint**: US1+US2 = **MVP قابل للنشر** (بعد البوابات).
 
