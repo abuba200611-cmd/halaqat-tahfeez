@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  KUBRA_DEFAULT_PAGES,
   REVIEW_TRACK_LABEL,
   countReviewTrackPages,
+  kubraWindow,
   parseReviewTracks,
-  recentReviewStartPage,
   reviewTextWithTracks,
-  suggestReviewTrack,
+  suggestReviewTrackFor,
 } from "./review-tracks";
+import { pageRangeOfAyahRange } from "./quran-surahs";
 import type { PageRange, ReviewTrack, WardLog } from "./types";
 
 const range = (from: number, to: number): PageRange => ({ from, to });
@@ -52,7 +54,7 @@ describe("parseReviewTracks", () => {
     expect(() => parseReviewTracks(["sabqi"], 2)).toThrow("عدد التصنيفات");
   });
 
-  it("قيمة خارج سبقي/منزل تُرفض مع رقم المقطع", () => {
+  it("قيمة خارج الكبرى/الصغرى تُرفض مع رقم المقطع", () => {
     expect(() => parseReviewTracks(["sabqi", "قديم"], 2)).toThrow("للمقطع 2");
   });
 
@@ -61,25 +63,89 @@ describe("parseReviewTracks", () => {
   });
 });
 
-describe("recentReviewStartPage — حدّ السبقي (آخر جزء محفوظ)", () => {
-  it("لا حفظ بعد: الصفحة 1 — كل المراجعة قريبة", () => {
-    expect(recentReviewStartPage([])).toBe(1);
-    expect(recentReviewStartPage([null])).toBe(1);
+/*
+  أمثلة الشرح بالصفحات الحقيقية من بيانات المصحف (lib/quran-surahs):
+  الجاثية صفحات 499–502، والأحقاف 502–506، والفتح 511–515 (صفحته
+  الثانية 512).
+*/
+const jathiyahPages = pageRangeOfAyahRange(45, 1, 45, 37);
+const ahqafPages = pageRangeOfAyahRange(46, 1, 46, 35);
+const fathPages = pageRangeOfAyahRange(48, 1, 48, 29);
+
+describe("kubraWindow — نافذة الكبرى باتجاه الحفظ", () => {
+  it("مثال المعلّم: حفظ تنازلي بلغ الجاثية → الكبرى ١٠ صفحات بعدها، من باقي الأحقاف إلى الصفحة الثانية من الفتح", () => {
+    // الأقدم فالأحدث: ختم من الناس نزولاً حتى آخر حفظٍ عند الجاثية
+    const ranges = [range(582, 604), range(550, 581), range(jathiyahPages.to + 1, 549), jathiyahPages];
+    const window = kubraWindow(ranges);
+    expect(window).toEqual({ from: jathiyahPages.to + 1, to: jathiyahPages.to + KUBRA_DEFAULT_PAGES });
+    expect(window!.from).toBeLessThanOrEqual(ahqafPages.from + 1); // تبدأ من جسد الأحقاف
+    expect(ahqafPages.to).toBeLessThanOrEqual(window!.to);
+    expect(fathPages.from + 1).toBeLessThanOrEqual(window!.to); // وتنتهي بالصفحة الثانية من الفتح
   });
 
-  it("آخر حفظ صفحة 205 (داخل الجزء 11): السبقي يبدأ 201", () => {
-    expect(recentReviewStartPage([range(1, 205)])).toBe(201);
+  it("حفظ تصاعدي من البقرة: الكبرى ١٠ صفحات قبل أول آخر حفظ", () => {
+    expect(kubraWindow([range(2, 50), range(51, 120), range(121, 130)])).toEqual({ from: 111, to: 120 });
   });
 
-  it("ختم المصحف: السبقي = الجزء الثلاثون من صفحة 582", () => {
-    expect(recentReviewStartPage([range(1, 604)])).toBe(582);
+  it("الترتيب الأقدم فالأحدث أساس الاتجاه — معكوسه (كما تصل الأوراد من الخادم) يفسد النافذة", () => {
+    const oldestFirst = [range(582, 604), jathiyahPages];
+    expect(kubraWindow(oldestFirst)).toEqual({ from: jathiyahPages.to + 1, to: jathiyahPages.to + KUBRA_DEFAULT_PAGES });
+    // نفس النطاقات أحدثها أولاً: آخر نطاق يبدو 582–604 فيُظن حفظاً تصاعدياً
+    expect(kubraWindow([...oldestFirst].reverse())).toEqual({ from: 572, to: 581 });
+  });
+
+  it("سجل واحد: قاعدة النصف الثاني — بالجاثية (فوق ٣٠٢) تنازلي، وبأول المصحف تصاعدي", () => {
+    expect(kubraWindow([jathiyahPages])).toEqual({ from: jathiyahPages.to + 1, to: jathiyahPages.to + KUBRA_DEFAULT_PAGES });
+    expect(kubraWindow([range(10, 12)])).toEqual({ from: 1, to: 9 });
+  });
+
+  it("تداخل آخر حفظ مع ما قبله (لا دليل اتجاه): قاعدة النصف الثاني نفسها", () => {
+    expect(kubraWindow([range(100, 200), range(150, 160)])).toEqual({ from: 140, to: 149 });
+    expect(kubraWindow([range(350, 450), range(400, 410)])).toEqual({ from: 411, to: 420 });
+  });
+
+  it("تقييد عند حدّي المصحف: لا صفحات قبل ١ ولا بعد ٦٠٤", () => {
+    expect(kubraWindow([range(5, 8)])).toEqual({ from: 1, to: 4 }); // تصاعدي، النافذة مقصوصة عند ١
+    expect(kubraWindow([range(602, 604), range(598, 601)])).toEqual({ from: 602, to: 604 }); // تنازلي، مقصوصة عند ٦٠٤
+  });
+
+  it("آخر حفظ على حدّ المصحف نفسه (صفحة ١ صعوداً أو ٦٠٤ نزولاً): لا كبرى ممكنة → null", () => {
+    expect(kubraWindow([range(1, 604)])).toBeNull();
+    expect(kubraWindow([range(600, 604)])).toBeNull();
+  });
+
+  it("لا حفظ إطلاقاً → null (بلا اقتراح)", () => {
+    expect(kubraWindow([])).toBeNull();
+    expect(kubraWindow([null, null])).toBeNull();
+  });
+
+  it("عدد صفحات مخصص بدل الافتراضي ١٠", () => {
+    expect(kubraWindow([jathiyahPages], 5)).toEqual({ from: jathiyahPages.to + 1, to: jathiyahPages.to + 5 });
   });
 });
 
-describe("suggestReviewTrack", () => {
-  it("مقطع عند حدّ السبقي أو بعده → سبقي، وقبله → منزل", () => {
-    expect(suggestReviewTrack(range(201, 210), 201)).toBe("sabqi");
-    expect(suggestReviewTrack(range(200, 210), 201)).toBe("manzil");
+describe("suggestReviewTrackFor — قاعدة التقاطع مع نافذة الكبرى", () => {
+  const kubra = { from: 201, to: 210 };
+
+  it("نافذة بلا قيمة → null بلا اقتراح", () => {
+    expect(suggestReviewTrackFor(range(205, 208), null)).toBeNull();
+  });
+
+  it("مقطع داخل النافذة كاملاً → كبرى", () => {
+    expect(suggestReviewTrackFor(range(202, 209), kubra)).toBe("sabqi");
+  });
+
+  it("نصف صفحات المقطع فأكثر داخل النافذة → كبرى (النصف بالضبط يدخل)", () => {
+    expect(suggestReviewTrackFor(range(206, 215), kubra)).toBe("sabqi"); // ٥ من ١٠ داخل النافذة
+  });
+
+  it("أقل من نصف صفحات المقطع داخل النافذة → صغرى", () => {
+    expect(suggestReviewTrackFor(range(208, 217), kubra)).toBe("manzil"); // ٣ من ١٠ فقط
+  });
+
+  it("خارج النافذة تماماً → صغرى", () => {
+    expect(suggestReviewTrackFor(range(1, 10), kubra)).toBe("manzil");
+    expect(suggestReviewTrackFor(range(400, 410), kubra)).toBe("manzil");
   });
 });
 

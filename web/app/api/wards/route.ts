@@ -85,7 +85,7 @@ function buildLog(
     // STEP 52: المراجعة الجديدة دائماً مقاطع (0 أو أكثر)، لا نطاق واحد قديم
     reviewAyah: null,
     reviewSegments,
-    // B3: تصنيف سبقي/منزل لكل مقطع — اختياري، بلا قيمة لأي ورد قديم
+    // B3: تصنيف كبرى/صغرى لكل مقطع — اختياري، بلا قيمة لأي ورد قديم
     reviewSegmentTracks: reviewTracks ?? undefined,
     note,
     buddyStudentId,

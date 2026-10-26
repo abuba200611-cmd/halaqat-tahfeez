@@ -6,9 +6,9 @@ import { Bar, Ticker } from "./client";
 */
 
 const ROWS = [
-  { name: "يوسف الأحمد", note: "سبق — البقرة ٢٥٥–٢٦٠", state: "حاضر", tone: "ok" },
+  { name: "يوسف الأحمد", note: "حفظ جديد — البقرة ٢٥٥–٢٦٠", state: "حاضر", tone: "ok" },
   { name: "عبدالله خالد", note: "مراجعة — جزء عمّ", state: "حاضر", tone: "ok" },
-  { name: "سلمان ناصر", note: "منزل — آل عمران ١–٢٠", state: "بعذر", tone: "warn" },
+  { name: "سلمان ناصر", note: "الصغرى — آل عمران ١–٢٠", state: "بعذر", tone: "warn" },
 ] as const;
 
 export function ProductPreview() {
