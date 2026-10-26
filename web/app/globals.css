@@ -296,3 +296,60 @@ body {
     break-inside: avoid;
   }
 }
+
+/*
+  ——— لوحة الطلاب: بطاقات عائمة ناعمة ———
+  ظلّ واسع التمويه وخفيف في الفاتح؛ في الداكن يُستبدل بحلقة رفيعة بدل ظلّ
+  أسود مُوحِل. تُكرَّر القيم لنفس سبب كتل المظهر الداكن أعلاه.
+*/
+.fx-card {
+  --fx-shadow: 0 8px 30px -12px rgb(0 0 0 / 0.12);
+  --fx-shadow-hover: 0 14px 36px -12px rgb(0 0 0 / 0.2);
+  box-shadow: var(--fx-shadow);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+.fx-card:hover {
+  box-shadow: var(--fx-shadow-hover);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .fx-card-lift:hover {
+    transform: translateY(-2px);
+  }
+}
+:root[data-theme="dark"] .fx-card {
+  --fx-shadow: 0 0 0 1px rgb(205 180 158 / 0.06);
+  --fx-shadow-hover: 0 0 0 1px rgb(205 180 158 / 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .fx-card {
+    --fx-shadow: 0 0 0 1px rgb(205 180 158 / 0.06);
+    --fx-shadow-hover: 0 0 0 1px rgb(205 180 158 / 0.16);
+  }
+}
+@media print {
+  .fx-card {
+    box-shadow: none;
+  }
+}
+
+/* غمامة تدرّج خفيفة جداً خلف لوحة الطلاب */
+.fx-wash {
+  position: relative;
+  isolation: isolate;
+}
+/* طبقة خلفية تمتدّ تحت حواف الحاوية وتتلاشى، فلا يظهر للتدرّج حدّ مقطوع */
+.fx-wash::before {
+  content: "";
+  position: absolute;
+  inset: -2.5rem -1.5rem auto;
+  height: 36rem;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(50rem 22rem at 85% 6rem, rgb(173 125 86 / 0.09), transparent 70%),
+    radial-gradient(36rem 18rem at 10% 4rem, rgb(205 180 158 / 0.1), transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+}
