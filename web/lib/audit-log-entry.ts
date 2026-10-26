@@ -14,7 +14,11 @@ export type SecurityEvent =
   | "password.change"
   | "retention.cleanup"
   | "api_key.create"
-  | "api_key.revoke";
+  | "api_key.revoke"
+  | "halaqah.stage_change"
+  | "points.redeem"
+  | "points.cancel"
+  | "points.reward_edit";
 
 export type SecurityActorKind =
   | "teacher"

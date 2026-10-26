@@ -19,6 +19,7 @@ import type {
   WardStatus,
 } from "./types";
 import type { SavedSchedule, SavedScheduleInfo, SavedScheduleRecord } from "./schedule";
+import type { SameDayWard } from "./ward-policy";
 
 /*
   نظام المعلّم — قاعدة بيانات Postgres (Netlify DB). المخطط في
@@ -1088,6 +1089,9 @@ function rowToWard(row: Record<string, unknown>): WardLog {
     reviewedBy: (row.reviewed_by as number | null) ?? null,
     reviewedAt: (row.reviewed_at as string | null) ?? null,
     reviewNote: (row.review_note as string | null) ?? null,
+    // 001: NULL بالعمود = ورد قديم سجّله الطالب — يُقرأ «student» دائماً
+    recordedByTeacherId: (row.recorded_by_teacher_id as number | null) ?? null,
+    recordedVia: (row.recorded_via as "student" | "teacher" | "queue" | null) ?? "student",
     ...(row.error_score !== null && row.error_score !== undefined
       ? {
           errorScore: Number(row.error_score),
@@ -1161,6 +1165,88 @@ export async function createWardLog(
     throw error;
   } finally {
     client.release();
+  }
+}
+
+/** خيارات إنشاء ورد معتمد ابتداءً (001 تسجيل المعلّم، و002 نتيجة الطابور) */
+export type CreateApprovedWardOptions = {
+  /** من سجّل الورد — ورد معتمد لا يصدر عن الطالب نفسه أبداً */
+  recordedVia: "teacher" | "queue";
+  /** المعلّم/المسمِّع الذي سجّله — يُخزَّن أيضاً reviewed_by (صاحب قرار الاعتماد) */
+  recordedByTeacherId: number | null;
+  /**
+   * ورد الطالب المعلّق الذي تُستبدَل به نتيجة الطابور بدل تكراره (002/T014)
+   * — يُعرَّف بالتوقيع الآن ويُفعَّل بتنفيذ 002 بعد مايقريشن M3.
+   */
+  supersedePendingId?: number | null;
+  /**
+   * وسم «يرجع يراجع أكثر» من نتيجة الطابور (002) — يُفعَّل مع supersedePendingId.
+   */
+  repeatMore?: boolean | null;
+};
+
+/**
+ * ينشئ ورداً معتمداً ابتداءً: إدراج status='approved' مع reviewed_by/
+ * reviewed_at والمسجِّل (recorded_via/recorded_by_teacher_id) ومقاطع
+ * المراجعة والزميل كما في createWardLog — كل ذلك بمعاملة واحدة. يقبل
+ * اتصالاً خارجياً (client) لو المستدعي يدير معاملة أوسع (الطابور 002)،
+ * وإلا يفتح معاملة خاصة به وينهيها. ربط محاولة الإعادة المفتوحة
+ * (previous_attempt_id) بنفس منطق createWardLog: سلسلة المحاولات لا
+ * تنكسر لأن الورد الجديد صدر معتمداً.
+ */
+export async function createApprovedWardLog(
+  halaqahId: number,
+  studentId: string,
+  log: NewWardLog,
+  options: CreateApprovedWardOptions,
+  client?: { query: (text: string, params?: unknown[]) => Promise<unknown> },
+): Promise<{ id: number; previousAttemptId: number | null }> {
+  if (log.buddyStudentId) await assertValidBuddy(halaqahId, studentId, log.buddyStudentId);
+  const previousAttemptId = await findOpenRevisionAttempt(halaqahId, studentId);
+  const now = new Date().toISOString();
+  const insert = async (q: { query: (text: string, params?: unknown[]) => Promise<unknown> }): Promise<number> => {
+    const inserted = (await q.query(
+      `INSERT INTO ward_logs
+        (teacher_id, student_id, date, hifz_from, hifz_to, review_from, review_to,
+         hifz_from_surah, hifz_from_ayah, hifz_to_surah, hifz_to_ayah,
+         review_from_surah, review_from_ayah, review_to_surah, review_to_ayah,
+         note, status, created_at, previous_attempt_id,
+         reviewed_by, reviewed_at, recorded_by_teacher_id, recorded_via)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'approved',$17,$18,$19,$20,$21,$22)
+       RETURNING id`,
+      [
+        halaqahId, studentId, log.date, log.hifzFrom, log.hifzTo, log.reviewFrom, log.reviewTo,
+        log.hifzAyah?.fromSurah ?? null, log.hifzAyah?.fromAyah ?? null,
+        log.hifzAyah?.toSurah ?? null, log.hifzAyah?.toAyah ?? null,
+        log.reviewAyah?.fromSurah ?? null, log.reviewAyah?.fromAyah ?? null,
+        log.reviewAyah?.toSurah ?? null, log.reviewAyah?.toAyah ?? null,
+        log.note, now, previousAttemptId,
+        options.recordedByTeacherId, now,
+        options.recordedByTeacherId, options.recordedVia,
+      ],
+    )) as { rows: { id: number }[] };
+    const id = Number(inserted.rows[0].id);
+    await insertReviewSegments(q, id, log.reviewSegments, log.reviewSegmentTracks);
+    await insertBuddy(q, id, halaqahId, studentId, log.buddyStudentId ?? null);
+    return id;
+  };
+
+  // اتصال خارجي (الطابور 002): نفس معاملة المستدعي — لا BEGIN/COMMIT هنا
+  if (client) {
+    const id = await insert(client);
+    return { id, previousAttemptId };
+  }
+  const own = await db().pool.connect();
+  try {
+    await own.query("BEGIN");
+    const id = await insert(own);
+    await own.query("COMMIT");
+    return { id, previousAttemptId };
+  } catch (error) {
+    await own.query("ROLLBACK");
+    throw error;
+  } finally {
+    own.release();
   }
 }
 
@@ -1475,6 +1561,7 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
                w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.recorded_by_teacher_id, w.recorded_via,
                w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
@@ -1500,6 +1587,7 @@ export async function listWardLogs(teacherId: number, onlyNew = false): Promise<
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
                w.note, w.status, w.created_at,
                w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.recorded_by_teacher_id, w.recorded_via,
                w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
@@ -1530,6 +1618,7 @@ export async function listApprovedWardLogs(teacherId: number): Promise<WardLog[]
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.recorded_by_teacher_id, w.recorded_via,
                w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
@@ -1556,6 +1645,7 @@ export async function listWardLogsForStudent(teacherId: number, studentId: strin
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.recorded_by_teacher_id, w.recorded_via,
                w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
@@ -1591,6 +1681,7 @@ export async function listAllWardLogsForStudent(teacherId: number, studentId: st
                w.review_from_surah, w.review_from_ayah, w.review_to_surah, w.review_to_ayah,
            w.note, w.status, w.created_at,
            w.previous_attempt_id, w.reviewed_by, w.reviewed_at, w.review_note,
+               w.recorded_by_teacher_id, w.recorded_via,
                w.error_counts, w.error_score, w.error_band,
            (SELECT json_agg(
               json_build_object(
@@ -1606,6 +1697,85 @@ export async function listAllWardLogsForStudent(teacherId: number, studentId: st
     ORDER BY w.date DESC, w.id DESC
   `;
   return rows.map(rowToWard);
+}
+
+// ————— تسجيل المعلّم عن طالب الابتدائي (001 US2) —————
+
+/**
+ * طالب فعّال غير محذوف بحلقة بعينها — شرط الحلقة والفعالية كله داخل
+ * الاستعلام، فلا يكشف مسار المعلّم شيئاً عن طلاب حلقة أخرى (404 موحّدة).
+ */
+export async function getActiveStudentInHalaqah(
+  halaqahId: number,
+  studentId: string,
+): Promise<{ id: string; name: string } | null> {
+  const rows = await db().sql`
+    SELECT id, name FROM students
+    WHERE teacher_id = ${halaqahId} AND id = ${studentId}
+      AND active = TRUE AND deleted_at IS NULL
+  `;
+  return rows[0] ? { id: rows[0].id as string, name: rows[0].name as string } : null;
+}
+
+/** صف ورد اليوم الخام المطلوب لحارس التكرار وملخّص تحذيره — SameDayWard من ward-policy */
+function rowToSameDayWard(row: Record<string, unknown>): SameDayWard {
+  const hifzFrom = row.hifz_from as number | null;
+  const hifzTo = row.hifz_to as number | null;
+  return {
+    id: Number(row.id),
+    date: row.date as string,
+    recordedVia: (row.recorded_via as "student" | "teacher" | "queue" | null) ?? "student",
+    status: row.status as WardStatus,
+    hifz: hifzFrom !== null && hifzTo !== null ? { from: hifzFrom, to: hifzTo } : null,
+    hifzAyah: ayahRangeFromRow(row, "hifz_from_surah", "hifz_from_ayah", "hifz_to_surah", "hifz_to_ayah"),
+  };
+}
+
+/**
+ * أوراد طالب بتاريخ واحد (حارس التكرار اليومي FR-005): الحد الأدنى من
+ * الأعمدة — لا ملاحظات ولا مقاطع ولا بيانات طالب أخرى.
+ */
+export async function listSameDayWardStubs(halaqahId: number, studentId: string, date: string): Promise<SameDayWard[]> {
+  const rows = await db().sql`
+    SELECT id, date, recorded_via, status, hifz_from, hifz_to,
+           hifz_from_surah, hifz_from_ayah, hifz_to_surah, hifz_to_ayah
+    FROM ward_logs
+    WHERE teacher_id = ${halaqahId} AND student_id = ${studentId} AND date = ${date}
+    ORDER BY id
+  `;
+  return rows.map(rowToSameDayWard);
+}
+
+/** طالب حلقة مع أوراد اليوم (خام) — لقائمة «تسجيل الورد» وشارة «سُجِّل اليوم» وترتيب التتابع */
+export type StudentWithTodayWard = { id: string; name: string; todayWard: SameDayWard | null };
+
+/**
+ * طلاب الحلقة الفعّالون بترتيب القائمة نفسه، ومع كل واحد أقدم ورد له
+ * اليوم (null لو لم يُسجَّل له) — القائمة تجمع بترتيب sort_order ثم الاسم
+ * كـ listStudents، فلا يتغيّر على المعلّم ترتيب أسماء تسجيله المتتابع.
+ */
+export async function listStudentsWithTodayWard(halaqahId: number, date: string): Promise<StudentWithTodayWard[]> {
+  const rows = await db().sql`
+    SELECT s.id, s.name,
+           (SELECT json_build_object(
+              'id', w.id, 'date', w.date, 'recorded_via', w.recorded_via, 'status', w.status,
+              'hifz_from', w.hifz_from, 'hifz_to', w.hifz_to,
+              'hifz_from_surah', w.hifz_from_surah, 'hifz_from_ayah', w.hifz_from_ayah,
+              'hifz_to_surah', w.hifz_to_surah, 'hifz_to_ayah', w.hifz_to_ayah
+            )::text
+            FROM ward_logs w
+            WHERE w.teacher_id = s.teacher_id AND w.student_id = s.id AND w.date = ${date}
+            ORDER BY w.id LIMIT 1
+           ) AS today_ward_json
+    FROM students s
+    WHERE s.teacher_id = ${halaqahId} AND s.active = TRUE AND s.deleted_at IS NULL
+    ORDER BY s.sort_order, s.name
+  `;
+  return rows.map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    todayWard: r.today_ward_json ? rowToSameDayWard(JSON.parse(r.today_ward_json as string)) : null,
+  }));
 }
 
 /**

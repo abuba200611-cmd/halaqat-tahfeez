@@ -23,6 +23,7 @@ import {
 import { isFeatureEnabled } from "./db";
 import { emitMosqueEvent } from "@/lib/webhooks-db";
 import { studentCreatedPayload } from "@/lib/webhooks";
+import { parseStage, type HalaqahStage } from "@/lib/halaqah-stage";
 
 /*
   طبقة بيانات التوزيع الآلي وقائمة الانتظار والاستيراد. كل كتابة تجري داخل
@@ -261,7 +262,7 @@ export async function onSeatFreed(halaqahId: number): Promise<number> {
 
 // ————— لوحة الإدارة —————
 
-export type OverviewHalaqah = HalaqahSlot & { teacherName: string };
+export type OverviewHalaqah = HalaqahSlot & { teacherName: string; stage: HalaqahStage | null };
 export type WaitlistItem = {
   id: number;
   name: string;
@@ -282,7 +283,7 @@ export type EnrollmentOverview = {
 export async function getEnrollmentOverview(mosqueId: number): Promise<EnrollmentOverview> {
   const [halaqahRows, waitRows, activityRows] = await Promise.all([
     db().sql`
-      SELECT h.id, h.name, h.capacity, h.min_age, h.max_age, h.level,
+      SELECT h.id, h.name, h.capacity, h.min_age, h.max_age, h.level, h.stage,
              (SELECT count(*)::int FROM students s
                WHERE s.teacher_id = h.id AND s.deleted_at IS NULL AND s.active) AS cnt,
              COALESCE((
@@ -307,7 +308,12 @@ export async function getEnrollmentOverview(mosqueId: number): Promise<Enrollmen
     SELECT count(*)::int AS n FROM enrollment_activity WHERE mosque_id = ${mosqueId} AND read_at IS NULL
   `;
   return {
-    halaqahs: halaqahRows.map((row) => ({ ...rowToSlot(row), teacherName: String(row.teacher_names ?? "") })),
+    halaqahs: halaqahRows.map((row) => ({
+      ...rowToSlot(row),
+      teacherName: String(row.teacher_names ?? ""),
+      // 001 T021: فئة الحلقة لمحدّد الفئة بقائمة حلقات الجامع (قيد العمود يضمن القيمة)
+      stage: parseStage(row.stage),
+    })),
     waitlist: waitRows.map((row, index) => ({
       id: Number(row.id),
       name: String(row.name),

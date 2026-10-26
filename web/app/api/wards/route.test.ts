@@ -31,8 +31,12 @@ const dbMocks = vi.hoisted(() => ({
   deleteWardLog: vi.fn(),
   listWardLogs: vi.fn(),
   updateWardLog: vi.fn(),
+  listSameDayWardStubs: vi.fn(),
 }));
 vi.mock("@/lib/db", () => dbMocks);
+
+const stageDbMocks = vi.hoisted(() => ({ getHalaqahStage: vi.fn(async () => null) }));
+vi.mock("@/lib/halaqah-stage-db", () => stageDbMocks);
 
 const rateLimitMocks = vi.hoisted(() => ({
   checkRateLimit: vi.fn(async () => true),
@@ -177,6 +181,7 @@ describe("POST /api/wards — زميل المراجعة (STEP 56)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMocks.currentStudent.mockResolvedValue(FAKE_STUDENT);
+    dbMocks.listSameDayWardStubs.mockResolvedValue([]);
   });
 
   it("بلا زميل: لا يُجدوَل أي إشعار زميل، وcreateWardLog يستقبل buddyStudentId=null", async () => {
@@ -230,5 +235,70 @@ describe("POST /api/wards — زميل المراجعة (STEP 56)", () => {
     expect(res.status).toBe(429);
     expect(data.error).toBe("محاولات كثيرة، حاول لاحقاً");
     expect(dbMocks.createWardLog).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/wards — حارس التكرار اليومي من جهة الطالب (001 T029، FR-005)", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const HIFZ = { from: { surah: 105, ayah: 1 }, to: { surah: 105, ayah: 5 } };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authMocks.currentStudent.mockResolvedValue(FAKE_STUDENT);
+    dbMocks.createWardLog.mockResolvedValue({ id: 1, previousAttemptId: null });
+    dbMocks.listSameDayWardStubs.mockResolvedValue([]);
+  });
+
+  it("ورد سجّله المعلّم اليوم: 409 DUPLICATE_TODAY بملخّصه، ولا يُنشأ ورد", async () => {
+    dbMocks.listSameDayWardStubs.mockResolvedValue([
+      {
+        id: 99, date: today, recordedVia: "teacher", status: "approved",
+        hifz: { from: 603, to: 603 }, hifzAyah: { fromSurah: 105, fromAyah: 1, toSurah: 105, toAyah: 5 },
+      },
+    ]);
+
+    const res = await POST(postReq({ hifz: HIFZ }));
+    const data = (await res.json()) as {
+      code?: string;
+      error?: string;
+      existing?: { id: number; recordedVia: string; status: string; summary: string };
+    };
+
+    expect(res.status).toBe(409);
+    expect(data.code).toBe("DUPLICATE_TODAY");
+    expect(data.existing).toMatchObject({ id: 99, recordedVia: "teacher", status: "approved" });
+    expect(data.existing!.summary).toContain("الفيل");
+    expect(dbMocks.createWardLog).not.toHaveBeenCalled();
+    // الاستعلام بنفس تاريخ الورد المُرسل نفسه
+    expect(dbMocks.listSameDayWardStubs).toHaveBeenCalledWith(1, "s1", today);
+  });
+
+  it("confirmDuplicate: true يمرّر الحارس ويُنشأ الورد", async () => {
+    dbMocks.listSameDayWardStubs.mockResolvedValue([
+      { id: 99, date: today, recordedVia: "teacher", status: "approved", hifz: null, hifzAyah: null },
+    ]);
+
+    const res = await POST(postReq({ hifz: HIFZ, confirmDuplicate: true }));
+
+    expect(res.status).toBe(200);
+    expect(dbMocks.createWardLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("ورده هو المعلّق اليوم لا يمنعه — التعديل متاح له من مساره", async () => {
+    dbMocks.listSameDayWardStubs.mockResolvedValue([
+      { id: 7, date: today, recordedVia: "student", status: "new", hifz: null, hifzAyah: null },
+    ]);
+
+    const res = await POST(postReq({ hifz: HIFZ }));
+
+    expect(res.status).toBe(200);
+    expect(dbMocks.createWardLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("لا أوراد اليوم: يمرّ كالمعتاد", async () => {
+    const res = await POST(postReq({ hifz: HIFZ }));
+
+    expect(res.status).toBe(200);
+    expect(dbMocks.createWardLog).toHaveBeenCalledTimes(1);
   });
 });

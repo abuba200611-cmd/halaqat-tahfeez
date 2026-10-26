@@ -32,14 +32,24 @@ export default function TeacherStudentPage() {
   const [detail, setDetail] = useState<StudentDetail | "error" | null>(null);
   // زر الحذف للمشرف فقط — الدور من الخادم (/api/teacher/settings)، لا افتراض بالواجهة
   const [isSupervisor, setIsSupervisor] = useState(false);
+  // زر «تسجيل ورد» لحلقات الابتدائي فقط (001 T028، FR-003) — من ملف الفئة بالخادم
+  const [teacherRecords, setTeacherRecords] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/teacher/settings")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { role?: "supervisor" | "assistant" } | null) => {
-        if (!cancelled && data?.role) setIsSupervisor(data.role === "supervisor");
-      })
+      .then(
+        (
+          data:
+            | { role?: "supervisor" | "assistant"; stageProfile?: { teacherRecords?: boolean } }
+            | null,
+        ) => {
+          if (cancelled || !data) return;
+          if (data.role) setIsSupervisor(data.role === "supervisor");
+          setTeacherRecords(data.stageProfile?.teacherRecords === true);
+        },
+      )
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -73,9 +83,20 @@ export default function TeacherStudentPage() {
           <h1 className="font-display text-2xl font-bold">{detail.student.name}</h1>
           <p className="text-xs text-muted-foreground">{detail.student.group}</p>
         </div>
-        <Link href="/students" className="text-xs font-semibold text-accent-ink hover:underline">
-          → كل الطلاب
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* الابتدائي فقط: افتح شاشة التسجيل على هذا الطالب مباشرة (سيناريو 4) */}
+          {teacherRecords && (
+            <Link
+              href={`/record?student=${encodeURIComponent(detail.student.id)}`}
+              className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary transition-colors duration-200 hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              تسجيل ورد
+            </Link>
+          )}
+          <Link href="/students" className="text-xs font-semibold text-accent-ink hover:underline">
+            → كل الطلاب
+          </Link>
+        </div>
       </div>
 
       <JuzProgressCard progress={detail.progress} />

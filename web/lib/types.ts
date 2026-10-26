@@ -118,6 +118,10 @@ export type WardLog = {
   reviewedAt: string | null;
   /** ملاحظة المعلّم — إلزامية فقط عند status = needs_revision */
   reviewNote: string | null;
+  /** من سجّل الورد (001): المعلّم/المسمِّع الذي أدخله عن الطالب — null لأوراد الطالب والأوراد القديمة */
+  recordedByTeacherId: number | null;
+  /** مسجِّل الورد (001): الطالب (الافتراضي للأوراد القديمة — العمود NULL)، المعلّم، أو طابور التسميع */
+  recordedVia: "student" | "teacher" | "queue";
   /** تقييم نقاط الأخطاء (ميزة error_grading) — غائب لورد لم يُقيَّم بالنقاط */
   errorScore?: number;
   errorBand?: string | null;

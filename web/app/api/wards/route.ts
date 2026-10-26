@@ -7,17 +7,22 @@ import {
   countNewWards,
   createWardLog,
   deleteWardLog,
+  listSameDayWardStubs,
   listWardLogs,
   setWardLogStatus,
   updateWardLog,
   type NewReviewSegment,
   type NewWardLog,
 } from "@/lib/db";
-import { sendPushToHalaqah, sendPushToParentsOfStudent, sendPushToStudent } from "@/lib/push";
-import { sendWhatsappToParentsOfStudent } from "@/lib/notify/outbox";
+import { sendPushToHalaqah, sendPushToStudent } from "@/lib/push";
 import { reviewTrackConfigForHalaqah } from "@/lib/mosque/review-tracks-db";
+import { getHalaqahStage } from "@/lib/halaqah-stage-db";
+import { profileFor } from "@/lib/halaqah-stage";
+import { formatWardByUnit } from "@/lib/ward-units";
+import { findSameDayDuplicate } from "@/lib/ward-policy";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
 import { parseReviewTracks } from "@/lib/review-tracks";
+import { notifyWardDecision } from "@/lib/ward-notify";
 import { logServerError } from "@/lib/dev-error-log";
 import type { ReviewTrack, WardStatus } from "@/lib/types";
 
@@ -120,7 +125,30 @@ export async function POST(request: Request) {
       throw new Error("سجّل حفظاً أو مراجعة قبل الإرسال");
     }
 
-    const log = buildLog(new Date().toISOString().slice(0, 10), hifz, review, reviewTracks, note, buddyStudentId);
+    // حارس التكرار اليومي (001 T029، FR-005): ورد سجّله المعلّم/الطابور
+    // لنفس اليوم يمنع الإرسال إلا بتأكيد صريح — ورد الطالب نفسه لا يمنعه
+    // (تعديله متاح له من مساره)، والمحاولة المرفوضة تُستأنف بمحاولة جديدة
+    const date = new Date().toISOString().slice(0, 10);
+    const sameDay = await listSameDayWardStubs(student.teacherId, student.id, date);
+    const duplicate = findSameDayDuplicate(sameDay, { date, via: "student" });
+    if (duplicate && body.confirmDuplicate !== true) {
+      const stage = await getHalaqahStage(student.teacherId);
+      return Response.json(
+        {
+          code: "DUPLICATE_TODAY",
+          error: "سجّل معلّمك ورداً لك هذا اليوم بالفعل",
+          existing: {
+            id: duplicate.id,
+            recordedVia: duplicate.recordedVia,
+            status: duplicate.status,
+            summary: formatWardByUnit(profileFor(stage).unit, duplicate.hifz, duplicate.hifzAyah) ?? "ورد",
+          },
+        },
+        { status: 409 },
+      );
+    }
+
+    const log = buildLog(date, hifz, review, reviewTracks, note, buddyStudentId);
     const { id: wardLogId, previousAttemptId } = await createWardLog(student.teacherId, student.id, log);
     await emitHalaqahEvent(
       student.teacherId,
@@ -319,54 +347,11 @@ export async function PATCH(request: Request) {
   }
 
   // إشعار فوري للطالب عند قرار المعلّم — لا عند "اطّلع" (seen)، فذاك
-  // ليس قراراً بعد. after() (لا promise معلّق بلا await، يضيع لو أنهى
-  // Vercel الدالة فور إرسال الرد) يجدول الإرسال بعد إرجاع الرد — Next
-  // يبقي الدالة حيّة له. سقف ٣ ثوانٍ + try/catch يضمنان ألا يؤثر فشل أو
-  // تعليق الإشعار على نتيجة الاعتماد بأي حال (اطمئنان إضافي فوق كون
-  // sendPushToStudent نفسها لا ترمي أصلاً لكل اشتراك على حدة).
+  // ليس قراراً بعد. سقف ٣ ثوانٍ وضمانات عدم التأثير على النتيجة داخل
+  // notifyWardDecision نفسها (مستخرَجة من هذا المسار حرفياً، وتستعملها
+  // أيضاً تسجيل المعلّم للابتدائي ونتيجة الطابور).
   if (status === "approved" || status === "needs_revision") {
-    const notifyPayload = {
-      title: status === "approved" ? "تم اعتماد وردك ✅" : "وردك يحتاج مراجعة",
-      body: status === "approved" ? "أحسنت! معلّمك اعتمد وردك." : note ?? "",
-      url: "/student",
-      tag: "ward-status",
-    };
-    after(async () => {
-      try {
-        await Promise.race([
-          sendPushToStudent(teacher.halaqahId, result.studentId, notifyPayload),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch {
-        // فشل الإشعار لا يغيّر نتيجة الاعتماد أبداً — الرد أُرسل مسبقاً بالفعل
-      }
-      // STEP 61: أولياء الأمور المرتبطون بالطالب — بمحاولة وسقف ٣ ثوانٍ مستقلَّين
-      // عن إشعار الطالب أعلاه، فلا يؤخّر أحدهما الآخر ولا يُفشله
-      try {
-        await Promise.race([
-          sendPushToParentsOfStudent(teacher.halaqahId, result.studentId, status),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch {
-        // نفس مبدأ الطالب: فشل إشعار الولي لا يؤثر على شيء
-      }
-      // B1: واتساب لأولياء الأمور — بوابة الميزة والموافقة والسقف داخل المُرسِل،
-      // فلا شيء يحدث البتة لجامع لم يفعّل «إشعارات واتساب»
-      try {
-        await Promise.race([
-          sendWhatsappToParentsOfStudent({
-            halaqahId: teacher.halaqahId,
-            studentId: result.studentId,
-            template: status === "approved" ? "ward_approved" : "ward_needs_revision",
-            paramsFor: (studentName) => ({ student_name: studentName }),
-            refPrefix: `ward:${id}:${status}`,
-          }),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      } catch {
-        // نفس مبدأ الويب بوش — فشل واتساب لا يؤثر على شيء
-      }
-    });
+    notifyWardDecision({ halaqahId: teacher.halaqahId, studentId: result.studentId, wardId: id, status, note });
   }
 
   return Response.json({ ok: true, newCount: await countNewWards(teacher.halaqahId) });
