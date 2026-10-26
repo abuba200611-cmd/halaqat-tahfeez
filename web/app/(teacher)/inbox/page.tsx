@@ -8,8 +8,9 @@ import { ReviewTrackSelect } from "@/components/review-track-bits";
 import { WardErrorGrader } from "@/components/ward-error-grader";
 import type { ErrorCounts, ErrorGradingConfig } from "@/lib/error-grading";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
+import { pageRangeOfAyahRange } from "@/lib/quran-surahs";
 import { formatAyahRange, formatReviewSegments } from "@/lib/ward-ayah";
-import { reviewTextWithTracks } from "@/lib/review-tracks";
+import { kubraWindow, reviewTextWithTracks, suggestReviewTrackFor } from "@/lib/review-tracks";
 import type { AyahRange, PageRange, ReviewTrack, WardLog, WardStatus } from "@/lib/types";
 
 const STATUS_LABEL: Record<WardStatus, string> = {
@@ -58,7 +59,7 @@ export default function InboxPage() {
   const [revisionBusy, setRevisionBusy] = useState(false);
   const [revisionError, setRevisionError] = useState<string | null>(null);
 
-  // B3: مسوّدة تصنيف المقاطع (سبقي/منزل) — معرّف الورد ← قيمة كل مقطع
+  // B3: مسوّدة تصنيف المقاطع (الكبرى/الصغرى) — معرّف الورد ← قيمة كل مقطع
   const [trackDrafts, setTrackDrafts] = useState<Record<number, (ReviewTrack | null)[]>>({});
   const [trackBusyId, setTrackBusyId] = useState<number | null>(null);
   const [trackError, setTrackError] = useState<string | null>(null);
@@ -129,12 +130,26 @@ export default function InboxPage() {
     setRevisionError(null);
   }
 
-  /** B3: يفتح مسوّدة تصنيف المقاطع من قيم الورد الحالية (null لغير المصنَّف) */
+  /**
+   * B3: يفتح مسوّدة التصنيف — القيم المخزَّنة كما هي، وكل مقطع بلا قيمة
+   * مخزَّنة يُعبَّى مسبقاً بالاقتراح (يغيّره المعلّم قبل «حفظ التصنيف» إن
+   * شاء). بهذه الصفحة لا سجلّ حفظ كامل للطالب — حفظ هذا الورد نفسه هو
+   * آخر نطاق معروف، فيحدّد الاتجاهَ قاعدةُ النصف الثاني من المصحف وحدها.
+   */
   function openTrackDraft(ward: WardLog) {
     const count = ward.reviewSegments?.length ?? 0;
+    const kubra = kubraWindow([ward.hifz]);
     setTrackDrafts((prev) => ({
       ...prev,
-      [ward.id]: Array.from({ length: count }, (_, i) => ward.reviewSegmentTracks?.[i] ?? null),
+      [ward.id]: Array.from({ length: count }, (_, i) => {
+        const stored = ward.reviewSegmentTracks?.[i] ?? null;
+        if (stored) return stored;
+        const segment = ward.reviewSegments?.[i];
+        const pages =
+          ward.reviewSegmentPages?.[i] ??
+          (segment ? pageRangeOfAyahRange(segment.fromSurah, segment.fromAyah, segment.toSurah, segment.toAyah) : null);
+        return pages ? suggestReviewTrackFor(pages, kubra) : null;
+      }),
     }));
     setTrackError(null);
   }
@@ -317,15 +332,15 @@ export default function InboxPage() {
 
                   {(ward.reviewSegments?.length ?? 0) > 0 && !trackDrafts[ward.id] && (
                     <Button variant="ghost" onClick={() => openTrackDraft(ward)} className="text-xs">
-                      تصنيف المراجعة (سبقي/منزل)
+                      تصنيف المراجعة (الكبرى/الصغرى)
                     </Button>
                   )}
 
                   {trackDrafts[ward.id] && (
                     <div className="space-y-2 rounded-md border border-border bg-surface p-3">
                       <p className="text-xs text-muted-foreground">
-                        صنّف كل مقطع: سبقي (مراجعة قريبة على آخر ما حُفظ) أو منزل (مراجعة المحفوظ القديم) — الحفظ
-                        الجديد نفسه «سبق» بلا تصنيف.
+                        صنّف كل مقطع: الكبرى (المراجعة بعد الحفظ الجديد مباشرة، ١٠ صفحات افتراضياً) أو الصغرى (ما بعد الكبرى
+                        من المحفوظ) — الحفظ الجديد نفسه بلا تصنيف.
                       </p>
                       <ul className="space-y-1.5">
                         {ward.reviewSegments!.map((segment, i) => (

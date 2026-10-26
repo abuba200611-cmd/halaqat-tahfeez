@@ -1009,7 +1009,7 @@ export type NewWardLog = {
   reviewAyah: AyahRange | null;
   /** مقاطع المراجعة الجديدة (STEP 52، ١ إلى ١٠) — null لعدم وجود مراجعة اليوم */
   reviewSegments: NewReviewSegment[] | null;
-  /** تصنيف كل مقطع سبقي/منزل (B3) — محاذٍ لreviewSegments (أقصر يعني الباقي بلا تصنيف)، null/غائب = بلا تصنيفات */
+  /** تصنيف كل مقطع كبرى/صغرى (B3) — محاذٍ لreviewSegments (أقصر يعني الباقي بلا تصنيف)، null/غائب = بلا تصنيفات */
   reviewSegmentTracks?: (ReviewTrack | null)[] | null;
   note: string;
   /** زميل المراجعة المختار (STEP 56) — undefined/null لعدم اختيار زميل */
@@ -1677,7 +1677,7 @@ export async function countNewWards(teacherId: number): Promise<number> {
 
 /**
  * يعيد المعلّم تصنيف مقاطع مراجعة ورد قائم (B3) — مصفوفة كاملة بعدد
- * المقاطع نفسه، كل عنصر سبقي/منزل أو null للمقطع بلا تصنيف. مسموح فقط
+ * المقاطع نفسه، كل عنصر كبرى/صغرى أو null للمقطع بلا تصنيف. مسموح فقط
  * ما دام الورد لم يُتّخذ فيه قرار بعد (new/seen — نفس قفل تعديل الطالب):
  * التصنيف جزء من محتوى الورد قبل الاعتماد. يعيد "not_found" لورد غير
  * مملوك لهذه الحلقة، و"locked" لو اكتمل/رُفض، و"count_mismatch" لو لم

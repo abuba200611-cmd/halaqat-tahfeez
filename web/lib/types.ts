@@ -78,9 +78,10 @@ export type AyahRange = { fromSurah: number; fromAyah: number; toSurah: number; 
 export type WardStatus = "new" | "seen" | "approved" | "needs_revision";
 
 /**
- * مسار المراجعة التقليدي (B3): «سبقي» = مراجعة قريبة على آخر ما حُفظ،
- * «منزل» = مراجعة بعيدة على المحفوظ القديم بالتناوب. الحفظ الجديد نفسه
- * هو «سبق» ولا يحمل تصنيفاً — التصنيف لمقاطع المراجعة فقط، اختياري دائماً.
+ * مسار المراجعة التقليدي (B3): «sabqi» = الكبرى (المراجعة الأولى بعد
+ * الحفظ الجديد مباشرة)، «manzil» = الصغرى (ما بعد الكبرى من المحفوظ
+ * القديم). الحفظ الجديد نفسه بلا مسار — التصنيف لمقاطع المراجعة فقط،
+ * اختياري دائماً.
  */
 export type ReviewTrack = "sabqi" | "manzil";
 
@@ -123,7 +124,7 @@ export type WardLog = {
   errorCounts?: Record<string, number> | null;
   /** زميل المراجعة (STEP 56) — اختياري، null لورد بلا زميل أو ورد أقدم من هذي الميزة */
   buddy?: WardReviewBuddy | null;
-  /** تصنيف كل مقطع مراجعة سبقي/منزل (B3) — محاذٍ لـreviewSegments، null داخل المصفوفة لمقطع بلا تصنيف، والحقل كله null لورد أقدم من الميزة */
+  /** تصنيف كل مقطع مراجعة كبرى/صغرى (B3) — محاذٍ لـreviewSegments، null داخل المصفوفة لمقطع بلا تصنيف، والحقل كله null لورد أقدم من الميزة */
   reviewSegmentTracks?: (ReviewTrack | null)[] | null;
   /** صفحات كل مقطع مراجعة كما خُزِّنت وقت الإرسال (B3) — محاذٍ لـreviewSegments، لعدّ صفحات كل مسار على حدة */
   reviewSegmentPages?: PageRange[] | null;

@@ -53,7 +53,7 @@ describe("PATCH /api/wards/track", () => {
     expect((await PATCH(req({ id: "abc", tracks: ["sabqi"] }))).status).toBe(400);
   });
 
-  it("قيمة تصنيف خارج سبقي/منزل: 400 برسالة الخادم", async () => {
+  it("قيمة تصنيف خارج الكبرى/الصغرى: 400 برسالة الخادم", async () => {
     const res = await PATCH(req({ id: 5, tracks: ["قديم"] }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toContain("للمقطع 1");

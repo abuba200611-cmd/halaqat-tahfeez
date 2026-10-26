@@ -4,8 +4,8 @@ import { REVIEW_TRACK_LABEL, type ReviewTrackCounts } from "@/lib/review-tracks"
 import type { ReviewTrack } from "@/lib/types";
 
 /**
- * B3 — عدّادات المراجعة لكل مسار (سبقي/منزل) لآخر ٧ و٣٠ يوماً، بالصفحات.
- * «سبق» (الحفظ الجديد) ليس هنا — له قسم الحفظ في الورد نفسه. ما صُنِّف
+ * B3 — عدّادات المراجعة لكل مسار (الكبرى/الصغرى) لآخر ٧ و٣٠ يوماً،
+ * بالصفحات. الحفظ الجديد ليس هنا — له قسم الحفظ في الورد نفسه. ما صُنِّف
  * بلا مسار يظهر كـ«بلا تصنيف» ولا يُخفى، حتى يظهر أثر التصنيف الناقص.
  */
 export function ReviewTrackCountsCard({ days7, days30 }: { days7: ReviewTrackCounts; days30: ReviewTrackCounts }) {
@@ -48,8 +48,8 @@ export function ReviewTrackCountsCard({ days7, days30 }: { days7: ReviewTrackCou
 }
 
 /**
- * منتقي مسار مقطع مراجعة واحد — سبقي/منزل أو بلا تصنيف. مشترك بين نموذج
- * الطالب (مع قيمة مقترحة) وتصحيح المعلّم بالوارد.
+ * منتقي مسار مقطع مراجعة واحد — الكبرى/الصغرى أو بلا تصنيف. مشترك بين
+ * نموذج الطالب (مع قيمة مقترحة) وتصحيح المعلّم بالوارد.
  */
 export function ReviewTrackSelect({
   id,

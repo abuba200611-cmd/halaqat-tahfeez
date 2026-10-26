@@ -223,9 +223,9 @@ export default function WelcomePage() {
                     </div>
                     <div className="mt-8 grid gap-3 sm:grid-cols-3">
                       {[
-                        { k: "سبق", d: "الحفظ الجديد", w: "w-3/4" },
-                        { k: "سبقي", d: "القريب من الحفظ", w: "w-2/3" },
-                        { k: "منزل", d: "المراجعة البعيدة", w: "w-1/2" },
+                        { k: "حفظ جديد", d: "ما يحفظه الطالب اليوم", w: "w-3/4" },
+                        { k: "الكبرى", d: "المراجعة بعد الحفظ مباشرة", w: "w-2/3" },
+                        { k: "الصغرى", d: "ما بعد الكبرى من المحفوظ", w: "w-1/2" },
                       ].map((p) => (
                         <div key={p.k} className="rounded-2xl border border-white/10 bg-black/40 p-4">
                           <p className="font-display text-2xl text-white">{p.k}</p>

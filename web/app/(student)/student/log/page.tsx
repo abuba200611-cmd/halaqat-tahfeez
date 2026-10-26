@@ -9,7 +9,7 @@ import { WardListItem } from "@/components/ward-list";
 import { useStudentWards } from "@/components/use-student-wards";
 import { BookIcon, CalendarIcon } from "@/components/icons";
 import { parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
-import { recentReviewStartPage, suggestReviewTrack } from "@/lib/review-tracks";
+import { kubraWindow, suggestReviewTrackFor } from "@/lib/review-tracks";
 import type { AyahRange, HalaqahMate, ReviewTrack, WardLog } from "@/lib/types";
 
 const EMPTY_RANGE: AyahRangeInput = { from: { surah: null, ayah: null }, to: { surah: null, ayah: null } };
@@ -80,7 +80,7 @@ export default function StudentLogPage() {
   const [editingDate, setEditingDate] = useState<string | null>(null);
   const [hifz, setHifz] = useState<AyahRangeInput>(EMPTY_RANGE);
   const [reviewSegments, setReviewSegments] = useState<AyahRangeInput[]>([]);
-  // B3: تصنيف سبقي/منزل لكل مقطع — محاذٍ لreviewSegments دائماً
+  // B3: تصنيف الكبرى/الصغرى لكل مقطع — محاذٍ لreviewSegments دائماً
   const [reviewTracks, setReviewTracks] = useState<(ReviewTrack | null)[]>([]);
   const [note, setNote] = useState("");
   const [buddyId, setBuddyId] = useState("");
@@ -177,17 +177,16 @@ export default function StudentLogPage() {
     setError(null);
   }
 
-  // B3: حدّ «سبقي» = بداية الجزء الذي فيه آخر صفحة حفظها الطالب (آخر جزء
-  // افتراضياً) — من آخر أوراده المحمَّلة، فالاقتراح يتجدّد مع تقدّم الحفظ
-  const sabqiFromPage = useMemo(() => recentReviewStartPage(logs.map((l) => l.hifz)), [logs]);
+  // B3: نافذة «الكبرى» = ١٠ صفحات ملاصقة لآخر حفظ باتجاه الحفظ نفسه.
+  // أوراد الطالب تصل من الخادم أحدثها أولاً، وkubraWindow تتوقع الأقدم
+  // فالأحدث، فتُعكس هنا قبل التمرير — والاقتراح يتجدّد مع تقدّم الحفظ
+  const kubra = useMemo(() => kubraWindow([...logs].reverse().map((l) => l.hifz)), [logs]);
 
-  /** اقتراح تصنيف مقطع من نطاقه — null للمقطع الفارغ/غير المكتمل بعد */
-  function suggestTrackFor(index: number): ReviewTrack | null {
-    const segment = reviewSegments[index];
-    if (!segment) return null;
+  /** اقتراح مسار مقطع من نطاقه (بقيمته الجديدة لا القديمة) — null للمقطع الفارغ/غير المكتمل بعد */
+  function suggestTrackFor(segment: AyahRangeInput): ReviewTrack | null {
     try {
       const parsed = parseAyahRange(segment, "المراجعة");
-      return parsed ? suggestReviewTrack(parsed.pages, sabqiFromPage) : null;
+      return parsed ? suggestReviewTrackFor(parsed.pages, kubra) : null;
     } catch {
       return null;
     }
@@ -279,7 +278,7 @@ export default function StudentLogPage() {
             pagesTotal={reviewInfo.pagesTotal}
             tracks={reviewTracks}
             onTracksChange={setReviewTracks}
-            suggestFor={suggestTrackFor}
+            suggestFor={(_, segment) => suggestTrackFor(segment)}
           />
 
           <label className="block">

@@ -16,10 +16,11 @@ export { EMPTY_SEGMENT };
  * حذف لكل مقطع. رسالة الخطأ لكل مقطع تصل جاهزة من الأب (محسوبة عبر
  * lib/ward-ayah.ts: parseReviewSegments، فلا تتكرر قواعد التحقق هنا).
  *
- * B3: تصنيف سبقي/منزل لكل مقطع — اختياري بالكامل. المقاطع غير
- * المصنَّفة (null) تُقترح تلقائياً من الأب عبر suggestFor عند إضافة
- * المقطع أو تغيير نطاقه؛ اختيار المستخدم الصريح (سبقي/منزل) لا يُمس،
- * و«بلا تصنيف» يعني تركه فارغاً حتى يتغيّر النطاق من جديد.
+ * B3: تصنيف الكبرى/الصغرى لكل مقطع — اختياري بالكامل. المقاطع غير
+ * المصنَّفة (null) تُقترح تلقائياً من الأب عبر suggestFor (بنطاق المقطع
+ * الجديد) عند إضافة المقطع أو تغيير نطاقه؛ اختيار المستخدم الصريح
+ * (الكبرى/الصغرى) لا يُمس، و«بلا تصنيف» يعني تركه فارغاً حتى يتغيّر
+ * النطاق من جديد.
  */
 export function ReviewSegmentsField({
   label,
@@ -45,13 +46,15 @@ export function ReviewSegmentsField({
   tracks?: (ReviewTrack | null)[];
   /** تحديث التصنيفات — يُستدعى فقط لو tracks مُمرَّرة */
   onTracksChange?: (next: (ReviewTrack | null)[]) => void;
-  /** اقتراح تصنيف مقطع (سبقي/منزل) من نطاقه — null لعدم اقتراح شيء */
-  suggestFor?: (index: number) => ReviewTrack | null;
+  /** اقتراح مسار مقطع (الكبرى/الصغرى) من نطاقه الجديد — null لعدم اقتراح شيء */
+  suggestFor?: (index: number, range: AyahRangeInput) => ReviewTrack | null;
 }) {
   function updateSegment(index: number, next: AyahRangeInput) {
     onChange(segments.map((s, i) => (i === index ? next : s)));
     if (onTracksChange && tracks && tracks[index] == null) {
-      const suggestion = suggestFor?.(index) ?? null;
+      // النطاق الجديد لا القديم: الحالة لم تُعد عرضها بعد، فلو قرأ الأب
+      // segments[index] لاقترح على النطاق السابق للتعديل لا بعده
+      const suggestion = suggestFor?.(index, next) ?? null;
       if (suggestion !== null) onTracksChange(tracks.map((t, i) => (i === index ? suggestion : t)));
     }
   }
@@ -64,7 +67,7 @@ export function ReviewSegmentsField({
   function addSegment() {
     if (segments.length >= MAX_REVIEW_SEGMENTS) return;
     onChange([...segments, EMPTY_SEGMENT]);
-    if (onTracksChange) onTracksChange([...(tracks ?? []), suggestFor?.(segments.length) ?? null]);
+    if (onTracksChange) onTracksChange([...(tracks ?? []), suggestFor?.(segments.length, EMPTY_SEGMENT) ?? null]);
   }
 
   return (
@@ -76,7 +79,7 @@ export function ReviewSegmentsField({
 
       {tracks && (
         <p className="text-xs text-stone-400">
-          «سبق» هو الحفظ الجديد أعلاه؛ «سبقي» مراجعة آخر ما حفظت، و«منزل» مراجعة المحفوظ القديم — التصنيف اختياري.
+          «الكبرى» المراجعة بعد الحفظ الجديد مباشرة (١٠ صفحات افتراضياً)، و«الصغرى» ما بعد الكبرى من المحفوظ — التصنيف اختياري.
         </p>
       )}
 

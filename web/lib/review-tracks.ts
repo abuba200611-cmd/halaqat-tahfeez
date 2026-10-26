@@ -1,28 +1,30 @@
 /*
-  B3 — تصنيف المراجعة بالمسمّيات التقليدية: سبق (الحفظ الجديد، قائم
-  أصلاً بقسم الحفظ)، سبقي (مراجعة قريبة على آخر ما حُفظ — آخر جزء
-  افتراضياً)، منزل (مراجعة بعيدة على المحفوظ القديم بالتناوب).
+  B3 — تصنيف المراجعة بالمسمّيات التقليدية: حفظ جديد (ما يُحفظ اليوم،
+  قائم أصلاً بقسم الحفظ بلا مسار)، الكبرى «sabqi» (المراجعة الأولى بعد
+  الحفظ الجديد مباشرة — ١٠ صفحات افتراضياً بمجاورة ما حُفظ على الجهة
+  المحفوظة سابقاً، باتجاه الحفظ نفسه)، الصغرى «manzil» (ما بعد الكبرى
+  من المحفوظ القديم). القيم المخزَّنة كما كانت: "sabqi" و"manzil".
 
   التصنيف اختياري دائماً: null = مقطع بلا تصنيف، والصفوف القديمة تبقى
   صحيحة بلا أي قيمة. التحقّق هنا (مصدر الحقيقة) ويُعاد استخدامه بنصوصه
   نفسها بالواجهة — نفس مبدأ lib/ward-ayah.ts.
 */
-import { juzOfPage, juzToPages } from "./quran";
+import { TOTAL_PAGES } from "./quran";
 import { formatReviewSegments } from "./ward-ayah";
 import type { PageRange, ReviewTrack, WardLog } from "./types";
 
 export type ReviewTrackCounts = {
-  /** صفحات المراجعة المصنَّفة سبقي داخل النافذة */
+  /** صفحات المراجعة المصنَّفة الكبرى داخل النافذة */
   sabqi: number;
-  /** صفحات المراجعة المصنَّفة منزل داخل النافذة */
+  /** صفحات المراجعة المصنَّفة الصغرى داخل النافذة */
   manzil: number;
   /** صفحات مراجعة بلا تصنيف (أوراد قديمة أو مقاطع تركت فارغة) */
   untagged: number;
 };
 
 export const REVIEW_TRACK_LABEL: Record<ReviewTrack, string> = {
-  sabqi: "سبقي",
-  manzil: "منزل",
+  sabqi: "الكبرى",
+  manzil: "الصغرى",
 };
 
 /**
@@ -40,30 +42,73 @@ export function parseReviewTracks(input: unknown, segmentCount: number): (Review
   return input.map((value, i) => {
     if (value === null) return null;
     if (value === "sabqi" || value === "manzil") return value;
-    throw new Error(`تصنيف غير صحيح للمقطع ${i + 1} — سبقي أو منزل فقط`);
+    throw new Error(`تصنيف غير صحيح للمقطع ${i + 1} — الكبرى أو الصغرى فقط`);
   });
 }
 
+/** عدد صفحات «الكبرى» الافتراضي بعد آخر حفظ (مجاورةً له باتجاه الحفظ) */
+export const KUBRA_DEFAULT_PAGES = 10;
+
 /**
- * أول صفحة «لسبقي» — بداية الجزء الذي فيه أبعد صفحة محفوظة (آخر جزء
-  افتراضياً): كل مراجعة على هذه الصفحة أو بعدها سبقية، وما قبلها منزل.
-  لا محفوظ بعد؟ الصفحة 1 — كل المراجعة قريبة بطبيعة الحال.
+ * «الكبرى» = النصف الثاني من المصحف تقريباً؟ افترض حفظاً تنازلياً (من
+ * الناس إلى البقرة). هذه قاعدة السقوط عند غياب دليل الاتجاه (سجل واحد
+ * أو تداخل آخر حفظ مع ما قبله)، والأغلب هنا يحفظ تنازلياً.
  */
-export function recentReviewStartPage(hifzRanges: (PageRange | null)[]): number {
-  let maxPage = 0;
-  for (const range of hifzRanges) {
-    if (!range) continue;
-    const to = Math.min(604, Math.max(range.from, range.to));
-    if (to > maxPage) maxPage = to;
+const MUSHAF_SECOND_HALF_FROM = Math.floor(TOTAL_PAGES / 2) + 1; // 303 فأعلى
+
+/** نطاق صفحات جاهز للاقتراح — from ≤ to دائماً */
+export type KubraWindow = { from: number; to: number };
+
+/**
+ * نافذة «الكبرى»: الصفحات `pages` (١٠ افتراضياً) الملاصقة لآخر حفظ على
+ * الجهة المحفوظة سابقاً. `hifzRanges` نطاقات حفظ الطالب مرتَّبة من
+ * الأقدم إلى الأحدث (أورد API تصل أحدثها أولاً — اعكسها قبل التمرير).
+ * الاتجاه من مقارنة آخر حفظ بما قبله: بدايته أدنى من كل ما حُفظ قبله →
+ * تنازلي (الكبرى بعده صفحياً)، أعلى من كله → تصاعدي (الكبرى قبله
+ * صفحياً)، وإلا قاعدة النصف الثاني أعلاه. لا حفظ إطلاقاً (أو خرجت
+ * النافذة عن حدود المصحف كاملة) → null بلا اقتراح.
+ */
+export function kubraWindow(hifzRanges: (PageRange | null)[], pages = KUBRA_DEFAULT_PAGES): KubraWindow | null {
+  const ranges = hifzRanges
+    .filter((r): r is PageRange => r !== null)
+    .map((r) => ({ from: Math.min(r.from, r.to), to: Math.max(r.from, r.to) }));
+  if (ranges.length === 0) return null;
+
+  const latest = ranges[ranges.length - 1];
+  const earlier = ranges.slice(0, -1);
+  let descending: boolean;
+  if (earlier.length === 0) {
+    descending = latest.from >= MUSHAF_SECOND_HALF_FROM;
+  } else {
+    const earlierFrom = Math.min(...earlier.map((r) => r.from));
+    const earlierTo = Math.max(...earlier.map((r) => r.to));
+    if (latest.from < earlierFrom) descending = true;
+    else if (latest.from > earlierTo) descending = false;
+    else descending = latest.from >= MUSHAF_SECOND_HALF_FROM;
   }
-  if (maxPage === 0) return 1;
-  return juzToPages(juzOfPage(maxPage), juzOfPage(maxPage)).from;
+
+  if (descending) {
+    const from = latest.to + 1;
+    const to = Math.min(TOTAL_PAGES, latest.to + pages);
+    return from > to ? null : { from, to };
+  }
+  const to = latest.from - 1;
+  const from = Math.max(1, latest.from - pages);
+  return from > to ? null : { from, to };
 }
 
-/** اقتراح تصنيف مقطع مراجعة: داخل نطاق السبقي → سبقي، وإلا منزل */
-export function suggestReviewTrack(segment: PageRange, recentFrom: number): ReviewTrack {
+/**
+ * اقتراح مسار مقطع مراجعة من نافذة «الكبرى»: يتقاطع معها بنصف صفحات
+ * المقطع فأكثر → «sabqi» (الكبرى)، وإلا «manzil» (الصغرى). نافذة بلا
+ * قيمة (null) → null بلا اقتراح — الاختيار الصريح لا يُمس في كل حال.
+ */
+export function suggestReviewTrackFor(segment: PageRange, kubra: KubraWindow | null): ReviewTrack | null {
+  if (!kubra) return null;
   const from = Math.max(1, Math.min(segment.from, segment.to));
-  return from >= recentFrom ? "sabqi" : "manzil";
+  const to = Math.min(TOTAL_PAGES, Math.max(segment.from, segment.to));
+  const overlap = Math.min(to, kubra.to) - Math.max(from, kubra.from) + 1;
+  if (overlap <= 0) return "manzil";
+  return overlap * 2 >= to - from + 1 ? "sabqi" : "manzil";
 }
 
 /** تاريخ YYYY-MM-DD قبل `days` يوماً من `today` (حساب UTC، بلا توقيت صيفي) */
@@ -111,8 +156,8 @@ export function countReviewTrackPages(
 }
 
 /**
- * نص مقاطع المراجعة مع تصنيف كل مقطع بين قوسين — «الملك 1–15 (سبقي)،
- * البقرة 5–20 (منزل)». مقطع بلا تصنيف يُعرض بدونه. الوارد بلا مقاطع
+ * نص مقاطع المراجعة مع تصنيف كل مقطع بين قوسين — «الملك 1–15 (الكبرى)،
+ * البقرة 5–20 (الصغرى)». مقطع بلا تصنيف يُعرض بدونه. الوارد بلا مقاطع
  * أصلاً أو بلا أي تصنيف يرجع null ليعرض النص القديم كما هو.
  */
 export function reviewTextWithTracks(log: WardLog, plainText: string | null): string | null {
