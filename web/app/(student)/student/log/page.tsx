@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Empty } from "@/components/ui";
-import { AyahRangeField } from "@/components/ayah-range-field";
+import { WardInputByUnit, EMPTY_WARD_HIFZ, describeWardHifz, isWardHifzTouched, wardHifzBody, type WardHifzFormValue } from "@/components/ward-input-by-unit";
 import { ReviewSegmentsField } from "@/components/review-segments-field";
 import { WardListItem } from "@/components/ward-list";
 import { useStudentWards } from "@/components/use-student-wards";
-import { BookIcon, CalendarIcon } from "@/components/icons";
+import { CalendarIcon } from "@/components/icons";
 import { parseAyahRange, type AyahRangeInput } from "@/lib/ward-ayah";
 import { kubraWindow, suggestReviewTrackFor } from "@/lib/review-tracks";
 import { reviewTrackLabels, reviewTrackTermsText } from "@/lib/review-track-config";
@@ -24,20 +24,6 @@ function ayahRangeToInput(range: AyahRange): AyahRangeInput {
     from: { surah: range.fromSurah, ayah: range.fromAyah },
     to: { surah: range.toSurah, ayah: range.toAyah },
   };
-}
-
-/** يحسب رسالة الخطأ الفورية ونص "≈ صفحة" لقسم الحفظ — يعيد استخدام parseAyahRange نفسها التي يستخدمها الخادم لاحقاً، فلا تتكرر قواعد التحقق بمكانين */
-function describeRange(value: AyahRangeInput, label: string): { error: string | null; pageLabel: string | null } {
-  const touched = isRangeTouched(value);
-  try {
-    const parsed = parseAyahRange(value, label);
-    if (!parsed) return { error: null, pageLabel: null };
-    const { from, to } = parsed.pages;
-    return { error: null, pageLabel: from === to ? `≈ صفحة ${from}` : `≈ صفحة ${from}–${to}` };
-  } catch (e) {
-    if (!touched) return { error: null, pageLabel: null };
-    return { error: e instanceof Error ? e.message : "قيمة غير صحيحة", pageLabel: null };
-  }
 }
 
 /**
@@ -75,11 +61,12 @@ export default function StudentLogPage() {
   const searchParams = useSearchParams();
   const editParam = searchParams.get("edit");
   const formRef = useRef<HTMLDivElement>(null);
-  const { logs, loadingLogs, reload, reviewTrackConfig } = useStudentWards();
+  const { logs, loadingLogs, reload, reviewTrackConfig, unit } = useStudentWards();
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingDate, setEditingDate] = useState<string | null>(null);
-  const [hifz, setHifz] = useState<AyahRangeInput>(EMPTY_RANGE);
+  // 001 T034: قسم الحفظ بوحدة الفئة — آيات أو صفحات (unit من فئة الحلقة)
+  const [hifz, setHifz] = useState<WardHifzFormValue>(EMPTY_WARD_HIFZ);
   const [reviewSegments, setReviewSegments] = useState<AyahRangeInput[]>([]);
   // B3: تصنيف الكبرى/الصغرى لكل مقطع — محاذٍ لreviewSegments دائماً
   const [reviewTracks, setReviewTracks] = useState<(ReviewTrack | null)[]>([]);
@@ -106,7 +93,12 @@ export default function StudentLogPage() {
     setError(null);
     setEditingId(log.id);
     setEditingDate(log.date);
-    setHifz(log.hifzAyah ? ayahRangeToInput(log.hifzAyah) : EMPTY_RANGE);
+    // يُعبَّأ القسمان معاً — أيّهما يعرض يتقرّر بوحدة الفئة، فلا تضيع قيمة
+    // لو فُتح التعديل بوحدة مغايرة لما سُجّل بها الورد
+    setHifz({
+      ayah: log.hifzAyah ? ayahRangeToInput(log.hifzAyah) : EMPTY_RANGE,
+      pages: log.hifz ? { from: String(log.hifz.from), to: String(log.hifz.to) } : { from: "", to: "" },
+    });
     if (log.reviewSegments && log.reviewSegments.length > 0) {
       setReviewSegments(log.reviewSegments.map(ayahRangeToInput));
       setReviewTracks(
@@ -172,7 +164,7 @@ export default function StudentLogPage() {
   function resetForm() {
     setEditingId(null);
     setEditingDate(null);
-    setHifz(EMPTY_RANGE);
+    setHifz(EMPTY_WARD_HIFZ);
     setReviewSegments([]);
     setReviewTracks([]);
     setNote("");
@@ -205,9 +197,9 @@ export default function StudentLogPage() {
     () => (editingId !== null ? (logs.find((l) => l.id === editingId)?.buddy ?? null) : null),
     [logs, editingId],
   );
-  const hifzInfo = useMemo(() => describeRange(hifz, "الحفظ"), [hifz]);
+  const hifzInfo = useMemo(() => describeWardHifz(hifz, unit), [hifz, unit]);
   const reviewInfo = useMemo(() => describeReviewSegments(reviewSegments), [reviewSegments]);
-  const hasContent = isRangeTouched(hifz) || reviewSegments.length > 0 || note.trim().length > 0;
+  const hasContent = isWardHifzTouched(hifz, unit) || reviewSegments.length > 0 || note.trim().length > 0;
   const hasBlockingError = !!hifzInfo.error || reviewInfo.blocking;
   const submitDisabled = busy || !hasContent || hasBlockingError;
 
@@ -217,8 +209,11 @@ export default function StudentLogPage() {
     setSent(false);
     setDuplicate(null);
     try {
+      // 001 T033/T034: الحفظ آيات أو صفحات بوحدة الفئة — لا يجتمعان
+      const hifzPart = wardHifzBody(hifz, unit);
       const body: Record<string, unknown> = {
-        hifz: isRangeTouched(hifz) ? hifz : null,
+        hifz: hifzPart.hifz,
+        hifzPages: hifzPart.hifzPages,
         review: reviewSegments.length > 0 ? reviewSegments : null,
         reviewTracks: reviewSegments.length > 0 ? reviewTracks : null,
         note: note.trim(),
@@ -282,16 +277,7 @@ export default function StudentLogPage() {
           </div>
         )}
         <form onSubmit={submit} className="space-y-4">
-          <AyahRangeField
-            idPrefix="hifz"
-            label="الحفظ الجديد"
-            icon={<BookIcon size={16} />}
-            colorClass="text-success"
-            value={hifz}
-            onChange={setHifz}
-            error={hifzInfo.error}
-            pageLabel={hifzInfo.pageLabel}
-          />
+          <WardInputByUnit unit={unit} value={hifz} onChange={setHifz} error={hifzInfo.error} />
 
           <ReviewSegmentsField
             label="المراجعة"
@@ -393,7 +379,7 @@ export default function StudentLogPage() {
         ) : (
           <ul className="space-y-2">
             {recent.map((log) => (
-              <WardListItem key={log.id} log={log} onEdit={startEdit} onDelete={deleteLog} trackConfig={reviewTrackConfig} />
+              <WardListItem key={log.id} log={log} onEdit={startEdit} onDelete={deleteLog} trackConfig={reviewTrackConfig} unit={unit} />
             ))}
           </ul>
         )}

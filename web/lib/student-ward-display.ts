@@ -1,13 +1,15 @@
 /*
   عرض ورد الطالب — نصوص وحسابات مشتركة بين لوحة الطالب الرئيسية،
   صفحة "سجّل وردي"، وصفحة "أورادي" (STEP 58) — كانت مكرَّرة داخل صفحة
-  واحدة فقط قبل تقسيمها لعدّة صفحات، فجُمعت هنا بدل تكرارها ثلاث مرّات.
+  واحدة فقط قبل تقسيمها لعدّة صفحات، فجُمعت هنا بدل تكرارها ثلاث مرات.
 */
 import { riyadhTodayISO } from "./riyadh-date";
 import { juzLabel, juzesOfRange } from "./quran";
-import { surahAtPage } from "./quran-surahs";
+import { pageRangeOfAyahRange, surahAtPage } from "./quran-surahs";
+import type { WardUnit } from "./halaqah-stage";
 import type { AyahRange, PageRange, WardLog, WardStatus } from "./types";
 import { formatAyahRange, formatReviewSegments } from "./ward-ayah";
+import { formatWardByUnit } from "./ward-units";
 
 export const STATUS_LABEL: Record<WardStatus, string> = {
   new: "بانتظار الاطّلاع",
@@ -27,19 +29,40 @@ export function statusTone(status: WardStatus): string {
   return STATUS_STYLE[status];
 }
 
-/** الحفظ يبقى نطاقاً واحداً دائماً — الأوراد الجديدة تعرض السورة/الآية، القديمة (بلا سورة محفوظة) تُعرض بالصفحات كما كانت دائماً */
-export function hifzRangeText(range: PageRange | null, ayahRange: AyahRange | null): string | null {
+/**
+ * الحفظ يبقى نطاقاً واحداً دائماً — الأوراد الجديدة تعرض السورة/الآية، القديمة (بلا سورة محفوظة) تُعرض بالصفحات كما كانت دائماً.
+ * unit (اختياري، 001 T031): وحدة فئة الحلقة تعيد التشكيل عبر formatWardByUnit
+ * (الصفحات/الأوجه/الأجزاء) دون فقد؛ غيابها = السلوك الحالي حرفياً (SC-005).
+ */
+export function hifzRangeText(range: PageRange | null, ayahRange: AyahRange | null, unit?: WardUnit | null): string | null {
+  if (unit) return formatWardByUnit(unit, range, ayahRange);
   if (ayahRange) return formatAyahRange(ayahRange);
   if (!range) return null;
   const juz = juzLabel(juzesOfRange(range.from, range.to));
   return `صفحة ${range.from} إلى ${range.to} · ${juz}`;
 }
 
-/** المراجعة: تفضّل مقاطع STEP 52 (مهما كان عددها)، ثم نطاق STEP 49 القديم بمقطع واحد، ثم الصفحات المجرّدة لأقدم الأوراد */
-export function reviewRangeText(log: WardLog): string | null {
+/**
+ * المراجعة: تفضّل مقاطع STEP 52 (مهما كان عددها)، ثم نطاق STEP 49 القديم بمقطع واحد، ثم الصفحات المجرّدة لأقدم الأوراد.
+ * unit (اختياري): النطاق الواحد والصفحات المجرّدة يُعاد تشكيلها بوحدة
+ * الفئة؛ المقاطع تبقى بأسماء سورها الدقيقة بكل وحدة (لا فقد).
+ */
+export function reviewRangeText(log: WardLog, unit?: WardUnit | null): string | null {
   if (log.reviewSegments && log.reviewSegments.length > 0) return formatReviewSegments(log.reviewSegments);
-  if (log.reviewAyah) return formatAyahRange(log.reviewAyah);
+  if (log.reviewAyah) {
+    if (unit) {
+      const pages = pageRangeOfAyahRange(
+        log.reviewAyah.fromSurah,
+        log.reviewAyah.fromAyah,
+        log.reviewAyah.toSurah,
+        log.reviewAyah.toAyah,
+      );
+      return formatWardByUnit(unit, pages, log.reviewAyah);
+    }
+    return formatAyahRange(log.reviewAyah);
+  }
   if (!log.review) return null;
+  if (unit) return formatWardByUnit(unit, log.review, null);
   const juz = juzLabel(juzesOfRange(log.review.from, log.review.to));
   return `صفحة ${log.review.from} إلى ${log.review.to} · ${juz}`;
 }

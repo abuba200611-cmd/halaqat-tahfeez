@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { computeStreak, hifzPagesCovered, latestHifzProgress } from "./student-ward-display";
+import { computeStreak, hifzPagesCovered, hifzRangeText, latestHifzProgress, reviewRangeText } from "./student-ward-display";
+import type { WardUnit } from "./halaqah-stage";
 import type { AyahRange, PageRange, WardLog } from "./types";
 
 /** ورد وهمي — hifz إلزامي، date وhifzAyah اختياريان بقيم افتراضية لمن لا يهتمّ بهما */
@@ -119,5 +120,72 @@ describe("latestHifzProgress (STEP 58 تعديل — أحدث ورد بالتا�
       makeLog({ from: 100, to: 103 }, { date: "2026-09-27", hifzAyah: { fromSurah: 18, fromAyah: 1, toSurah: 18, toAyah: 10 } }),
     ];
     expect(latestHifzProgress(logs)).toEqual({ page: 103, surah: 18 });
+  });
+});
+
+/*
+  001 T031 — العرض بوحدة فئة الحلقة (FR-006/FR-007): الوحدة اختيارية
+  والافتراضي = السلوك الحالي حرفياً (لا تغيير ملحوظ للحلقات القائمة
+  حتى تُحدَّد فئتها، SC-005)، والورد القديم بلا آيات يُعرض بكل الوحدات
+  دون فقد أي معلومة (SC-003).
+*/
+describe("hifzRangeText — وحدة العرض الاخيارية (001 T031)", () => {
+  const FILI: AyahRange = { fromSurah: 105, fromAyah: 1, toSurah: 105, toAyah: 5 };
+
+  it("الافتراضي بلا وحدة = السلوك الحالي: الآيات أولاً ثم سقوط الصفحات القديم", () => {
+    expect(hifzRangeText({ from: 603, to: 603 }, FILI)).toBe("الفيل 1–5");
+    expect(hifzRangeText({ from: 502, to: 504 }, null)).toBe("صفحة 502 إلى 504 · جزء 26");
+    expect(hifzRangeText(null, null)).toBeNull();
+  });
+
+  it("surah_ayah: السورة والآيات كما اليوم (ابتدائي)", () => {
+    expect(hifzRangeText({ from: 603, to: 603 }, FILI, "surah_ayah")).toBe("الفيل 1–5");
+  });
+
+  it("ayah_page: الآيات مع عدد الصفحات المقابل (متوسط — US3 سيناريو ٤)", () => {
+    expect(hifzRangeText({ from: 603, to: 604 }, { fromSurah: 105, fromAyah: 1, toSurah: 114, toAyah: 6 }, "ayah_page")).toBe(
+      "الفيل 1 – الناس 6 · 2 صفحة",
+    );
+  });
+
+  it("page_wajh: بالأوجه (ثانوي)، وwajh_juz: جزء كامل باسمه (جامعي)", () => {
+    expect(hifzRangeText({ from: 502, to: 504 }, null, "page_wajh")).toBe("3 أوجه (ص 502–504)");
+    expect(hifzRangeText({ from: 603, to: 603 }, FILI, "page_wajh")).toBe("وجه 603");
+    expect(hifzRangeText({ from: 582, to: 604 }, null, "wajh_juz")).toBe("جزء 30");
+    expect(hifzRangeText({ from: 502, to: 504 }, null, "wajh_juz")).toBe("3 أوجه (ص 502–504)");
+  });
+
+  it("ورد قديم بلا آيات يُعرض بكل الوحدات دون فقد (SC-003)", () => {
+    const oldRange: PageRange = { from: 502, to: 504 };
+    const units: WardUnit[] = ["surah_ayah", "ayah_page", "page_wajh", "wajh_juz"];
+    for (const unit of units) {
+      expect(hifzRangeText(oldRange, null, unit)).toBeTruthy();
+    }
+  });
+});
+
+describe("reviewRangeText — وحدة العرض الاخيارية (001 T031)", () => {
+  const FILI: AyahRange = { fromSurah: 105, fromAyah: 1, toSurah: 105, toAyah: 5 };
+
+  it("الافتراضي بلا وحدة = السلوك الحالي: المقاطع ثم النطاق القديم ثم الصفحات", () => {
+    expect(reviewRangeText({ ...makeLog(null), reviewSegments: [FILI], reviewPagesTotal: 1 })).toBe("الفيل (كاملة)");
+    expect(reviewRangeText({ ...makeLog(null), reviewAyah: FILI })).toBe("الفيل 1–5");
+    expect(reviewRangeText({ ...makeLog(null), review: { from: 502, to: 504 } })).toBe("صفحة 502 إلى 504 · جزء 26");
+    expect(reviewRangeText(makeLog(null))).toBeNull();
+  });
+
+  it("المقاطع تبقى بأسماء سورها بكل وحدة — لا فقد لمعلومات المراجعة", () => {
+    const log = { ...makeLog(null), reviewSegments: [FILI], reviewPagesTotal: 1 };
+    expect(reviewRangeText(log, "surah_ayah")).toBe("الفيل (كاملة)");
+    expect(reviewRangeText(log, "page_wajh")).toBe("الفيل (كاملة)");
+  });
+
+  it("نطاق المراجعة القديم يُعرض بوحدة الفئة: النطاق الواحد بالأوجه، والصفحات المجرّدة كذلك", () => {
+    // الفيل ١–٥ تقع بصفحة ٦٠١ بالضبط (مصحف المدينة)
+    expect(reviewRangeText({ ...makeLog(null), reviewAyah: FILI }, "page_wajh")).toBe("وجه 601");
+    expect(reviewRangeText({ ...makeLog(null), review: { from: 502, to: 504 } }, "page_wajh")).toBe("3 أوجه (ص 502–504)");
+    expect(reviewRangeText({ ...makeLog(null), review: { from: 502, to: 504 } }, "ayah_page")).toBe(
+      "صفحة 502 إلى 504 · جزء 26",
+    );
   });
 });

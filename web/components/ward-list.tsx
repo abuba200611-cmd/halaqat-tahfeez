@@ -5,6 +5,7 @@ import { hifzRangeText, reviewRangeText, statusTone, STATUS_LABEL } from "@/lib/
 import { reviewTextWithTracks } from "@/lib/review-tracks";
 import type { ReviewTrackConfig } from "@/lib/review-track-config";
 import { formatScore } from "@/lib/error-grading";
+import type { WardUnit } from "@/lib/halaqah-stage";
 import type { WardLog } from "@/lib/types";
 
 /**
@@ -13,18 +14,21 @@ import type { WardLog } from "@/lib/types";
  * اختياريان: تمريرهما فقط يُظهر الزرّ المقابل، وبس للأوراد القابلة
  * للتعديل (canEditWard) كما بالتصميم الأصلي. trackConfig (اختياري)
  * بإعدادات جامع الحلقة: التسمية تحدّد أسماء المسارات، والتعطيل يحذف
- * لاحقة التصنيف من نص المراجعة.
+ * لاحقة التصنيف من نص المراجعة. unit (اختياري، 001 T035) وحدة فئة
+ * الحلقة يعاد بها تشكيل نص الحفظ/المراجعة — غيابها = النص الحالي.
  */
 export function WardListItem({
   log,
   onEdit,
   onDelete,
   trackConfig,
+  unit,
 }: {
   log: WardLog;
   onEdit?: (log: WardLog) => void;
   onDelete?: (log: WardLog) => void;
   trackConfig?: ReviewTrackConfig;
+  unit?: WardUnit | null;
 }) {
   const editable = canEditWard(log.status);
 
@@ -60,9 +64,9 @@ export function WardListItem({
       {log.previousAttemptId && <p className="mt-1 text-xs text-stone-400">↩ محاولة جديدة عن ورد سابق</p>}
 
       <div className="mt-1 space-y-0.5 text-sm text-stone-500">
-        {hifzRangeText(log.hifz, log.hifzAyah) && <p>حفظ: {hifzRangeText(log.hifz, log.hifzAyah)}</p>}
-        {reviewTextWithTracks(log, reviewRangeText(log), trackConfig) && (
-          <p>مراجعة: {reviewTextWithTracks(log, reviewRangeText(log), trackConfig)}</p>
+        {hifzRangeText(log.hifz, log.hifzAyah, unit) && <p>حفظ: {hifzRangeText(log.hifz, log.hifzAyah, unit)}</p>}
+        {reviewTextWithTracks(log, reviewRangeText(log, unit), trackConfig) && (
+          <p>مراجعة: {reviewTextWithTracks(log, reviewRangeText(log, unit), trackConfig)}</p>
         )}
         {log.note && <p className="text-stone-700">{log.note}</p>}
       </div>

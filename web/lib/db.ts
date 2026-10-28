@@ -1845,6 +1845,35 @@ export async function countNewWards(teacherId: number): Promise<number> {
   return Number(rows[0].n);
 }
 
+// ————— إعادة فتح المعتمد (001 US4) —————
+
+/**
+ * يعيد فتح ورد معتمد إلى needs_revision (001 T036، FR-009 — قرار المالك
+ * Q1 ب: كل ورد معتمد يقبل إعادة الفتح أيّاً كان مسجِّله: طالباً كان أم
+ * معلّماً أم الطابور): ملاحظة إلزامية تُخزَّن review_note، والقرار يعود
+ * باسم المعلّم المُعيد للفتح (reviewed_by/reviewed_at). شرط «المعتمد فقط»
+ * داخل جملة UPDATE نفسها — غير المعتمد وغير الموجود وحلقة أخرى كلها
+ * null بلا تمييز (404 موحّدة من المسار). إعادة إرسال الطالب بعدها تنشئ
+ * محاولة جديدة تسلسلها previous_attempt_id كما هو (createWardLog).
+ */
+export async function reopenApprovedWard(
+  halaqahId: number,
+  wardId: number,
+  teacherId: number,
+  note: string,
+): Promise<{ studentId: string } | null> {
+  const trimmed = note.trim();
+  if (!trimmed) throw new Error("ملاحظة المراجعة مطلوبة عند طلب الإعادة");
+  const rows = await db().sql`
+    UPDATE ward_logs
+    SET status = 'needs_revision', reviewed_by = ${teacherId},
+        reviewed_at = ${new Date().toISOString()}, review_note = ${trimmed}
+    WHERE teacher_id = ${halaqahId} AND id = ${wardId} AND status = 'approved'
+    RETURNING student_id
+  `;
+  return rows.length > 0 ? { studentId: rows[0].student_id as string } : null;
+}
+
 /**
  * يعيد المعلّم تصنيف مقاطع مراجعة ورد قائم (B3) — مصفوفة كاملة بعدد
  * المقاطع نفسه، كل عنصر كبرى/صغرى أو null للمقطع بلا تصنيف. مسموح فقط

@@ -224,3 +224,43 @@ describe("POST /api/teacher/wards — تسجيل المعلّم عن طالب ا
     expect((await POST(postReq({ studentId: "s1", hifz: HIFZ }))).status).toBe(401);
   });
 });
+
+/*
+  001 T038 — خلية «الابتدائي + معلّم» من مصفوفة الفئة × المسجِّل (FR-008):
+  ورد المعلّم معتمد فوراً (initialStatusFor teacher ⇒ approved عبر
+  createApprovedWardLog)؛ بقية الفئات لا تسجيل عن الطالب أصلاً (403)،
+  فطلابها يسجّلون بأنفسهم new (اختبار المصفوفة في مسار الطالب).
+*/
+describe("POST /api/teacher/wards — مصفوفة الفئة × المسجِّل: الابتدائي/معلّم ⇒ معتمد (001 T038)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    authMocks.currentTeacher.mockResolvedValue(TEACHER);
+    stageDbMocks.getHalaqahStage.mockResolvedValue("primary");
+    dbMocks.getActiveStudentInHalaqah.mockResolvedValue({ id: "s1", name: "أحمد" });
+    dbMocks.listSameDayWardStubs.mockResolvedValue([]);
+    dbMocks.listStudentsWithTodayWard.mockResolvedValue([]);
+    dbMocks.createApprovedWardLog.mockResolvedValue({ id: 55, previousAttemptId: null });
+  });
+
+  it("primary + معلّم: معتمد فوراً باسم المعلّم (الحالة الابتدائية approved)", async () => {
+    const res = await POST(postReq({ studentId: "s1", hifz: HIFZ }));
+    const data = (await res.json()) as { status?: string };
+
+    expect(res.status).toBe(200);
+    expect(data?.status).toBe("approved");
+    expect(dbMocks.createApprovedWardLog.mock.calls[0][3]).toMatchObject({ recordedVia: "teacher" });
+  });
+
+  it.each(["intermediate", "secondary", "university"])(
+    "%s + معلّم: لا تسجيل عن الطالب — الابتدائي فقط (FR-003)",
+    async (stage) => {
+      stageDbMocks.getHalaqahStage.mockResolvedValue(stage);
+
+      const res = await POST(postReq({ studentId: "s1", hifz: HIFZ }));
+
+      expect(res.status).toBe(403);
+      expect(dbMocks.createApprovedWardLog).not.toHaveBeenCalled();
+    },
+  );
+});

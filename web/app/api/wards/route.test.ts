@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ayahRangeOfPageRange } from "@/lib/quran-surahs";
+import { initialStatusFor } from "@/lib/ward-policy";
 
 /*
   STEP 54 (تعديل المستخدم قبل التطبيق): الإشعار الفوري عند اعتماد/رفض
@@ -26,6 +28,7 @@ vi.mock("@/lib/auth", () => authMocks);
 
 const dbMocks = vi.hoisted(() => ({
   setWardLogStatus: vi.fn(),
+  reopenApprovedWard: vi.fn(),
   countNewWards: vi.fn(),
   createWardLog: vi.fn(),
   deleteWardLog: vi.fn(),
@@ -35,7 +38,7 @@ const dbMocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/db", () => dbMocks);
 
-const stageDbMocks = vi.hoisted(() => ({ getHalaqahStage: vi.fn(async () => null) }));
+const stageDbMocks = vi.hoisted(() => ({ getHalaqahStage: vi.fn(async (): Promise<string | null> => null) }));
 vi.mock("@/lib/halaqah-stage-db", () => stageDbMocks);
 
 const rateLimitMocks = vi.hoisted(() => ({
@@ -53,7 +56,7 @@ vi.mock("@/lib/push", () => pushMocks);
 
 const whMocks = vi.hoisted(() => ({ emitHalaqahEvent: vi.fn(async () => undefined), emitMosqueEvent: vi.fn(async () => undefined) }));
 vi.mock("@/lib/webhooks-db", () => whMocks);
-const { POST, PATCH } = await import("./route");
+const { POST, PUT, PATCH } = await import("./route");
 
 function patchReq(body: unknown): Request {
   return new Request("http://localhost/api/wards", {
@@ -66,6 +69,14 @@ function patchReq(body: unknown): Request {
 function postReq(body: unknown): Request {
   return new Request("http://localhost/api/wards", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+function putReq(body: unknown): Request {
+  return new Request("http://localhost/api/wards", {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
@@ -172,6 +183,74 @@ describe("PATCH /api/wards — الإشعار الفوري عبر after() لا �
 
     expect(res.status).toBe(404);
     expect(afterMocks.after).not.toHaveBeenCalled();
+  });
+});
+
+/*
+  001 T037 — طلب إعادة على ورد معتمد (FR-009، قرار المالك Q1 ب): كل ورد
+  معتمد يُعاد فتحه أيّاً كان مسجِّله، عبر reopenApprovedWard بعدما يرفضه
+  setWardLogStatus كما هو منذ STEP 52 — بملاحظة إلزامية وإخطار الطالب
+  وولي الأمر كأي قرار إعادة.
+*/
+describe("PATCH /api/wards — إعادة فتح المعتمد (001 T037)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authMocks.currentTeacher.mockResolvedValue(FAKE_TEACHER);
+    dbMocks.countNewWards.mockResolvedValue(0);
+  });
+
+  it("ورد معتمد: reopenApprovedWard يُستدعى بعد رفض setWardLogStatus، ويُخطر الطالب والأولياء بالملاحظة", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue(null); // يرفض المعتمد كما اليوم
+    dbMocks.reopenApprovedWard.mockResolvedValue({ studentId: "s1" });
+
+    const res = await PATCH(patchReq({ id: 17, status: "needs_revision", note: "أعد سورة الفيل" }));
+    const data = (await res.json()) as { ok?: boolean };
+
+    expect(res.status).toBe(200);
+    expect(data?.ok).toBe(true);
+    expect(dbMocks.reopenApprovedWard).toHaveBeenCalledWith(1, 17, 2, "أعد سورة الفيل");
+    // إخطار قرار الإعادة كالمعتاد — الطالب ثم الأولياء (بوش) بعد الرد
+    await afterMocks.lastCallback?.();
+    expect(pushMocks.sendPushToStudent).toHaveBeenCalledTimes(1);
+    expect(pushMocks.sendPushToParentsOfStudent).toHaveBeenCalledWith(1, "s1", "needs_revision");
+  });
+
+  it("لا حصر للمسجِّل في المسار: ورد معتمد سجّله الطالب يُعاد فتحه بالنداء نفسه (قرار المالك Q1 ب)", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue(null);
+    dbMocks.reopenApprovedWard.mockResolvedValue({ studentId: "s1" });
+
+    const res = await PATCH(patchReq({ id: 23, status: "needs_revision", note: "ملاحظة" }));
+
+    expect(res.status).toBe(200);
+    // المسار لا يقرأ recordedVia أصلاً — القرار داخل reopenApprovedWard (المعتمد فقط)
+    expect(dbMocks.reopenApprovedWard).toHaveBeenCalledWith(1, 23, 2, "ملاحظة");
+  });
+
+  it("غير المعتمد وغير الموجود: المحاولتان تفشلان ⇒ 404 كاليوم ولا يُجدوَل إشعار", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue(null);
+    dbMocks.reopenApprovedWard.mockResolvedValue(null);
+
+    const res = await PATCH(patchReq({ id: 999, status: "needs_revision", note: "ملاحظة" }));
+
+    expect(res.status).toBe(404);
+    expect(afterMocks.after).not.toHaveBeenCalled();
+  });
+
+  it("new/seen: setWardLogStatus ينجح ولا يُستدعى reopenApprovedWard إطلاقاً", async () => {
+    dbMocks.setWardLogStatus.mockResolvedValue({ studentId: "s1" });
+
+    const res = await PATCH(patchReq({ id: 17, status: "needs_revision", note: "ملاحظة" }));
+
+    expect(res.status).toBe(200);
+    expect(dbMocks.reopenApprovedWard).not.toHaveBeenCalled();
+  });
+
+  it("ملاحظة مفقودة على ورد معتمد: 400 قبل لمس قاعدة البيانات", async () => {
+    const res = await PATCH(patchReq({ id: 17, status: "needs_revision" }));
+
+    expect(res.status).toBe(400);
+    expect(dbMocks.setWardLogStatus).not.toHaveBeenCalled();
+    expect(dbMocks.reopenApprovedWard).not.toHaveBeenCalled();
   });
 });
 
@@ -296,6 +375,110 @@ describe("POST /api/wards — حارس التكرار اليومي من جهة �
   });
 
   it("لا أوراد اليوم: يمرّ كالمعتاد", async () => {
+    const res = await POST(postReq({ hifz: HIFZ }));
+
+    expect(res.status).toBe(200);
+    expect(dbMocks.createWardLog).toHaveBeenCalledTimes(1);
+  });
+});
+
+/*
+  001 T033 — إدخال الحفظ بالصفحات hifzPages (ثانوي/جامعي، FR-006): يُحوَّل
+  خادمياً إلى نطاق آيات كامل عبر ayahRangeOfPageRange فيبقى التخزين
+  والتحقق كما هما تماماً. hifz وhifzPages معاً ⇒ 400 (عقد ward-changes).
+*/
+describe("POST/PUT /api/wards — الحفظ بالصفحات hifzPages (001 T033)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authMocks.currentStudent.mockResolvedValue(FAKE_STUDENT);
+    dbMocks.createWardLog.mockResolvedValue({ id: 1, previousAttemptId: null });
+    dbMocks.updateWardLog.mockResolvedValue({ updated: true, buddyResetTo: null });
+    dbMocks.listSameDayWardStubs.mockResolvedValue([]);
+  });
+
+  it("POST بـhifzPages: يُخزَّن بنطاق الآيات الكامل للصفحات — التخزين لا يتغيّر", async () => {
+    const res = await POST(postReq({ hifzPages: { from: 502, to: 504 } }));
+
+    expect(res.status).toBe(200);
+    const log = dbMocks.createWardLog.mock.calls[0][2];
+    expect(log.hifzFrom).toBe(502);
+    expect(log.hifzTo).toBe(504);
+    expect(log.hifzAyah).toEqual(ayahRangeOfPageRange(502, 504));
+  });
+
+  it("hifz وhifzPages معاً: 400 ولا يُنشأ الورد", async () => {
+    const res = await POST(
+      postReq({ hifzPages: { from: 502, to: 504 }, hifz: { from: { surah: 105, ayah: 1 }, to: { surah: 105, ayah: 5 } } }),
+    );
+    const data = (await res.json()) as { error?: string };
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("ادخل الحفظ بالآيات أو بالصفحات، لا الاثنين معاً");
+    expect(dbMocks.createWardLog).not.toHaveBeenCalled();
+  });
+
+  it("نطاق صفحات غير صالح (من > إلى): 400 برسالة parseHifzPagesInput نفسها", async () => {
+    const res = await POST(postReq({ hifzPages: { from: 504, to: 502 } }));
+    const data = (await res.json()) as { error?: string };
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe("نطاق الصفحات خارج حدود المصحف");
+    expect(dbMocks.createWardLog).not.toHaveBeenCalled();
+  });
+
+  it("PUT بلا hifz ولا hifzPages (مراجعة فقط): يمرّ كما اليوم", async () => {
+    const res = await PUT(
+      putReq({ id: 9, date: "2026-10-26", review: [{ from: { surah: 1, ayah: 1 }, to: { surah: 1, ayah: 7 } }] }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(dbMocks.updateWardLog).toHaveBeenCalledTimes(1);
+  });
+
+  it("PUT بـhifzPages: يقبل صفحات الحفظ كذلك ويحوّلها لنطاق آيات", async () => {
+    const res = await PUT(putReq({ id: 9, date: "2026-10-26", hifzPages: { from: 604, to: 604 } }));
+
+    expect(res.status).toBe(200);
+    const log = dbMocks.updateWardLog.mock.calls[0][3];
+    expect(log.hifzFrom).toBe(604);
+    expect(log.hifzTo).toBe(604);
+    expect(log.hifzAyah).toEqual(ayahRangeOfPageRange(604, 604));
+  });
+});
+
+/*
+  001 T038 — مصفوفة الفئة × المسجِّل ⇒ الحالة الابتدائية (FR-008): ورد
+  الطالب يبدأ new دائماً في كل فئة (ينشأ عبر createWardLog التي تُدرج
+  status='new' حرفياً — لا مسار اعتماد لورد طالب هنا)؛ خلية الابتدائي
+  + معلّم (approved فوراً) في اختبار مسار المعلّم.
+*/
+describe("POST /api/wards — مصفوفة الفئة × المسجِّل ⇒ الحالة الابتدائية (001 T038)", () => {
+  const HIFZ = { from: { surah: 105, ayah: 1 }, to: { surah: 105, ayah: 5 } };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authMocks.currentStudent.mockResolvedValue(FAKE_STUDENT);
+    dbMocks.createWardLog.mockResolvedValue({ id: 1, previousAttemptId: null });
+    dbMocks.listSameDayWardStubs.mockResolvedValue([]);
+  });
+
+  it.each(["intermediate", "secondary", "university"])(
+    "%s + طالب: يمرّ عبر createWardLog — الحالة الابتدائية new دائماً",
+    async (stage) => {
+      stageDbMocks.getHalaqahStage.mockResolvedValue(stage);
+
+      const res = await POST(postReq({ hifz: HIFZ }));
+
+      expect(res.status).toBe(200);
+      expect(dbMocks.createWardLog).toHaveBeenCalledTimes(1);
+      // createWardLog تُدرج status='new' حرفياً = initialStatusFor للطالب
+      expect(initialStatusFor({ recordedVia: "student" })).toBe("new");
+    },
+  );
+
+  it("حلقة بلا فئة (افتراضي) + طالب: new كما اليوم تماماً (SC-005)", async () => {
+    stageDbMocks.getHalaqahStage.mockResolvedValue(null);
+
     const res = await POST(postReq({ hifz: HIFZ }));
 
     expect(res.status).toBe(200);
