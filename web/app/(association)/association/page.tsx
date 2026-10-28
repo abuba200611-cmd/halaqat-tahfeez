@@ -7,12 +7,15 @@ import { useApi } from "@/components/mosque/use-api";
 import { inputClass } from "@/components/mosque/mosque-page";
 import { AssociationPage } from "@/components/association/association-page";
 import { AssociationLinkPanel } from "@/components/association/link-panel";
+import { AreaChart, HBarChart, Panel, TONES } from "@/components/charts";
+import type { AssociationCharts } from "@/lib/dashboard-charts-db";
 import type { AssociationTotals, MosqueKpiRow } from "@/lib/association";
 
 /*
   A3 — لوحة الجمعية (قراءة فقط): مؤشرات كل جامع، إجمالي الجمعية، تقرير مجمّع
   بصيغة CSV، وفتح كل جامع بعرض قراءة فقط. الفترة تؤثر في الحضور والاختبارات؛
-  التصاريح حالتها الراهنة لعام كل جامع الدراسي.
+  التصاريح حالتها الراهنة لعام كل جامع الدراسي. رسوم الاتجاه (مواصفة 003)
+  ضمن فترة الفلتر نفسها.
 */
 
 type DashboardData = {
@@ -20,6 +23,7 @@ type DashboardData = {
   period: { from: string; to: string };
   mosques: MosqueKpiRow[];
   totals: AssociationTotals;
+  charts?: AssociationCharts;
 };
 
 function pct(value: number | null): string {
@@ -74,6 +78,8 @@ export default function AssociationDashboardPage() {
               <Stat label="بانتظار التجديد" value={data.totals.permits.pendingRenewal} />
             </div>
 
+            {data.charts && <AssociationChartsSection charts={data.charts} period={data.period} />}
+
             <section className="space-y-2">
               <h2 className="font-display text-lg font-bold">الجوامع</h2>
               {data.mosques.length === 0 ? (
@@ -126,5 +132,50 @@ export default function AssociationDashboardPage() {
         <AssociationLinkPanel />
       </div>
     </AssociationPage>
+  );
+}
+
+/** رسوم اتجاه الجمعية (مواصفة 003) — أوراد كل الجوامع يومياً ومقارنتها ضمن الفترة */
+function AssociationChartsSection({
+  charts,
+  period,
+}: {
+  charts: AssociationCharts;
+  period: { from: string; to: string };
+}) {
+  const wardsTotal = charts.wardsDaily.reduce((sum, p) => sum + p.value, 0);
+
+  return (
+    <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+      <Panel title="أوراد الجوامع يومياً (خلال الفترة)">
+        <AreaChart
+          points={charts.wardsDaily}
+          ariaLabel={`أوراد جوامع الجمعية يومياً من ${period.from} إلى ${period.to}، الإجمالي ${wardsTotal} ورداً`}
+        />
+      </Panel>
+
+      <Panel title="مقارنة الجوامع: الطلاب الفعّالون">
+        <HBarChart
+          ariaLabel={`الطلاب الفعّالون بكل جامع: ${charts.mosqueComparison.activeStudents.map((m) => `${m.label} ${m.value}`).join("، ")}`}
+          bars={charts.mosqueComparison.activeStudents.map((m) => ({
+            label: m.label,
+            value: m.value,
+            tone: TONES.accent100,
+          }))}
+        />
+      </Panel>
+
+      <Panel title="مقارنة الجوامع: نسبة الحضور (خلال الفترة)">
+        <HBarChart
+          ariaLabel={`نسبة الحضور بكل جامع خلال الفترة: ${charts.mosqueComparison.attendanceRate.map((m) => `${m.label} ${m.value}٪`).join("، ")}`}
+          bars={charts.mosqueComparison.attendanceRate.map((m) => ({
+            label: m.label,
+            value: m.value,
+            tone: m.value >= 75 ? TONES.success : TONES.accent70,
+            pct: true,
+          }))}
+        />
+      </Panel>
+    </div>
   );
 }

@@ -5,14 +5,17 @@ import { useParams } from "next/navigation";
 import { Badge, Card, Empty } from "@/components/mosque/ui";
 import { useApi } from "@/components/mosque/use-api";
 import { AssociationPage } from "@/components/association/association-page";
+import { MosqueChartsSection } from "@/components/mosque/mosque-charts";
 import { PERMIT_STATUS_LABELS, type PermitStatus } from "@/lib/permits";
+import type { MosqueCharts } from "@/lib/dashboard-charts-db";
 import type { MosqueHalaqahRow } from "@/lib/association-db";
 import type { ExamStats } from "@/lib/mosque/exams-db";
 
 /*
   A3 — عرض جامع من لوحة الجمعية، قراءة فقط: حلقاته وحضورها، وأقسام الاختبارات
   والتصاريح إن كانت مفعّلة له. لا نماذج ولا أزرار تعديل هنا، والمسار نفسه
-  يردّ 404 لجامع ليس من جمعية الجلسة.
+  يردّ 404 لجامع ليس من جمعية الجلسة. رسوم الجامع (مواصفة 003) نفسها
+  هنا بمصدر بيانات الجمعية.
 */
 
 type MosqueView = {
@@ -21,6 +24,7 @@ type MosqueView = {
   features: { exams: boolean; permits: boolean };
   halaqat: MosqueHalaqahRow[];
   exams: ExamStats | null;
+  charts?: MosqueCharts;
   permits: {
     academicYear: number;
     halaqat: {
@@ -71,6 +75,8 @@ export default function AssociationMosquePage() {
                 ))
               )}
             </section>
+
+            {data.charts && <MosqueChartsSection charts={data.charts} />}
 
             {data.exams && (
               <section className="space-y-2">

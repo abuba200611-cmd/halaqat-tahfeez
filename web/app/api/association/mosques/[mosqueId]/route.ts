@@ -6,6 +6,7 @@ import { effectiveFeatures } from "@/lib/mosque/features";
 import { examStatsBetween } from "@/lib/mosque/exams-db";
 import { hijriMonthRange } from "@/lib/mosque/report-periods";
 import { buildPermitsOverview } from "@/lib/permits-db";
+import { mosqueCharts } from "@/lib/dashboard-charts-db";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { logServerError } from "@/lib/dev-error-log";
 
@@ -13,7 +14,8 @@ import { logServerError } from "@/lib/dev-error-log";
   A3 — عرض جامع من لوحة الجمعية، قراءة فقط. جامع ليس من جمعية الجلسة = 404
   (لا يُفرَّق بينه وبين غير الموجود). الأقسام تُعرض فقط إن كانت ميزتها مفعّلة
   لذلك الجامع؛ ولا يمرّ شيء من هنا عبر مسارات تعديل الجامع (هي لا تقبل جلسة
-  الجمعية أصلاً — canAccessMosque لا يعرف كوكيها).
+  الجمعية أصلاً — canAccessMosque لا يعرف كوكيها). رسوم الجامع (مواصفة 003)
+  تعود هنا بعد التحقق من الربط — بوابة requireAssociationMosque أعلاه.
 */
 
 type RouteContext = { params: Promise<{ mosqueId: string }> };
@@ -27,10 +29,11 @@ export async function GET(request: Request, { params }: RouteContext) {
   if (!period.ok) return Response.json({ error: period.error }, { status: 400 });
 
   try {
-    const [mosque, featureRows, halaqat] = await Promise.all([
+    const [mosque, featureRows, halaqat, charts] = await Promise.all([
       getMosque(mosqueId),
       getMosqueFeatures(mosqueId),
       listMosqueHalaqahRows(mosqueId, period),
+      mosqueCharts(mosqueId),
     ]);
     if (!mosque) return Response.json({ error: "غير موجود" }, { status: 404 });
     const features = effectiveFeatures(featureRows);
@@ -46,6 +49,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       features: { exams: !!features.exams, permits: !!features.permits },
       halaqat,
       exams,
+      charts,
       // للقراءة فقط: بلا سجل التدقيق ولا بطاقات الإجراءات
       permits: permits
         ? {

@@ -38,6 +38,16 @@ vi.mock("@/lib/mosque/db", () => ({
 }));
 vi.mock("@/lib/mosque/exams-db", () => ({ examStatsBetween: vi.fn() }));
 vi.mock("@/lib/permits-db", () => ({ buildPermitsOverview: vi.fn() }));
+// رسوم اللوحات (مواصفة 003) — طبقة تجميع مستقلة تُمحاكى كسائر الطبقات هنا
+vi.mock("@/lib/dashboard-charts-db", () => ({
+  associationCharts: vi.fn(async () => ({ wardsDaily: [], mosqueComparison: { activeStudents: [], attendanceRate: [] } })),
+  mosqueCharts: vi.fn(async () => ({
+    wardsDaily: [],
+    studentsPerHalaqah: [],
+    attendancePerHalaqah: [],
+    mastery: { total: 0, buckets: [] },
+  })),
+}));
 vi.mock("@/lib/dev-error-log", () => ({ logServerError: vi.fn(async () => undefined) }));
 vi.mock("@/lib/rate-limit", () => ({
   peekRateLimit: vi.fn(async () => true),

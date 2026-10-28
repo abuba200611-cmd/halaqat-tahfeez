@@ -3,6 +3,7 @@ import { unauthorized } from "@/lib/mosque/admin-auth";
 import { canAccessMosque } from "@/lib/mosque/access";
 import { isFeatureEnabled, listHalaqahs } from "@/lib/mosque/db";
 import { getHalaqahStats } from "@/lib/mosque/halaqat";
+import { mosqueCharts } from "@/lib/dashboard-charts-db";
 
 /**
  * لوحة الجامع الحقيقية — يجمع إحصائيات كل حلقاته من قاعدة الحلقات (استعلامات
@@ -36,6 +37,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const weightedMastery = reachable.reduce((sum, s) => sum + s.avgMastery * s.activeStudents, 0);
   const avgMastery = totalActiveStudents ? Math.round(weightedMastery / totalActiveStudents) : 0;
 
+  // رسوم الجامع (مواصفة 003) — حقول إضافية فوق الاستجابة القائمة، تُحسب بعد نجاح الفحوص أعلاه
+  const charts = await mosqueCharts(mosqueId);
+
   return Response.json({
     halaqahCount: halaqahs.length,
     unreachableCount: results.length - reachable.length,
@@ -43,5 +47,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     totalPages,
     avgMastery,
     perHalaqah,
+    charts,
   });
 }
