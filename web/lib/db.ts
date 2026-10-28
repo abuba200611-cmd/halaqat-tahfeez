@@ -22,9 +22,9 @@ import type { SavedSchedule, SavedScheduleInfo, SavedScheduleRecord } from "./sc
 import type { SameDayWard } from "./ward-policy";
 
 /*
-  نظام المعلّم — قاعدة بيانات Postgres (Netlify DB). المخطط في
-  netlify/database/migrations/ يُطبَّق تلقائياً عند النشر. كل الوصول
-  يمرّ من هنا، فيبقى أي تبديل لاحق محصوراً في هذا الملف وحده.
+  نظام المعلّم — قاعدة بيانات Postgres عبر @netlify/database. المخطط في
+  netlify/database/migrations/ يُطبَّق يدوياً عبر scripts/migrate.mjs. كل
+  الوصول يمرّ من هنا، فيبقى أي تبديل لاحق محصوراً في هذا الملف وحده.
 */
 
 export type TeacherRole = "supervisor" | "assistant";
@@ -46,10 +46,19 @@ export type Teacher = {
   فتح كسول: getDatabase() يرمي خطأ فوراً لو لم يجد سلسلة اتصال، وهذا
   يحدث أثناء "جمع بيانات الصفحات" وقت next build محلياً (لا توجد بيئة
   Netlify حقيقية بعد). نؤجّل الإنشاء لأول استخدام فعلي داخل كل دالة.
+
+  FR-001 (نقل القاعدة عن Netlify): القاعدة المستقلة (DATABASE_URL) أولاً
+  وقاعدة Netlify (NETLIFY_DB_URL) احتياطاً — حذف DATABASE_URL من بيئة
+  Vercel يعيد التطبيق لقاعدة Netlify فوراً. بلا أيٍّ منهما يبقى خطأ
+  getDatabase() الواضح كما هو (لا نرميه من هنا كي تظل اختبارات المحاكاة
+  تعمل بلا متغيرات بيئة).
 */
 let dbInstance: ReturnType<typeof getDatabase> | null = null;
 export function db(): ReturnType<typeof getDatabase> {
-  if (!dbInstance) dbInstance = getDatabase();
+  if (!dbInstance) {
+    const connectionString = process.env.DATABASE_URL ?? process.env.NETLIFY_DB_URL;
+    dbInstance = connectionString ? getDatabase({ connectionString }) : getDatabase();
+  }
   return dbInstance;
 }
 

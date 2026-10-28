@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NewWardLog } from "./db";
 
 /*
@@ -28,12 +28,13 @@ function makeFakeClient(updateRowCount: number) {
 
 const connectMock = vi.fn();
 const sqlMock = vi.fn();
+const getDatabaseMock = vi.fn(() => ({
+  pool: { connect: connectMock },
+  sql: sqlMock,
+}));
 
 vi.mock("@netlify/database", () => ({
-  getDatabase: () => ({
-    pool: { connect: connectMock },
-    sql: sqlMock,
-  }),
+  getDatabase: getDatabaseMock,
 }));
 
 const {
@@ -59,6 +60,46 @@ const sampleLog: NewWardLog = {
   reviewSegments: [{ fromSurah: 1, fromAyah: 1, toSurah: 1, toAyah: 7, fromPage: 1, toPage: 1 }],
   note: "",
 };
+
+/*
+  FR-001 (نقل القاعدة عن Netlify): db() يمرّر سلسلة الاتصال المختارة إلى
+  getDatabase — DATABASE_URL أولاً (القاعدة المستقلة الجديدة) ثم
+  NETLIFY_DB_URL احتياطاً، فحذف DATABASE_URL من بيئة Vercel يعيد التطبيق
+  لقاعدة Netlify فوراً. db() يفتح الاتصال مرة واحدة ثم يخزّنه، لذا نستورد
+  نسخة نظيفة من الوحدة لكل حالة.
+*/
+describe("db() — اختيار سلسلة الاتصال (FR-001)", () => {
+  const ORIGINAL_DATABASE_URL = process.env.DATABASE_URL;
+  const ORIGINAL_NETLIFY_DB_URL = process.env.NETLIFY_DB_URL;
+
+  async function freshDb() {
+    vi.resetModules();
+    return await import("./db");
+  }
+
+  afterEach(() => {
+    if (ORIGINAL_DATABASE_URL === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = ORIGINAL_DATABASE_URL;
+    if (ORIGINAL_NETLIFY_DB_URL === undefined) delete process.env.NETLIFY_DB_URL;
+    else process.env.NETLIFY_DB_URL = ORIGINAL_NETLIFY_DB_URL;
+  });
+
+  it("DATABASE_URL مقدَّمة على NETLIFY_DB_URL عند وجودهما معاً", async () => {
+    process.env.DATABASE_URL = "postgres://independent-db";
+    process.env.NETLIFY_DB_URL = "postgres://netlify-db";
+    const { db } = await freshDb();
+    db();
+    expect(getDatabaseMock).toHaveBeenCalledWith({ connectionString: "postgres://independent-db" });
+  });
+
+  it("بلا DATABASE_URL: NETLIFY_DB_URL احتياطاً — لا كسر قبل التحويل", async () => {
+    delete process.env.DATABASE_URL;
+    process.env.NETLIFY_DB_URL = "postgres://netlify-db";
+    const { db } = await freshDb();
+    db();
+    expect(getDatabaseMock).toHaveBeenCalledWith({ connectionString: "postgres://netlify-db" });
+  });
+});
 
 describe("updateWardLog — الذرّية وقفل الورد المعتمد (STEP 52)", () => {
   beforeEach(() => {

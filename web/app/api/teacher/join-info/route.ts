@@ -1,7 +1,6 @@
 import "server-only";
 import * as Sentry from "@sentry/nextjs";
-import { getDatabase } from "@netlify/database";
-import { checkInviteRateLimit, recordFailedInviteAttempt } from "@/lib/db";
+import { checkInviteRateLimit, db, recordFailedInviteAttempt } from "@/lib/db";
 import { clientIp } from "@/lib/client-ip";
 
 const ENDPOINT = "teacher/join-info";
@@ -34,7 +33,7 @@ export async function GET(request: Request) {
     Sentry.captureException(error);
   }
 
-  const rows = await getDatabase().sql`SELECT name FROM halaqahs WHERE teacher_invite_code = ${code}`;
+  const rows = await db().sql`SELECT name FROM halaqahs WHERE teacher_invite_code = ${code}`;
   const row = rows[0];
   if (!row) {
     try {

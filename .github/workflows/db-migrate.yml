@@ -1,0 +1,41 @@
+# تطبيق المايقريشنز يدوياً بلا أي نشر Netlify (FR-003 — نقل القاعدة عن Netlify).
+# تشغيل يدوي فقط: Actions ← db-migrate ← Run workflow ← اختر status (عرض
+# المعلّق) أو apply (التطبيق). سلسلة الاتصال من سرّ DATABASE_URL في أسرار
+# المستودع (Settings ← Secrets and variables ← Actions) ولا تُطبع أبداً.
+name: db-migrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "status للعرض فقط، apply لتطبيق المعلّق"
+        type: choice
+        options:
+          - status
+          - apply
+        required: true
+        default: status
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: تثبيت الاعتماديات
+        run: npm ci
+
+      # strip-types لقراءة المنطق النقي من lib/migrations.ts (Node 22)
+      - name: تشغيل المشغّل (${{ inputs.action }})
+        run: node --experimental-strip-types scripts/migrate.mjs --${{ inputs.action }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}

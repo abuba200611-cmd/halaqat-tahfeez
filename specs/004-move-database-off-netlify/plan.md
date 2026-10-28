@@ -23,7 +23,7 @@
 | 2 | إنشاء Neon من Vercel ← Storage ← Neon (Free) وربطه بمشروع halaqat-tahfeez للإنتاج فقط | المالك (إنشاء حساب ممنوع على الوكيل) |
 | 3 | إضافة سرّ `DATABASE_URL` في GitHub ← Settings ← Secrets | المالك |
 | 4 | نافذة صيانة: `pg_dump` من Netlify ← `pg_restore` إلى Neon (أوامر جاهزة في quickstart.md) | المالك |
-| 5 | `migrate.mjs --baseline` ثم `verify-copy` (عدد الصفوف) | المالك/الإجراء |
+| 5 | `verify-copy` (عدد الصفوف) ثم `migrate.mjs --baseline --to <آخر-مطبّق من سجل Netlify>` (انظر quickstart §5) | المالك/الإجراء |
 | 6 | إعادة نشر Vercel للإنتاج (يلتقط `DATABASE_URL`) + فحص كل الأدوار | Claude |
 | 7 | تشغيل `db-migrate` → `status` ثم `apply` لتطبيق M1 (بموافقة) | المالك يضغط |
 | 8 | ترقية الإنتاج لنسخة main الأحدث (الدفعتان 2 و3) | Claude |
