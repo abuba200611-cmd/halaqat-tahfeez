@@ -6,9 +6,15 @@ import { useParams } from "next/navigation";
 import { Badge, Button, Card, Empty } from "@/components/mosque/ui";
 import { ApiState, MosquePage, inputClass } from "@/components/mosque/mosque-page";
 import { callApi, useApi } from "@/components/mosque/use-api";
+import { Donut, HBarChart, Panel, TONES, type Tone } from "@/components/charts";
+import { safePct } from "@/lib/chart-series";
 import {
   DEFAULT_TEACHER_EVAL_CONFIG,
+  EVAL_STATE_LABELS,
   RECOMMENDATION_LABELS,
+  evalStateCounts,
+  teacherScoreBars,
+  type EvalStateKey,
   type EvalTerm,
   type IncentiveReport,
   type Recommendation,
@@ -89,6 +95,8 @@ export default function MosqueTeacherEvalPage() {
 
         {data && (
           <>
+            {data.teachers.length > 0 && <TeacherEvalCharts teachers={data.teachers} />}
+
             <section className="space-y-2">
               <h2 className="font-display text-lg font-bold">المعلّمون</h2>
               {data.teachers.length === 0 ? (
@@ -141,6 +149,53 @@ export default function MosqueTeacherEvalPage() {
 
 function money(n: number, currency: string): string {
   return `${n.toLocaleString("ar-SA", { maximumFractionDigits: 2 })} ${currency}`;
+}
+
+/* ————— رسوم التقييم (مواصفة 003) — من درجات الفترة نفسها: الأعمدة الأفقية للمكتمل، وحالات الجميع بالدونات ————— */
+
+const EVAL_STATE_TONES: Record<EvalStateKey, Tone> = {
+  renew: TONES.success,
+  renew_remedial: TONES.accent70,
+  not_recommended: TONES.destructive,
+  incomplete: TONES.accent25,
+};
+
+function TeacherEvalCharts({ teachers }: { teachers: ListData["teachers"] }) {
+  const scoreBars = teacherScoreBars(teachers);
+  const states = evalStateCounts(teachers);
+  const statesTotal = states.reduce((sum, s) => sum + s.count, 0);
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <Panel title="الدرجة الكلية لكل معلّم (المكتمل تقييمه)">
+        <HBarChart
+          ariaLabel={`الدرجة الكلية للتقييم لكل معلّم: ${scoreBars.map((b) => `${b.label} ${b.value}٪`).join("، ")}`}
+          bars={scoreBars.map((b) => ({
+            label: b.label,
+            value: b.value,
+            tone: b.value >= 70 ? TONES.success : TONES.accent70,
+            pct: true,
+          }))}
+        />
+      </Panel>
+
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <Panel title="حالات التقييم بالفترة">
+          <Donut
+            total={statesTotal}
+            centerLabel="معلّم"
+            ariaLabel={`حالات التقييم: ${states.map((s) => `${EVAL_STATE_LABELS[s.key]} ${s.count}`).join("، ")}`}
+            slices={states.map((s) => ({
+              label: EVAL_STATE_LABELS[s.key],
+              value: s.count,
+              pct: safePct(s.count, statesTotal),
+              tone: EVAL_STATE_TONES[s.key],
+            }))}
+          />
+        </Panel>
+      </div>
+    </div>
+  );
 }
 
 function IncentivesSection({ data }: { data: ListData }) {

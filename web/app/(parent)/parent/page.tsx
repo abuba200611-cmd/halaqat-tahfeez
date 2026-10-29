@@ -8,13 +8,15 @@ import { ParentHowToCard } from "@/components/parent-how-to";
 import { ParentPushToggle } from "@/components/parent-push-toggle";
 import { ParentWhatsappCard } from "@/components/parent-whatsapp-card";
 import { AttendanceSummaryCard } from "@/components/attendance-summary";
+import { AreaChart, Donut, Panel, TONES, type Tone } from "@/components/charts";
+import { safePct } from "@/lib/chart-series";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { MonthlyPlanCard } from "@/components/monthly-plan-card";
 import { RecitationCard } from "@/components/recitation-card";
 import { ParentDisciplineCard } from "@/components/parent-discipline-card";
 import type { RecitationView } from "@/lib/recitations";
 import type { PlanView } from "@/lib/monthly-plan";
-import type { ParentChildSummary } from "@/lib/parent-summary";
+import { wardStatusCounts, type ParentChildSummary } from "@/lib/parent-summary";
 import { JuzProgressCard } from "@/components/juz-progress";
 import { ReviewTrackCountsCard } from "@/components/review-track-bits";
 import { reviewTrackLabels, DEFAULT_REVIEW_TRACK_CONFIG, type ReviewTrackConfig } from "@/lib/review-track-config";
@@ -239,16 +241,7 @@ function ChildPanel({ child }: { child: Child }) {
         <p className="text-xs text-stone-500">حلقة «{child.halaqahName}»</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5">
-        <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
-          <div className="tabular text-xl font-bold text-accent-ink">{summary.streak}</div>
-          <div className="mt-0.5 text-[11px] text-stone-500">أيام متتالية</div>
-        </div>
-        <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
-          <div className="tabular text-xl font-bold text-success">{summary.pagesCovered}</div>
-          <div className="mt-0.5 text-[11px] text-stone-500">صفحة محفوظة</div>
-        </div>
-      </div>
+      <ChildCharts summary={summary} attendance={attendance} />
 
       <JuzProgressCard
         progress={summary.juzProgress}
@@ -268,8 +261,6 @@ function ChildPanel({ child }: { child: Child }) {
       )}
 
       <MonthlyPlanCard view={monthlyPlan} title="خطة هذا الشهر" />
-
-      <AttendanceSummaryCard summary={attendance} />
 
       <ParentDisciplineCard child={child} />
 
@@ -322,6 +313,61 @@ function ChildPanel({ child }: { child: Child }) {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+/*
+  رسوم متابعة الابن (مواصفة 003) — أوراده اليومية بعرض كامل أولاً، ثم
+  حضوره وحالات أوراده الأخيرة جنباً إلى جنب، كلها من مسارات الصفحة
+  نفسها (parent/child + parent/attendance) بلا أي طلب إضافي.
+*/
+
+/** ألوان حالات الورد — نفس دلالات القائمة أدناه (معتمد أخضر، الإعادة أحمر) */
+const WARD_STATUS_TONES: Record<keyof typeof STATUS_LABEL, Tone> = {
+  new: TONES.accent45,
+  seen: TONES.accent100,
+  approved: TONES.success,
+  needs_revision: TONES.destructive,
+};
+
+function ChildCharts({
+  summary,
+  attendance,
+}: {
+  summary: ParentChildSummary;
+  attendance: AttendanceSummary | null;
+}) {
+  const wardsTotal = summary.wardsDaily.reduce((sum, p) => sum + p.value, 0);
+  const statusCounts = wardStatusCounts(summary.wards);
+  const wardsCounted = statusCounts.reduce((sum, s) => sum + s.count, 0);
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <Panel title="أوراد الابن اليومية (٣٠ يوماً)">
+        <AreaChart
+          points={summary.wardsDaily}
+          ariaLabel={`أوراد الابن يومياً خلال آخر ٣٠ يوماً، الإجمالي ${wardsTotal} ورداً`}
+        />
+      </Panel>
+
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <AttendanceSummaryCard summary={attendance} />
+
+        <Panel title="حالات أوراد آخر ١٤ يوماً">
+          <Donut
+            total={wardsCounted}
+            centerLabel="ورد"
+            ariaLabel={`حالات أوراد آخر ١٤ يوماً: ${statusCounts.map((s) => `${STATUS_LABEL[s.status]} ${s.count}`).join("، ")}`}
+            slices={statusCounts.map((s) => ({
+              label: STATUS_LABEL[s.status],
+              value: s.count,
+              pct: safePct(s.count, wardsCounted),
+              tone: WARD_STATUS_TONES[s.status],
+            }))}
+          />
+        </Panel>
+      </div>
     </div>
   );
 }

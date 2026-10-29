@@ -24,7 +24,7 @@ export function MosqueChartsSection({ charts }: { charts: MosqueCharts }) {
   const studentsTotal = charts.studentsPerHalaqah.reduce((sum, b) => sum + b.value, 0);
 
   return (
-    <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+    <div className="space-y-3 sm:space-y-4">
       <Panel title="الأوراد اليومية (٣٠ يوماً)">
         <AreaChart
           points={charts.wardsDaily}
@@ -32,38 +32,40 @@ export function MosqueChartsSection({ charts }: { charts: MosqueCharts }) {
         />
       </Panel>
 
-      <Panel title="الطلاب في كل حلقة">
-        <HBarChart
-          ariaLabel={`عدد الطلاب في كل حلقة: ${charts.studentsPerHalaqah.map((h) => `${h.label} ${h.value}`).join("، ")}، الإجمالي ${studentsTotal}`}
-          bars={charts.studentsPerHalaqah.map((h) => ({ label: h.label, value: h.value, tone: TONES.accent100 }))}
-        />
-      </Panel>
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <Panel title="الطلاب في كل حلقة">
+          <HBarChart
+            ariaLabel={`عدد الطلاب في كل حلقة: ${charts.studentsPerHalaqah.map((h) => `${h.label} ${h.value}`).join("، ")}، الإجمالي ${studentsTotal}`}
+            bars={charts.studentsPerHalaqah.map((h) => ({ label: h.label, value: h.value, tone: TONES.accent100 }))}
+          />
+        </Panel>
 
-      <Panel title="نسبة الحضور لكل حلقة (٣٠ يوماً)">
-        <HBarChart
-          ariaLabel={`نسبة الحضور لكل حلقة خلال آخر ٣٠ يوماً: ${charts.attendancePerHalaqah.map((h) => `${h.label} ${h.value}٪`).join("، ")}`}
-          bars={charts.attendancePerHalaqah.map((h) => ({
-            label: h.label,
-            value: h.value,
-            tone: h.value >= 75 ? TONES.success : TONES.accent70,
-            pct: true,
-          }))}
-        />
-      </Panel>
+        <Panel title="نسبة الحضور لكل حلقة (٣٠ يوماً)">
+          <HBarChart
+            ariaLabel={`نسبة الحضور لكل حلقة خلال آخر ٣٠ يوماً: ${charts.attendancePerHalaqah.map((h) => `${h.label} ${h.value}٪`).join("، ")}`}
+            bars={charts.attendancePerHalaqah.map((h) => ({
+              label: h.label,
+              value: h.value,
+              tone: h.value >= 75 ? TONES.success : TONES.accent70,
+              pct: true,
+            }))}
+          />
+        </Panel>
 
-      <Panel title="توزيع الإتقان">
-        <Donut
-          total={charts.mastery.total}
-          centerLabel="طالب"
-          ariaLabel={`توزيع الإتقان على مستوى الجامع: ${charts.mastery.buckets.map((b) => `${b.label} ${b.count}`).join("، ")}`}
-          slices={charts.mastery.buckets.map((b) => ({
-            label: b.label,
-            value: b.count,
-            pct: safePct(b.count, charts.mastery.total),
-            tone: MASTERY_TONES[b.key],
-          }))}
-        />
-      </Panel>
+        <Panel title="توزيع الإتقان">
+          <Donut
+            total={charts.mastery.total}
+            centerLabel="طالب"
+            ariaLabel={`توزيع الإتقان على مستوى الجامع: ${charts.mastery.buckets.map((b) => `${b.label} ${b.count}`).join("، ")}`}
+            slices={charts.mastery.buckets.map((b) => ({
+              label: b.label,
+              value: b.count,
+              pct: safePct(b.count, charts.mastery.total),
+              tone: MASTERY_TONES[b.key],
+            }))}
+          />
+        </Panel>
+      </div>
     </div>
   );
 }

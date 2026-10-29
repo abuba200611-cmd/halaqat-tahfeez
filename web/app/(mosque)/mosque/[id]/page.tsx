@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { Badge, Button, Card, Empty, Stat } from "@/components/mosque/ui";
+import { Badge, Button, Card, Empty } from "@/components/mosque/ui";
 import { DashboardShell } from "@/components/mosque/shell";
 import { mosqueNavItems } from "@/components/mosque/mosque-nav";
 import { AgentChatPanel } from "@/components/mosque/agent-chat";
-import { BookIcon, LinkIcon, ShieldIcon, TrendUpIcon, UsersIcon } from "@/components/mosque/icons";
+import { BookIcon, LinkIcon, ShieldIcon } from "@/components/mosque/icons";
 
 import { BackButton } from "@/components/back-button";
+import { HBarChart, Panel, TONES } from "@/components/charts";
 import { MosqueChartsSection } from "@/components/mosque/mosque-charts";
 import type { MosqueCharts } from "@/lib/dashboard-charts-db";
 type Mosque = { id: number; name: string; city: string };
@@ -261,7 +262,7 @@ export default function MosqueDetailPage() {
   );
 }
 
-/** زيارات المشرف التربوي — متوسط درجة كل حلقة خلال آخر ٩٠ يوماً (بطاقة بسيطة) */
+/** زيارات المشرف التربوي — متوسط درجة كل حلقة خلال آخر ٩٠ يوماً (أعمدة أفقية) */
 function VisitAveragesCard({ mosqueId }: { mosqueId: number }) {
   const [data, setData] = useState<
     { halaqat: { halaqahId: number; halaqahName: string; visits: number; avgScore: number | null }[]; overall: number | null } | null | undefined
@@ -278,26 +279,28 @@ function VisitAveragesCard({ mosqueId }: { mosqueId: number }) {
   const withScore = data?.halaqat.filter((h) => h.avgScore !== null) ?? [];
 
   return (
-    <Card className="p-4">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">زيارات المشرف التربوي</h2>
-        {data?.overall !== null && data?.overall !== undefined && (
-          <Badge tone="good">متوسط الجامع {data.overall}٪</Badge>
-        )}
-      </div>
-      <p className="mb-3 text-xs text-muted-foreground">متوسط درجات الزيارات المنجزة لكل حلقة خلال آخر ٩٠ يوماً.</p>
+    <Panel
+      title="زيارات المشرف التربوي (٩٠ يوماً)"
+      action={
+        <Link href={`/mosque/${mosqueId}/supervisor-visits`} className="text-xs text-accent-ink hover:underline">
+          جدولة زيارة
+        </Link>
+      }
+    >
       {withScore.length === 0 ? (
-        <p className="text-xs text-muted-foreground">لا زيارات منجزة خلال الفترة — <Link href={`/mosque/${mosqueId}/supervisor-visits`} className="text-accent-ink hover:underline">جدولة زيارة</Link>.</p>
+        <p className="text-xs text-muted-foreground">لا زيارات منجزة خلال الفترة.</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          {withScore.map((h) => (
-            <Badge key={h.halaqahId} tone={h.avgScore !== null && h.avgScore >= 70 ? "good" : "warn"}>
-              {h.halaqahName}: {h.avgScore}٪ ({h.visits})
-            </Badge>
-          ))}
-        </div>
+        <HBarChart
+          ariaLabel={`متوسط درجات زيارات المشرف لكل حلقة خلال آخر ٩٠ يوماً: ${withScore.map((h) => `${h.halaqahName} ${h.avgScore}٪ من ${h.visits} زيارة`).join("، ")}`}
+          bars={withScore.map((h) => ({
+            label: h.halaqahName,
+            value: h.avgScore ?? 0,
+            tone: h.avgScore !== null && h.avgScore >= 70 ? TONES.success : TONES.accent70,
+            pct: true,
+          }))}
+        />
       )}
-    </Card>
+    </Panel>
   );
 }
 
@@ -578,9 +581,8 @@ function openManualAdd() {
 }
 
 /**
- * اللوحة الحقيقية — أرقام حية من قاعدة الحلقات (لا بيانات مخزّنة هنا)،
- * تُحدَّث كل ما فُتحت الصفحة. حلقة يفشل استعلامها تظهر بشارة بدل
- * ما تكسر الإجمالي.
+ * اللوحة الحقيقية — رسوم حية من قاعدة الحلقات (لا بيانات مخزّنة هنا)،
+ * تُحدَّث كل ما فُتحت الصفحة. حلقة يفشل استعلامها تُستثنى من التجميع.
  */
 function MosqueStatsSection({ mosqueId }: { mosqueId: number }) {
   const [stats, setStats] = useState<Stats | null | undefined>(undefined);
@@ -608,30 +610,9 @@ function MosqueStatsSection({ mosqueId }: { mosqueId: number }) {
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="الحلقات" value={stats.halaqahCount} icon={<BookIcon className="h-4 w-4" />} tone="primary" />
-        <Stat
-          label="الطلاب النشطون"
-          value={stats.totalActiveStudents}
-          hint="بكل حلقات الجامع"
-          icon={<UsersIcon className="h-4 w-4" />}
-        />
-        <Stat
-          label="متوسط الإتقان"
-          value={`${stats.avgMastery}٪`}
-          hint="محسوب من التسميعات"
-          icon={<TrendUpIcon className="h-4 w-4" />}
-        />
-        <Stat
-          label="إجمالي المحفوظ"
-          value={stats.totalPages.toLocaleString("en")}
-          hint="صفحة بالجامع كله"
-          icon={<BookIcon className="h-4 w-4" />}
-        />
-      </div>
       {stats.unreachableCount > 0 && (
         <p className="text-xs text-accent-ink">
-          تعذّر جلب إحصائيات {stats.unreachableCount} حلقة مؤقتاً — الإجمالي أعلاه يستثنيها.
+          تعذّر جلب إحصائيات {stats.unreachableCount} حلقة مؤقتاً واستُثنيت من الرسوم والجدول أدناه.
         </p>
       )}
 

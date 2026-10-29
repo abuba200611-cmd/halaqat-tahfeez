@@ -6,16 +6,18 @@ import { Badge, Card, Empty } from "@/components/mosque/ui";
 import { useApi } from "@/components/mosque/use-api";
 import { AssociationPage } from "@/components/association/association-page";
 import { MosqueChartsSection } from "@/components/mosque/mosque-charts";
+import { Donut, Panel, TONES } from "@/components/charts";
+import { safePct } from "@/lib/chart-series";
 import { PERMIT_STATUS_LABELS, type PermitStatus } from "@/lib/permits";
 import type { MosqueCharts } from "@/lib/dashboard-charts-db";
 import type { MosqueHalaqahRow } from "@/lib/association-db";
 import type { ExamStats } from "@/lib/mosque/exams-db";
 
 /*
-  A3 — عرض جامع من لوحة الجمعية، قراءة فقط: حلقاته وحضورها، وأقسام الاختبارات
-  والتصاريح إن كانت مفعّلة له. لا نماذج ولا أزرار تعديل هنا، والمسار نفسه
-  يردّ 404 لجامع ليس من جمعية الجلسة. رسوم الجامع (مواصفة 003) نفسها
-  هنا بمصدر بيانات الجمعية.
+  A3 — عرض جامع من لوحة الجمعية، قراءة فقط: رسومه أولاً ثم حلقاته وحضورها،
+  وأقسام الاختبارات والتصاريح إن كانت مفعّلة له. لا نماذج ولا أزرار تعديل
+  هنا، والمسار نفسه يردّ 404 لجامع ليس من جمعية الجلسة. رسوم الجامع
+  (مواصفة 003) نفسها هنا بمصدر بيانات الجمعية.
 */
 
 type MosqueView = {
@@ -56,6 +58,8 @@ export default function AssociationMosquePage() {
               {data.mosque.city ? `${data.mosque.city} · ` : ""}الفترة: {data.period.from} → {data.period.to}
             </p>
 
+            {data.charts && <MosqueChartsSection charts={data.charts} />}
+
             <section className="space-y-2">
               <h2 className="font-display text-lg font-bold">الحلقات</h2>
               {data.halaqat.length === 0 ? (
@@ -76,17 +80,10 @@ export default function AssociationMosquePage() {
               )}
             </section>
 
-            {data.charts && <MosqueChartsSection charts={data.charts} />}
-
             {data.exams && (
               <section className="space-y-2">
                 <h2 className="font-display text-lg font-bold">الاختبارات</h2>
-                <Card className="p-4 text-sm">
-                  <p className="tabular">
-                    جلسات: {data.exams.totals.sessions} · نتائج: {data.exams.totals.results} · ناجح: {data.exams.totals.passed}
-                    {data.exams.totals.passRate !== null ? ` (${data.exams.totals.passRate}%)` : ""}
-                  </p>
-                </Card>
+                <ExamResultsChart totals={data.exams.totals} />
                 {data.exams.byHalaqah.map((h) => (
                   <Card key={h.halaqahId} className="flex items-center justify-between gap-2 p-3 text-sm">
                     <span>{h.name}</span>
@@ -120,5 +117,23 @@ export default function AssociationMosquePage() {
         )}
       </div>
     </AssociationPage>
+  );
+}
+
+/** نتيجة اختبارات الجامع بالفترة — دونات ناجح/غير ناجح من أرقام المسار نفسها */
+function ExamResultsChart({ totals }: { totals: ExamStats["totals"] }) {
+  const failed = Math.max(totals.results - totals.passed, 0);
+  return (
+    <Panel title="نتائج الاختبارات (خلال الفترة)">
+      <Donut
+        total={totals.results}
+        centerLabel="نتيجة"
+        ariaLabel={`نتائج الاختبارات خلال الفترة: ناجح ${totals.passed}، غير ناجح ${failed}`}
+        slices={[
+          { label: "ناجح", value: totals.passed, pct: safePct(totals.passed, totals.results), tone: TONES.success },
+          { label: "غير ناجح", value: failed, pct: safePct(failed, totals.results), tone: TONES.accent45 },
+        ]}
+      />
+    </Panel>
   );
 }

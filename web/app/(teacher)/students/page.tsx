@@ -3,21 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge, Button, Card, Empty } from "@/components/ui";
-import {
-  BookIcon,
-  CalendarIcon,
-  ClipboardIcon,
-  PlusIcon,
-  SearchIcon,
-  UsersIcon,
-} from "@/components/icons";
+import { PlusIcon, SearchIcon } from "@/components/icons";
 import { LinkPanel } from "@/components/link-button";
 import { ParentInviteLink } from "@/components/parent-invite-link";
 import { pageCount, studentJuzes } from "@/lib/pairing";
 import { juzLabel, juzToPages } from "@/lib/quran";
-import { avgMastery, computeStudentStats, masteredCount } from "@/lib/students-stats";
+import { avgMastery } from "@/lib/students-stats";
 import { StudentsPanels } from "@/components/students-dashboard/panels";
-import { Chip, softCardClass } from "@/components/students-dashboard/panel";
+import { softCardClass } from "@/components/students-dashboard/panel";
 import { AreaChart, Panel } from "@/components/charts";
 import type { DailyPoint } from "@/lib/chart-series";
 import { useStudents } from "@/lib/store";
@@ -176,15 +169,6 @@ export default function StudentsPage() {
     return [...list].sort((a, b) => pageCount(b) - pageCount(a));
   }, [students, query]);
 
-  const stats = useMemo(
-    () => computeStudentStats({ students, attendance, fees }),
-    [students, attendance, fees],
-  );
-  const mastered = useMemo(() => masteredCount(students), [students]);
-  const absentTotal = useMemo(
-    () => Object.values(attendance).reduce((sum, s) => sum + s.absent, 0),
-    [attendance],
-  );
   const wardsTotal = useMemo(() => wardsDaily.reduce((sum, p) => sum + p.value, 0), [wardsDaily]);
 
   if (loading) {
@@ -223,29 +207,6 @@ export default function StudentsPage() {
         الطلاب <span className="tabular text-base font-normal text-muted-foreground">({students.length})</span>
       </h1>
 
-      <div
-        className={`grid grid-cols-2 gap-3 sm:gap-4 ${
-          stats.feesOutstanding === null ? "lg:grid-cols-3" : "lg:grid-cols-4"
-        }`}
-      >
-        <StatCard icon={<UsersIcon size={20} />} label="عدد الطلاب" value={stats.total} />
-        <StatCard
-          icon={<CalendarIcon size={20} />}
-          label="متوسط الحضور (٣٠ يوماً)"
-          value={stats.avgAttendance === null ? "—" : `${stats.avgAttendance}٪`}
-          chip={absentTotal > 0 ? <Chip tone="destructive">غياب {absentTotal}</Chip> : undefined}
-        />
-        <StatCard
-          icon={<BookIcon size={20} />}
-          label="متوسط الإتقان"
-          value={stats.avgMastery === null ? "—" : `${stats.avgMastery}٪`}
-          chip={mastered > 0 ? <Chip tone="success" arrow="up">{mastered} متقن</Chip> : undefined}
-        />
-        {stats.feesOutstanding !== null && (
-          <StatCard icon={<ClipboardIcon size={20} />} label="رسوم مستحقة" value={stats.feesOutstanding} />
-        )}
-      </div>
-
       <Panel title="أوراد الحلقة اليومية (٣٠ يوماً)">
         <AreaChart
           points={wardsDaily}
@@ -253,7 +214,7 @@ export default function StudentsPage() {
         />
       </Panel>
 
-      <StudentsPanels students={students} attendance={attendance} fees={fees} avgAttendance={stats.avgAttendance} />
+      <StudentsPanels students={students} attendance={attendance} fees={fees} />
 
       <div className={`no-print flex flex-wrap items-center gap-2 p-3 ${softCardClass}`}>
         <div className="relative min-w-40 flex-1 sm:max-w-xs">
@@ -455,32 +416,6 @@ export default function StudentsPage() {
       {filtered.length === 0 && (
         <p className="py-6 text-center text-sm text-muted-foreground">لا نتائج مطابقة للبحث.</p>
       )}
-    </div>
-  );
-}
-
-/** بطاقة إحصائية علوية — أيقونة بدائرة بيج فاتح، رقم كبير، ووصف صغير */
-function StatCard({
-  icon,
-  label,
-  value,
-  chip,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  chip?: React.ReactNode;
-}) {
-  return (
-    <div className={`${softCardClass} p-4 sm:p-5`}>
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
-        {icon}
-      </span>
-      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="tabular text-2xl font-semibold text-foreground sm:text-3xl">{value}</span>
-        {chip}
-      </div>
-      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }

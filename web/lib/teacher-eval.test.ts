@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_PERMITS_CONFIG, academicYearStart, addDaysISO } from "./permits";
 import {
   DEFAULT_TEACHER_EVAL_CONFIG,
+  EVAL_STATE_LABELS,
   computeEvaluationTotal,
   computeIncentives,
   computeProductivity,
+  evalStateCounts,
   isKhatm,
   mergeTeacherEvalConfig,
   parseAbsenceDays,
@@ -14,7 +16,9 @@ import {
   periodKey,
   periodRange,
   recommendationFor,
+  teacherScoreBars,
   type PassedExam,
+  type TeacherEvalRow,
 } from "./teacher-eval";
 
 const CFG = DEFAULT_TEACHER_EVAL_CONFIG;
@@ -206,5 +210,66 @@ describe("الإعدادات والمدخلات", () => {
     expect(Number.isNaN(parseAbsenceDays(-1))).toBe(true);
     expect(Number.isNaN(parseAbsenceDays(367))).toBe(true);
     expect(Number.isNaN(parseAbsenceDays(1.5))).toBe(true);
+  });
+});
+
+// ————— رسوم صفحة التقييم (مواصفة 003) —————
+
+function row(
+  id: number,
+  name: string,
+  totalPct: number | null,
+  recommendation: NonNullable<TeacherEvalRow["evaluation"]>["recommendation"],
+): TeacherEvalRow {
+  return { id, name, evaluation: { totalPct, recommendation } };
+}
+
+describe("teacherScoreBars (أعمدة درجات المعلّمين)", () => {
+  it("المكتمل تقييمه فقط، الأعلى درجة أولاً ثم بالاسم عند التساوي", () => {
+    const bars = teacherScoreBars([
+      row(1, "أحمد", 72, "renew"),
+      row(2, "بدر", null, null),
+      row(3, "سعد", 88, "renew"),
+      row(4, "وليد", 88, "renew_remedial"),
+    ]);
+    expect(bars).toEqual([
+      { label: "سعد", value: 88 },
+      { label: "وليد", value: 88 },
+      { label: "أحمد", value: 72 },
+    ]);
+  });
+
+  it("درجة بلا توصية تظهر أيضاً — الرسم للدرجة لا للتوصية", () => {
+    const bars = teacherScoreBars([row(1, "أحمد", 65, null), row(2, "بدر", null, "renew")]);
+    expect(bars).toEqual([{ label: "أحمد", value: 65 }]);
+  });
+
+  it("لا أحد اكتمل تقييمه = لا أعمدة", () => {
+    expect(teacherScoreBars([row(1, "أحمد", null, null), row(2, "بدر", null, null)])).toEqual([]);
+    expect(teacherScoreBars([])).toEqual([]);
+  });
+});
+
+describe("evalStateCounts (دونات حالات التقييم)", () => {
+  it("المكتملون بتوصيتهم والباقي «لم يكتمل» — كل الحالات دائماً", () => {
+    const counts = evalStateCounts([
+      row(1, "أحمد", 90, "renew"),
+      row(2, "بدر", 65, "renew_remedial"),
+      row(3, "سعد", 40, "not_recommended"),
+      row(4, "وليد", null, null),
+      row(5, "ياسر", 70, null),
+    ]);
+    expect(counts).toEqual([
+      { key: "renew", count: 1 },
+      { key: "renew_remedial", count: 1 },
+      { key: "not_recommended", count: 1 },
+      { key: "incomplete", count: 2 },
+    ]);
+    expect(EVAL_STATE_LABELS.incomplete).toBe("لم يكتمل التقييم");
+  });
+
+  it("مجموع الحالات = عدد المعلّمين مهما كانت بياناتهم", () => {
+    const teachers = [row(1, "أحمد", null, null), row(2, "بدر", 50, "not_recommended")];
+    expect(evalStateCounts(teachers).reduce((s, c) => s + c.count, 0)).toBe(teachers.length);
   });
 });

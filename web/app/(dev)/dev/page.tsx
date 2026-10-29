@@ -38,35 +38,14 @@ export default function DevOverviewPage() {
     );
   }
 
-  const stats: [string, number | string][] = [
-    ["الجوامع", data.counts.mosques],
-    ["الحلقات", data.counts.halaqahs],
-    ["المعلّمون الفعّالون", data.counts.teachersActive],
-    ["الطلاب الفعّالون", data.counts.studentsActive],
-    ["أولياء الأمور", data.counts.parents],
-    ["تسجيلات بانتظار التوزيع", data.counts.registrationsPending],
-    ["أوراد آخر ٧ أيام", data.counts.wardsLast7Days],
-    ["حجم القاعدة", data.dbSize],
-  ];
-
   return (
     <div className="space-y-5">
       <div>
         <h1 className="font-display text-2xl font-bold">نظرة عامة</h1>
-        <p className="text-sm text-muted-foreground">أرقام المنصة الآن — قاعدة البيانات {data.dbName}</p>
+        <p className="text-sm text-muted-foreground">نشاط المنصة — قاعدة البيانات {data.dbName}</p>
       </div>
 
-      {/* الرسوم أولاً ثم الأرقام — طلب المالك: الأرقام تنزل تحت كل الرسوم */}
       {data.charts && <DevChartsSection charts={data.charts} />}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map(([label, value]) => (
-          <Card key={label} className="px-4 py-3">
-            <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="tabular mt-1 text-2xl font-bold">{value}</div>
-          </Card>
-        ))}
-      </div>
 
       <Card className="p-4">
         <h2 className="mb-2 text-sm font-semibold">آخر نشر</h2>
@@ -97,7 +76,7 @@ function DevChartsSection({
   const registrationsTotal = charts.registrations.reduce((sum, r) => sum + r.value, 0);
 
   return (
-    <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+    <div className="space-y-3 sm:space-y-4">
       <Panel title="الأوراد اليومية (٣٠ يوماً)">
         <AreaChart
           points={charts.wardsDaily}
@@ -105,33 +84,35 @@ function DevChartsSection({
         />
       </Panel>
 
-      <Panel title="طلاب جدد أسبوعياً (١٢ أسبوعاً)">
-        <BarChart
-          ariaLabel={`الطلاب الجدد أسبوعياً خلال آخر ١٢ أسبوعاً، الإجمالي ${newStudentsTotal} طالباً`}
-          bars={charts.newStudentsWeekly.map((b) => ({ label: b.label, value: b.value, tone: TONES.accent100 }))}
-        />
-      </Panel>
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <Panel title="طلاب جدد أسبوعياً (١٢ أسبوعاً)">
+          <BarChart
+            ariaLabel={`الطلاب الجدد أسبوعياً خلال آخر ١٢ أسبوعاً، الإجمالي ${newStudentsTotal} طالباً`}
+            bars={charts.newStudentsWeekly.map((b) => ({ label: b.label, value: b.value, tone: TONES.accent100 }))}
+          />
+        </Panel>
 
-      <Panel title="أكثر الجوامع طلاباً فعّالين">
-        <HBarChart
-          ariaLabel={`مقارنة الجوامع بالطلاب الفعّالين: ${charts.topMosques.map((m) => `${m.label} ${m.value}`).join("، ")}`}
-          bars={charts.topMosques.map((m) => ({ label: m.label, value: m.value, tone: TONES.accent70 }))}
-        />
-      </Panel>
+        <Panel title="حالات التسجيلات">
+          <Donut
+            total={registrationsTotal}
+            centerLabel="تسجيل"
+            ariaLabel={`حالات التسجيلات: ${charts.registrations.map((r) => `${r.label} ${r.value}`).join("، ")}`}
+            slices={charts.registrations.map((r, i) => ({
+              label: r.label,
+              value: r.value,
+              pct: safePct(r.value, registrationsTotal),
+              tone: REGISTRATION_TONES[i] ?? TONES.accent25,
+            }))}
+          />
+        </Panel>
 
-      <Panel title="حالات التسجيلات">
-        <Donut
-          total={registrationsTotal}
-          centerLabel="تسجيل"
-          ariaLabel={`حالات التسجيلات: ${charts.registrations.map((r) => `${r.label} ${r.value}`).join("، ")}`}
-          slices={charts.registrations.map((r, i) => ({
-            label: r.label,
-            value: r.value,
-            pct: safePct(r.value, registrationsTotal),
-            tone: REGISTRATION_TONES[i] ?? TONES.accent25,
-          }))}
-        />
-      </Panel>
+        <Panel title="أكثر الجوامع طلاباً فعّالين">
+          <HBarChart
+            ariaLabel={`مقارنة الجوامع بالطلاب الفعّالين: ${charts.topMosques.map((m) => `${m.label} ${m.value}`).join("، ")}`}
+            bars={charts.topMosques.map((m) => ({ label: m.label, value: m.value, tone: TONES.accent70 }))}
+          />
+        </Panel>
+      </div>
     </div>
   );
 }

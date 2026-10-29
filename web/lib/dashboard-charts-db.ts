@@ -48,6 +48,26 @@ export async function wardsDailyFor(halaqahId: number, today = riyadhTodayISO())
   return fillDailySeries(rows.map((r) => ({ date: r.date as string, value: Number(r.value ?? 0) })), from, today);
 }
 
+/**
+ * سلسلة أوراد يومية لطالب واحد (لوحة الطالب) — آخر ٣٠ يوماً بكل حالات
+ * الورد، أرقام مجمّعة فقط تُضاف لمسار /api/wards/mine القائم.
+ */
+export async function studentWardsDaily(
+  teacherId: number,
+  studentId: string,
+  today = riyadhTodayISO(),
+): Promise<DailyPoint[]> {
+  const from = windowFrom(today, WARDS_WINDOW_DAYS);
+  const rows = await db().sql`
+    SELECT date, COUNT(*)::int AS value
+    FROM ward_logs
+    WHERE teacher_id = ${teacherId} AND student_id = ${studentId}
+      AND date >= ${from} AND date <= ${today}
+    GROUP BY date
+  `;
+  return fillDailySeries(rows.map((r) => ({ date: r.date as string, value: Number(r.value ?? 0) })), from, today);
+}
+
 // ————— لوحة المطوّر (القصة 2) —————
 
 /** تسميات حالات التسجيلات بترتيب العرض (قيم status بجدول mosque_registrations) */

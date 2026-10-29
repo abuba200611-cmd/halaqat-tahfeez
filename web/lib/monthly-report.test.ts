@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMonthlySummaries } from "./monthly-report";
+import { buildMonthlySummaries, monthlyBars } from "./monthly-report";
 import type { WardLog, WardStatus } from "./types";
 
 let nextId = 1;
@@ -95,5 +95,35 @@ describe("buildMonthlySummaries (STEP 53)", () => {
     expect(summary.hifzPages).toBe(0);
     expect(summary.reviewPages).toBe(5);
     expect(summary.totalPages).toBe(5);
+  });
+});
+
+describe("monthlyBars (أعمدة الرسوم الشهرية — مواصفة 003)", () => {
+  it("يرتّب النافذة أقدم→أحدث (أول عمود يميناً) ويأخذ أحدث maxMonths فقط", () => {
+    // المدخل أحدث أولاً — كما ترجعه المسارات وبناء الملخصات
+    const months = ["2026-03", "2026-02", "2026-01", "2025-12", "2025-11", "2025-10"].map((key) => ({
+      key,
+      pages: Number(key.slice(0, 4)) + Number(key.slice(5, 7)),
+    }));
+    const bars = monthlyBars(months, (m) => m.pages, 3);
+    expect(bars.map((b) => b.value)).toEqual([2027, 2028, 2029]); // 2026-01, 2026-02, 2026-03
+  });
+
+  it("تسمية الشهر القصيرة، وتضاف السنة عند تكرار اسم الشهر بالنافذة", () => {
+    const year = ["2026-01", "2025-01"].map((key) => ({ key, value: 1 }));
+    expect(monthlyBars(year, (m) => m.value).map((b) => b.label)).toEqual(["ينا 2025", "ينا 2026"]);
+
+    const sameYear = ["2026-02", "2026-01"].map((key) => ({ key, value: 1 }));
+    expect(monthlyBars(sameYear, (m) => m.value).map((b) => b.label)).toEqual(["ينا", "فبر"]);
+  });
+
+  it("يعمل مع أي صف يحمل key شهرياً — ملخص الطالب وتقرير الحلقة سواء", () => {
+    // تقرير الحلقة (صفحة التقارير) لا يحمل year/month — key وحده يكفي
+    const bars = monthlyBars([{ key: "2026-05", hifzPages: 9 }], (m) => m.hifzPages);
+    expect(bars).toEqual([{ label: "ماي", value: 9 }]);
+  });
+
+  it("نافذة فارغة = لا أعمدة", () => {
+    expect(monthlyBars([], () => 0)).toEqual([]);
   });
 });

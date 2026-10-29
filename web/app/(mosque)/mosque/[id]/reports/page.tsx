@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Badge, Button, Card, Empty, Stat } from "@/components/mosque/ui";
+import { Badge, Button, Card, Empty } from "@/components/mosque/ui";
 import { ApiState, MosquePage, inputClass } from "@/components/mosque/mosque-page";
 import { useApi } from "@/components/mosque/use-api";
+import { BarChart, HBarChart, Panel, TONES } from "@/components/charts";
 import { PERIOD_CHOICES, periodLabel, type PeriodChoice } from "@/lib/mosque/report-periods";
 
 type TopRow = { name: string; total: number; maxTotal: number; percent: number };
@@ -125,7 +126,7 @@ function ReportsSection({ mosqueId }: { mosqueId: number }) {
 }
 
 function ReportBody({ data }: { data: ReportData }) {
-  const { kpis, enabled } = data;
+  const { enabled } = data;
   const disabled = (key: keyof ReportData["enabled"], label: string) =>
     !enabled[key] ? <Empty title={`${label} غير مفعّلة — فعّلها من الإعدادات ليظهر قسمها بالتقرير.`} /> : null;
 
@@ -140,28 +141,11 @@ function ReportBody({ data }: { data: ReportData }) {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="الحلقات" value={kpis.halaqatCount} />
-        <Stat label="الطلاب النشطون" value={kpis.activeStudents} hint="من حلقات الجامع" />
-        {enabled.registration && <Stat label="تسجيلات بانتظار التوزيع" value={kpis.pendingRegistrations} />}
-        {enabled.families && <Stat label="الأسر" value={kpis.familiesCount} />}
-        {enabled.committees && (
-          <Stat label="اللجان" value={kpis.committeesCount} hint={`${kpis.openTasks} مهمة مفتوحة`} />
-        )}
-        {enabled.weekly_evaluation && (
-          <Stat
-            label="متوسط التقييم"
-            value={kpis.evaluationsAvgPercent === null ? "—" : `${kpis.evaluationsAvgPercent}٪`}
-            hint="نسبة الدرجات من العظمى"
-          />
-        )}
-        {enabled.badges && <Stat label="الأوسمة الممنوحة" value={kpis.badgesAwarded} hint="خلال الفترة" />}
-        {kpis.activities !== null && <Stat label="الأنشطة" value={kpis.activities} hint="خلال الفترة" />}
-      </div>
+      <ReportCharts data={data} />
 
-      {kpis.unreachableHalaqat > 0 && (
+      {data.kpis.unreachableHalaqat > 0 && (
         <p className="text-xs text-accent-ink">
-          تعذّر جلب إحصائيات {kpis.unreachableHalaqat} حلقة — استُثنيت من الإجمالي.
+          تعذّر جلب إحصائيات {data.kpis.unreachableHalaqat} حلقة — استُثنيت من الرسوم والجدول.
         </p>
       )}
 
@@ -248,6 +232,57 @@ function ReportBody({ data }: { data: ReportData }) {
         </TableCard>
       ) : (
         disabled("badges", "ميزة الأوسمة")
+      )}
+    </div>
+  );
+}
+
+/** رسوم التقرير من أرقامه نفسها: مقارنة الحلقات (طلاب/حضور/إتقان) والأوسمة */
+function ReportCharts({ data }: { data: ReportData }) {
+  const halaqat = data.halaqat.filter((h) => h.activeStudents !== null);
+  const withAttendance = data.halaqat.filter((h) => h.metrics?.attendanceRate != null);
+  const withMastery = data.halaqat.filter((h) => h.avgMastery !== null);
+
+  return (
+    <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+      <Panel title="الطلاب النشطون لكل حلقة" className="lg:col-span-2">
+        <HBarChart
+          ariaLabel={`الطلاب النشطون لكل حلقة: ${halaqat.map((h) => `${h.name} ${h.activeStudents}`).join("، ")}`}
+          bars={halaqat.map((h) => ({ label: h.name, value: h.activeStudents ?? 0, tone: TONES.accent100 }))}
+        />
+      </Panel>
+
+      <Panel title="نسبة الحضور لكل حلقة">
+        <HBarChart
+          ariaLabel={`نسبة الحضور لكل حلقة خلال الفترة: ${withAttendance.map((h) => `${h.name} ${Math.round(h.metrics?.attendanceRate ?? 0)}٪`).join("، ")}`}
+          bars={withAttendance.map((h) => ({
+            label: h.name,
+            value: Math.round(h.metrics?.attendanceRate ?? 0),
+            tone: (h.metrics?.attendanceRate ?? 0) >= 75 ? TONES.success : TONES.accent70,
+            pct: true,
+          }))}
+        />
+      </Panel>
+
+      <Panel title="متوسط الإتقان لكل حلقة">
+        <HBarChart
+          ariaLabel={`متوسط الإتقان لكل حلقة: ${withMastery.map((h) => `${h.name} ${h.avgMastery}٪`).join("، ")}`}
+          bars={withMastery.map((h) => ({
+            label: h.name,
+            value: h.avgMastery ?? 0,
+            tone: (h.avgMastery ?? 0) >= 75 ? TONES.success : TONES.accent70,
+            pct: true,
+          }))}
+        />
+      </Panel>
+
+      {data.enabled.badges && (
+        <Panel title="الأوسمة الممنوحة خلال الفترة">
+          <BarChart
+            ariaLabel={`الأوسمة الممنوحة: ${data.badges.map((b) => `${b.name} ${b.count}`).join("، ")}`}
+            bars={data.badges.map((b) => ({ label: b.name, value: b.count, tone: TONES.accent70 }))}
+          />
+        </Panel>
       )}
     </div>
   );

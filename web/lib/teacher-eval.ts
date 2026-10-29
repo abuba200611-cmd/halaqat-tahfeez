@@ -277,6 +277,46 @@ export function recommendationFor(totalPct: number | null, thresholds: EvalThres
   return "not_recommended";
 }
 
+// ————— رسوم صفحة تقييم المعلّمين —————
+
+/** سطر معلّم كما ترده لوحة التقييم — الحدود الدنيا التي تحتاجها الرسوم فقط */
+export type TeacherEvalRow = {
+  id: number;
+  name: string;
+  evaluation: { totalPct: number | null; recommendation: Recommendation | null } | null;
+};
+
+export type EvalStateKey = Recommendation | "incomplete";
+
+export const EVAL_STATE_LABELS: Record<EvalStateKey, string> = {
+  ...RECOMMENDATION_LABELS,
+  incomplete: "لم يكتمل التقييم",
+};
+
+/** أعمدة درجات المعلّمين: من اكتمل تقييمه فقط، الأعلى درجة أولاً (وعند التساوي بالاسم لثبات الترتيب) */
+export function teacherScoreBars(teachers: TeacherEvalRow[]): { label: string; value: number }[] {
+  return teachers
+    .filter((t) => t.evaluation?.totalPct != null)
+    .map((t) => ({ label: t.name, value: t.evaluation?.totalPct ?? 0 }))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label, "ar"));
+}
+
+/** عدد المعلّمين بكل حالة تقييم — المكتملون بتوصيتهم، والباقي «لم يكتمل» (بلا تقييم أو ناقص أو بلا توصية) */
+export function evalStateCounts(teachers: TeacherEvalRow[]): { key: EvalStateKey; count: number }[] {
+  const counts: Record<EvalStateKey, number> = {
+    renew: 0,
+    renew_remedial: 0,
+    not_recommended: 0,
+    incomplete: 0,
+  };
+  for (const t of teachers) {
+    const rec = t.evaluation?.recommendation;
+    if (rec) counts[rec] += 1;
+    else counts.incomplete += 1;
+  }
+  return (Object.keys(counts) as EvalStateKey[]).map((key) => ({ key, count: counts[key] }));
+}
+
 // ————— الإنتاجية والحوافز —————
 
 /** نتيجة اختبار مجتازة مصغَّرة — تكفي لحساب الإنتاجية والحوافز */

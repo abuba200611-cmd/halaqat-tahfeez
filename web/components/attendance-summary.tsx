@@ -1,28 +1,37 @@
+import { Donut, Panel, TONES } from "@/components/charts";
+import { safePct } from "@/lib/chart-series";
 import type { AttendanceSummary } from "@/lib/attendance";
 
-/** بطاقة صغيرة لحضور آخر ٣٠ يوماً — تُستخدم عند الطالب وولي الأمر (قراءة فقط) */
+/*
+  حضور آخر ٣٠ يوماً (عند الطالب وولي الأمر، قراءة فقط) — دونات من المكتبة
+  المشتركة بدل بطاقات الأرقام: المجموع في المنتصف والحالات بمفتاح الرسم.
+*/
+
+/** حالات الحضور بالترتيب وألوانها — نفس ترتيب لوحة المعلّم */
+const MARKS: { key: keyof Pick<AttendanceSummary, "present" | "late" | "excused" | "absent">; label: string; tone: typeof TONES.success }[] = [
+  { key: "present", label: "حاضر", tone: TONES.success },
+  { key: "late", label: "متأخر", tone: TONES.accent100 },
+  { key: "excused", label: "مستأذن", tone: TONES.accent45 },
+  { key: "absent", label: "غائب", tone: TONES.destructive },
+];
+
 export function AttendanceSummaryCard({ summary }: { summary: AttendanceSummary | null }) {
-  if (!summary || summary.days === 0) return null;
+  const marks = summary ?? { present: 0, late: 0, excused: 0, absent: 0 };
+  const total = marks.present + marks.late + marks.excused + marks.absent;
+
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-4">
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold text-stone-700">الحضور — آخر ٣٠ يوماً</h2>
-        <span className="tabular text-xs text-stone-500">{summary.days} يوم محسوب</span>
-      </div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div>
-          <div className="tabular text-xl font-bold text-success">{summary.presentPct}٪</div>
-          <div className="text-[11px] text-stone-500">نسبة الحضور</div>
-        </div>
-        <div>
-          <div className="tabular text-xl font-bold text-destructive">{summary.absent}</div>
-          <div className="text-[11px] text-stone-500">غياب</div>
-        </div>
-        <div>
-          <div className="tabular text-xl font-bold text-accent-ink">{summary.late}</div>
-          <div className="text-[11px] text-stone-500">تأخر</div>
-        </div>
-      </div>
-    </div>
+    <Panel title="الحضور (٣٠ يوماً)">
+      <Donut
+        total={total}
+        centerLabel="تسجيل"
+        ariaLabel={`الحضور خلال ٣٠ يوماً: ${MARKS.map((m) => `${m.label} ${marks[m.key]}`).join("، ")}`}
+        slices={MARKS.map((m) => ({
+          label: m.label,
+          value: marks[m.key],
+          pct: safePct(marks[m.key], total),
+          tone: m.tone,
+        }))}
+      />
+    </Panel>
   );
 }

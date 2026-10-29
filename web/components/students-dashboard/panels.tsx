@@ -1,6 +1,6 @@
 import { Donut } from "./donut";
 import { BarChart } from "./bar-chart";
-import { Chip, Dot, Panel, PanelEmpty, TONES, pillClass, type Tone } from "./panel";
+import { Dot, Panel, PanelEmpty, TONES, pillClass, type Tone } from "./panel";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { STATUS_LABELS, type FeeStatus } from "@/lib/fees";
 import {
@@ -31,12 +31,10 @@ export function StudentsPanels({
   students,
   attendance,
   fees,
-  avgAttendance,
 }: {
   students: Student[];
   attendance: Record<string, AttendanceSummary>;
   fees: Record<string, { status: FeeStatus }> | null;
-  avgAttendance: number | null;
 }) {
   const mastery = masteryDistribution(students);
   const totals = attendanceTotals(attendance);
@@ -62,27 +60,15 @@ export function StudentsPanels({
         {totalMarks === 0 ? (
           <PanelEmpty />
         ) : (
-          <>
-            <div className="mb-2 flex items-center gap-2">
-              <span className="tabular text-2xl font-semibold text-foreground">
-                {avgAttendance === null ? "—" : `${avgAttendance}٪`}
-              </span>
-              {avgAttendance !== null && (
-                <Chip tone={avgAttendance >= 75 ? "success" : "neutral"} arrow={avgAttendance >= 75 ? "up" : undefined}>
-                  متوسط الحضور
-                </Chip>
-              )}
-            </div>
-            <BarChart
-              ariaLabel={`الحضور خلال ٣٠ يوماً: حاضر ${totals.present}، متأخر ${totals.late}، مستأذن ${totals.excused}، غائب ${totals.absent}`}
-              bars={[
-                { label: "حاضر", value: totals.present, tone: TONES.success },
-                { label: "متأخر", value: totals.late, tone: TONES.accent100 },
-                { label: "مستأذن", value: totals.excused, tone: TONES.accent45 },
-                { label: "غائب", value: totals.absent, tone: TONES.destructive },
-              ]}
-            />
-          </>
+          <BarChart
+            ariaLabel={`الحضور خلال ٣٠ يوماً: حاضر ${totals.present}، متأخر ${totals.late}، مستأذن ${totals.excused}، غائب ${totals.absent}`}
+            bars={[
+              { label: "حاضر", value: totals.present, tone: TONES.success },
+              { label: "متأخر", value: totals.late, tone: TONES.accent100 },
+              { label: "مستأذن", value: totals.excused, tone: TONES.accent45 },
+              { label: "غائب", value: totals.absent, tone: TONES.destructive },
+            ]}
+          />
         )}
       </Panel>
 

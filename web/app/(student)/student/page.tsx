@@ -9,13 +9,16 @@ import { useStudentWards } from "@/components/use-student-wards";
 import { useStudentSession } from "@/components/student-gate";
 import { ParentInviteLink } from "@/components/parent-invite-link";
 import { AttendanceSummaryCard } from "@/components/attendance-summary";
+import { AreaChart, BarChart, Panel, TONES } from "@/components/charts";
+import { monthlyBars, type MonthlySummary } from "@/lib/monthly-report";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { MonthlyPlanCard } from "@/components/monthly-plan-card";
 import type { PlanView } from "@/lib/monthly-plan";
+import type { DailyPoint } from "@/lib/chart-series";
 import { canEditWard } from "@/lib/ward-ayah";
 import { riyadhTodayISO } from "@/lib/riyadh-date";
 import { surahName } from "@/lib/quran-surahs";
-import { computeStreak, latestHifzProgress, STATUS_LABEL } from "@/lib/student-ward-display";
+import { latestHifzProgress } from "@/lib/student-ward-display";
 import { JuzProgressCard } from "@/components/juz-progress";
 import { ReviewTrackCountsCard } from "@/components/review-track-bits";
 import type { JuzProgress } from "@/lib/juz-progress";
@@ -207,19 +210,15 @@ function useMyProgress(): {
 export default function StudentDashboardPage() {
   const router = useRouter();
   const student = useStudentSession();
-  const { logs, loadingLogs, months, loadingMonths, reviewTrackConfig, unit } = useStudentWards();
+  const { logs, loadingLogs, months, loadingMonths, reviewTrackConfig, unit, wardsDaily } = useStudentWards();
   const reminderEnabled = useReminderEnabled();
   const attendance = useMyAttendance();
   const monthlyPlan = useMyPlan();
 
   const today = riyadhTodayISO();
-  const thisMonthKey = today.slice(0, 7);
-  const thisMonth = months.find((m) => m.key === thisMonthKey) ?? null;
   const myProgress = useMyProgress();
 
-  const streak = useMemo(() => computeStreak(logs.map((l) => l.date), today), [logs, today]);
   const loggedToday = logs.some((l) => l.date === today);
-  const lastLog = logs[0] ?? null;
   const lastHifz = useMemo(() => latestHifzProgress(logs), [logs]);
   const editableLastLogs = logs.slice(0, 5);
 
@@ -276,24 +275,7 @@ export default function StudentDashboardPage() {
             </Link>
           )}
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
-              <div className="tabular text-xl font-bold text-success">{thisMonth?.hifzPages ?? 0}</div>
-              <div className="mt-0.5 text-[11px] text-stone-500">صفحات حفظ هذا الشهر</div>
-            </div>
-            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
-              <div className="tabular text-xl font-bold text-accent-ink">{thisMonth?.reviewPages ?? 0}</div>
-              <div className="mt-0.5 text-[11px] text-stone-500">صفحات مراجعة هذا الشهر</div>
-            </div>
-            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
-              <div className="tabular text-xl font-bold text-accent-ink">{streak}</div>
-              <div className="mt-0.5 text-[11px] text-stone-500">أيام متتالية</div>
-            </div>
-            <div className="rounded-2xl border border-stone-200 bg-white p-3.5 text-center">
-              <div className="text-sm font-bold text-stone-800">{lastLog ? STATUS_LABEL[lastLog.status] : "—"}</div>
-              <div className="mt-0.5 text-[11px] text-stone-500">حالة آخر ورد</div>
-            </div>
-          </div>
+          <StudentCharts wardsDaily={wardsDaily} months={months} attendance={attendance} />
 
           {myProgress && (
             <JuzProgressCard
@@ -362,8 +344,6 @@ export default function StudentDashboardPage() {
 
       <MonthlyPlanCard view={monthlyPlan} />
 
-      <AttendanceSummaryCard summary={attendance} />
-
       <div className="rounded-2xl border border-stone-200 bg-white p-4">
         <h2 className="mb-1 text-sm font-semibold text-stone-700">👪 شارك مع ولي أمرك</h2>
         <p className="mb-2 text-xs text-stone-500">أنشئ رابطاً يفتحه ولي أمرك ليتابع تقدّمك (قراءة فقط).</p>
@@ -371,6 +351,54 @@ export default function StudentDashboardPage() {
           endpoint="/api/student/parent-link"
           shareText={`رابط متابعة حفظي في الحلقة:\n١) افتح الرابط أدناه\n٢) أنشئ حسابك كولي أمر\n٣) أدخل رمز الربط (مضمن في الرابط) ليُربط حسابك بي تلقائياً`}
         />
+      </div>
+    </div>
+  );
+}
+
+/*
+  رسوم لوحة الطالب (مواصفة 003) — أوراده اليومية بعرض كامل أولاً، ثم
+  الحضور وصفحاته الشهرية جنباً إلى جنب، كلها من مسارات الصفحة نفسها
+  (wards/mine + wards/monthly + student/attendance) بلا أي طلب إضافي.
+*/
+function StudentCharts({
+  wardsDaily,
+  months,
+  attendance,
+}: {
+  wardsDaily: DailyPoint[];
+  months: MonthlySummary[];
+  attendance: AttendanceSummary | null;
+}) {
+  const wardsTotal = wardsDaily.reduce((sum, p) => sum + p.value, 0);
+  const hifzBars = monthlyBars(months, (m) => m.hifzPages);
+  const reviewBars = monthlyBars(months, (m) => m.reviewPages);
+
+  return (
+    <div className="space-y-3 sm:space-y-4">
+      <Panel title="أورادي اليومية (٣٠ يوماً)">
+        <AreaChart
+          points={wardsDaily}
+          ariaLabel={`أورادي يومياً خلال آخر ٣٠ يوماً، الإجمالي ${wardsTotal} ورداً`}
+        />
+      </Panel>
+
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <AttendanceSummaryCard summary={attendance} />
+
+        <Panel title="صفحات حفظي شهرياً">
+          <BarChart
+            ariaLabel={`صفحات الحفظ شهرياً: ${hifzBars.map((b) => `${b.label} ${b.value}`).join("، ")}`}
+            bars={hifzBars.map((b) => ({ label: b.label, value: b.value, tone: TONES.accent100 }))}
+          />
+        </Panel>
+
+        <Panel title="صفحات مراجعتي شهرياً">
+          <BarChart
+            ariaLabel={`صفحات المراجعة شهرياً: ${reviewBars.map((b) => `${b.label} ${b.value}`).join("، ")}`}
+            bars={reviewBars.map((b) => ({ label: b.label, value: b.value, tone: TONES.accent70 }))}
+          />
+        </Panel>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { surahName, TOTAL_MUSHAF_PAGES } from "./quran-surahs";
 import { computeJuzProgress, type JuzProgress } from "./juz-progress";
 import { countReviewTrackPages, type ReviewTrackCounts } from "./review-tracks";
+import { fillDailySeries, type DailyPoint } from "./chart-series";
 import {
   computeStreak,
   hifzPagesCovered,
@@ -46,11 +47,20 @@ export type ParentChildSummary = {
   juzProgress: JuzProgress;
   /** B3: صفحات مراجعة كل مسار لآخر ٧ و٣٠ يوماً */
   trackCounts: { days7: ReviewTrackCounts; days30: ReviewTrackCounts };
+  /** أوراد الابن يومياً آخر ٣٠ يوماً (عدد الأوراد لكل يوم) — سلسلة رسم المساحي، أرقام فقط */
+  wardsDaily: DailyPoint[];
 };
 
 /** تاريخ YYYY-MM-DD قبل `days` يوماً من `today` (حساب تقويمي بـUTC، بلا أثر للتوقيت الصيفي) */
 function daysBefore(today: string, days: number): string {
   return new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10);
+}
+
+/** عدد أوراد كل حالة (آخر ١٤ يوماً) — شرائح دونات لوحة ولي الأمر */
+export function wardStatusCounts(wards: ParentWardRow[]): { status: WardStatus; count: number }[] {
+  const counts: Record<WardStatus, number> = { new: 0, seen: 0, approved: 0, needs_revision: 0 };
+  for (const w of wards) counts[w.status] += 1;
+  return (Object.keys(counts) as WardStatus[]).map((status) => ({ status, count: counts[status] }));
 }
 
 export function buildParentChildSummary(logs: WardLog[], today: string): ParentChildSummary {
@@ -92,5 +102,10 @@ export function buildParentChildSummary(logs: WardLog[], today: string): ParentC
       days7: countReviewTrackPages(logs, 7, today),
       days30: countReviewTrackPages(logs, 30, today),
     },
+    wardsDaily: fillDailySeries(
+      logs.map((l) => ({ date: l.date, value: 1 })),
+      daysBefore(today, 29),
+      today,
+    ),
   };
 }

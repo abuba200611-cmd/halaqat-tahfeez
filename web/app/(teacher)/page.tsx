@@ -4,20 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui";
 import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  BookIcon,
   CalendarIcon,
   ChartIcon,
-  FlameIcon,
   PlayIcon,
   PlusIcon,
   ShuffleIcon,
   SproutIcon,
   StarIcon,
-  UsersIcon,
 } from "@/components/icons";
-import { AreaChart, BarChart, Chip, Donut, Panel, PanelEmpty, TONES, type Tone } from "@/components/charts";
+import { AreaChart, BarChart, Donut, Panel, PanelEmpty, TONES, type Tone } from "@/components/charts";
 import type { DailyPoint } from "@/lib/chart-series";
 import { attendanceTotals, masteryDistribution, type MasteryBucketKey } from "@/lib/students-stats";
 import { useStudents } from "@/lib/store";
@@ -30,9 +25,6 @@ import type { Student, WardLog } from "@/lib/types";
 const C = {
   heroFrom: "#000000",
   heroTo: "#241B12",
-  secondary: "var(--color-secondary)",
-  success: "var(--color-success)",
-  accentInk: "var(--color-accent-ink)",
   sand: "var(--color-sand)",
   cardBorder: "var(--color-border)",
   text: "var(--color-foreground)",
@@ -67,55 +59,6 @@ function weekDates(startSunday: Date): Set<string> {
 
 function pagesInRange(range: { from: number; to: number } | null): number {
   return range ? range.to - range.from + 1 : 0;
-}
-
-/** أيام متتالية (بالحلقة كلها) فيها ورد واحد على الأقل، بدءاً من اليوم أو أمس لو اليوم لسه بلا ورد */
-function computeStreak(activeDates: Set<string>): number {
-  let cursor = todayUTC();
-  if (!activeDates.has(isoUTC(cursor))) cursor = addDaysUTC(cursor, -1);
-  let streak = 0;
-  while (activeDates.has(isoUTC(cursor))) {
-    streak++;
-    cursor = addDaysUTC(cursor, -1);
-  }
-  return streak;
-}
-
-/** عدّاد متحرك خفيف (~600ms)، يحترم تفضيل تقليل الحركة */
-function useCountUp(target: number, durationMs = 600): number {
-  const [value, setValue] = useState(0);
-
-  useEffect(() => {
-    if (!Number.isFinite(target)) return;
-
-    const reduced =
-      typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const effectiveDuration = reduced ? 0 : durationMs;
-
-    let raf = 0;
-    const start = performance.now();
-    // كل تحديث للحالة يقع داخل هذا الاستدعاء (مُشغَّل عبر requestAnimationFrame)
-    // لا مباشرة بجسم الأثر — بلا حركة، الإطار الأول يصل t=1 فوراً فيقفز للقيمة.
-    function tick(now: number) {
-      const t = effectiveDuration === 0 ? 1 : Math.min(1, (now - start) / effectiveDuration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setValue(Math.round(target * eased));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
-
-    // شبكة أمان: rAF قد لا يُشغَّل بمعدّل موثوق ببعض السياقات (تبويب غير
-    // نشط، أدوات معاينة آلية) — بلا هذا، الرقم يبقى عالقاً على ٠ للأبد.
-    // نضمن الوصول للقيمة الصحيحة نهائياً بصرف النظر عن سلوك rAF.
-    const settle = window.setTimeout(() => setValue(target), effectiveDuration + 50);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(settle);
-    };
-  }, [target, durationMs]);
-
-  return value;
 }
 
 type Teacher = { teacherName: string; halaqahName: string };
@@ -177,34 +120,15 @@ function useDashboardData() {
 export default function DashboardPage() {
   const { students, loading: studentsLoading, clear } = useStudents();
   const { teacher, wards, newCount, scheduleDays, attendance, wardsDaily, loading: dataLoading } = useDashboardData();
-  const active = students.filter((s) => s.active);
   const hasStudents = students.length > 0;
 
   const loading = studentsLoading || dataLoading;
 
   const stats = useMemo(() => {
     const now = todayUTC();
-    const thisWeekStart = startOfWeekUTC(now);
-    const lastWeekStart = addDaysUTC(thisWeekStart, -7);
-    const thisWeek = weekDates(thisWeekStart);
-    const lastWeek = weekDates(lastWeekStart);
+    const thisWeek = weekDates(startOfWeekUTC(now));
 
-    const list = wards ?? [];
-    const approved = list.filter((w) => w.status === "approved");
-
-    const sumHifzPages = (dates: Set<string>) =>
-      approved.filter((w) => dates.has(w.date)).reduce((sum, w) => sum + pagesInRange(w.hifz), 0);
-
-    const pagesThisWeek = sumHifzPages(thisWeek);
-    const pagesLastWeek = sumHifzPages(lastWeek);
-
-    const activeDates = new Set(list.map((w) => w.date));
-    const streak = computeStreak(activeDates);
-
-    const sessionsInWeek = (dates: Set<string>) =>
-      scheduleDays ? scheduleDays.filter((d) => dates.has(d.date)).length : null;
-    const sessionsThisWeek = sessionsInWeek(thisWeek);
-    const sessionsLastWeek = sessionsInWeek(lastWeek);
+    const approved = (wards ?? []).filter((w) => w.status === "approved");
 
     // نجوم الأسبوع: أعلى ٣ طلاب بمجموع صفحات الحفظ المعتمدة هذا الأسبوع
     const perStudent = new Map<string, { name: string; pages: number }>();
@@ -228,23 +152,14 @@ export default function DashboardPage() {
       ?.filter((d) => d.date > todayIso)
       .sort((a, b) => (a.date < b.date ? -1 : 1))[0] ?? null;
 
-    return {
-      pagesThisWeek,
-      pagesDelta: wards ? pagesThisWeek - pagesLastWeek : null,
-      streak,
-      sessionsThisWeek,
-      sessionsDelta: sessionsThisWeek !== null && sessionsLastWeek !== null ? sessionsThisWeek - sessionsLastWeek : null,
-      starsOfWeek,
-      todaySession,
-      nextSession,
-    };
+    return { starsOfWeek, todaySession, nextSession };
   }, [wards, scheduleDays]);
 
   if (loading) return <DashboardSkeleton />;
 
-  // الهيكل الكامل يبقى ظاهراً دائماً حتى بلا طلاب (STEP 42) — الأرقام
-  // تصير ٠ أو "—" بدل استبدال اللوحة كلها برسالة فارغة؛ بطاقة onboarding
-  // تظهر بدلاً من ذلك أعلى الصفحة تحديداً.
+  // الهيكل الكامل يبقى ظاهراً دائماً حتى بلا طلاب (STEP 42) — الرسوم تُظهر
+  // حالتها الفارغة بدل استبدال اللوحة كلها برسالة فراغ؛ بطاقة onboarding
+  // تظهر أعلى الصفحة تحديداً.
   return (
     <div className="space-y-6">
       {!hasStudents && (
@@ -253,34 +168,8 @@ export default function DashboardPage() {
 
       <Hero teacherName={teacher?.teacherName} />
 
-      {/* رسوم اللوحة (مواصفة 003) — قبل بطاقات الأرقام مباشرةً تحت الهيرو */}
+      {/* رسوم اللوحة (مواصفة 003) — مباشرةً تحت الهيرو */}
       <DashboardCharts students={students} attendance={attendance} wardsDaily={wardsDaily} />
-
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          color={C.secondary}
-          icon={<UsersIcon size={22} />}
-          label="عدد الطلاب"
-          value={active.length}
-          progress={students.length > 0 ? Math.round((active.length / students.length) * 100) : null}
-          progressLabel={students.length > 0 ? `${active.length} من ${students.length} نشطون` : "لا طلاب بعد"}
-        />
-        <StatCard
-          color={C.success}
-          icon={<BookIcon size={22} />}
-          label="صفحات محفوظة — هذا الأسبوع"
-          value={stats.pagesThisWeek}
-          delta={stats.pagesDelta}
-        />
-        <StatCard
-          color={C.accentInk}
-          icon={<CalendarIcon size={22} />}
-          label="الحلقات هذا الأسبوع"
-          value={stats.sessionsThisWeek}
-          delta={stats.sessionsDelta}
-        />
-        <StatCard color={C.sand} icon={<FlameIcon size={22} />} label="أيام متتالية نشطة" value={stats.streak} />
-      </div>
 
       <QuickActions clearAction={clear} hasStudents={hasStudents} />
 
@@ -425,11 +314,6 @@ export function DashboardCharts({
   const mastery = masteryDistribution(students);
   const totals = attendanceTotals(attendance);
   const totalMarks = totals.present + totals.late + totals.excused + totals.absent;
-  // متوسط الحضور كما في صفحة الطلاب: متوسط presentPct لمن له ملخص (٣٠ يوماً)
-  const pcts = Object.values(attendance)
-    .map((s) => s.presentPct)
-    .filter((p): p is number => p != null);
-  const avgAttendance = pcts.length > 0 ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
 
   return (
     <div className="space-y-4">
@@ -459,27 +343,15 @@ export function DashboardCharts({
           {totalMarks === 0 ? (
             <PanelEmpty />
           ) : (
-            <>
-              <div className="mb-2 flex items-center gap-2">
-                <span className="tabular text-2xl font-semibold text-foreground">
-                  {avgAttendance === null ? "—" : `${avgAttendance}٪`}
-                </span>
-                {avgAttendance !== null && (
-                  <Chip tone={avgAttendance >= 75 ? "success" : "neutral"} arrow={avgAttendance >= 75 ? "up" : undefined}>
-                    متوسط الحضور
-                  </Chip>
-                )}
-              </div>
-              <BarChart
-                ariaLabel={`الحضور خلال ٣٠ يوماً: حاضر ${totals.present}، متأخر ${totals.late}، مستأذن ${totals.excused}، غائب ${totals.absent}`}
-                bars={[
-                  { label: "حاضر", value: totals.present, tone: TONES.success },
-                  { label: "متأخر", value: totals.late, tone: TONES.accent100 },
-                  { label: "مستأذن", value: totals.excused, tone: TONES.accent45 },
-                  { label: "غائب", value: totals.absent, tone: TONES.destructive },
-                ]}
-              />
-            </>
+            <BarChart
+              ariaLabel={`الحضور خلال ٣٠ يوماً: حاضر ${totals.present}، متأخر ${totals.late}، مستأذن ${totals.excused}، غائب ${totals.absent}`}
+              bars={[
+                { label: "حاضر", value: totals.present, tone: TONES.success },
+                { label: "متأخر", value: totals.late, tone: TONES.accent100 },
+                { label: "مستأذن", value: totals.excused, tone: TONES.accent45 },
+                { label: "غائب", value: totals.absent, tone: TONES.destructive },
+              ]}
+            />
           )}
         </Panel>
       </div>
@@ -507,81 +379,6 @@ export function IslamicPattern() {
       </defs>
       <rect width="100%" height="100%" fill="url(#star8)" />
     </svg>
-  );
-}
-
-/* ————— بطاقة إحصائية ————— */
-
-export function StatCard({
-  color,
-  icon,
-  label,
-  value,
-  delta,
-  progress,
-  progressLabel,
-}: {
-  color: string;
-  icon: React.ReactNode;
-  label: string;
-  value: number | null;
-  delta?: number | null;
-  progress?: number | null;
-  progressLabel?: string;
-}) {
-  const animated = useCountUp(value ?? 0);
-  const showDelta = delta !== undefined && delta !== null && delta !== 0;
-
-  return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm" style={{ border: `1px solid ${C.cardBorder}` }}>
-      <div className="flex items-start justify-between">
-        <div
-          className="flex h-11 w-11 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
-        >
-          {icon}
-        </div>
-        {showDelta && (
-          <span
-            className={`tabular flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              delta! > 0 ? "bg-success-soft text-success" : "bg-stone-100 text-stone-500"
-            }`}
-          >
-            {delta! > 0 ? <ArrowUpIcon size={10} /> : <ArrowDownIcon size={10} />}
-            {Math.abs(delta!)}
-          </span>
-        )}
-      </div>
-
-      <div className="tabular mt-3 text-3xl font-bold" style={{ color: C.text }}>
-        {value === null ? "—" : animated.toLocaleString("en")}
-      </div>
-      <div className="mt-1 text-xs" style={{ color: C.textMuted }}>
-        {label}
-      </div>
-
-      {progress !== undefined && progress !== null && (
-        <div className="mt-3">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/5">
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${Math.max(0, Math.min(100, progress))}%`, backgroundColor: color, transition: "width 600ms ease" }}
-            />
-          </div>
-          {progressLabel && (
-            <div className="mt-1 text-[11px]" style={{ color: C.textMuted }}>
-              {progressLabel}
-            </div>
-          )}
-        </div>
-      )}
-
-      {showDelta && (
-        <div className="mt-2 text-[11px]" style={{ color: C.textMuted }}>
-          عن الأسبوع الماضي
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -651,7 +448,7 @@ export function StarsOfWeek({ stars }: { stars: { id: string; name: string; page
               <div className="relative shrink-0">
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold"
-                  style={{ backgroundColor: rankColors[i] ?? C.secondary, color: "var(--color-on-secondary)" }}
+                  style={{ backgroundColor: rankColors[i] ?? rankColors[2], color: "var(--color-on-secondary)" }}
                 >
                   {s.name.trim().charAt(0) || "؟"}
                 </div>
@@ -754,7 +551,7 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 }
 
 function DashboardSkeleton() {
-  // يطابق ترتيب اللوحة: الهيرو، الرسم المساحي، لوحتا الإتقان والحضور، البطاقات، الإجراءات
+  // يطابق ترتيب اللوحة: الهيرو، الرسم المساحي، لوحتا الإتقان والحضور، الإجراءات
   return (
     <div className="space-y-6">
       <SkeletonBlock className="h-36" />
@@ -762,11 +559,6 @@ function DashboardSkeleton() {
       <div className="grid gap-4 lg:grid-cols-2">
         <SkeletonBlock className="h-48" />
         <SkeletonBlock className="h-48" />
-      </div>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonBlock key={i} className="h-28" />
-        ))}
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (

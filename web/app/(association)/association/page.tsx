@@ -2,20 +2,21 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Badge, Card, Empty, Stat } from "@/components/mosque/ui";
+import { Badge, Card, Empty } from "@/components/mosque/ui";
 import { useApi } from "@/components/mosque/use-api";
 import { inputClass } from "@/components/mosque/mosque-page";
 import { AssociationPage } from "@/components/association/association-page";
 import { AssociationLinkPanel } from "@/components/association/link-panel";
-import { AreaChart, HBarChart, Panel, TONES } from "@/components/charts";
+import { AreaChart, Donut, HBarChart, Panel, TONES } from "@/components/charts";
+import { safePct } from "@/lib/chart-series";
 import type { AssociationCharts } from "@/lib/dashboard-charts-db";
 import type { AssociationTotals, MosqueKpiRow } from "@/lib/association";
 
 /*
-  A3 — لوحة الجمعية (قراءة فقط): مؤشرات كل جامع، إجمالي الجمعية، تقرير مجمّع
-  بصيغة CSV، وفتح كل جامع بعرض قراءة فقط. الفترة تؤثر في الحضور والاختبارات؛
-  التصاريح حالتها الراهنة لعام كل جامع الدراسي. رسوم الاتجاه (مواصفة 003)
-  ضمن فترة الفلتر نفسها.
+  A3 — لوحة الجمعية (قراءة فقط): رسوم مقارنة الجوامع واتجاهاتها، قائمة
+  الجوامع، تقرير مجمّع بصيغة CSV، وفتح كل جامع بعرض قراءة فقط. الفترة
+  تؤثر في الحضور والاختبارات؛ التصاريح حالتها الراهنة لعام كل جامع
+  الدراسي. رسوم الاتجاه (مواصفة 003) ضمن فترة الفلتر نفسها.
 */
 
 type DashboardData = {
@@ -67,18 +68,7 @@ export default function AssociationDashboardPage() {
 
         {data && (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Stat label="الجوامع" value={data.totals.mosques} />
-              <Stat label="الحلقات" value={data.totals.halaqat} />
-              <Stat label="الطلاب الفعّالون" value={data.totals.activeStudents} />
-              <Stat label="نسبة الحضور" value={pct(data.totals.attendanceRate)} hint="مرجَّحة بعدد الطلاب" />
-              <Stat label="نتائج الاختبارات" value={data.totals.examResults} hint={`ناجح: ${data.totals.examPassed}`} />
-              <Stat label="تصاريح فعّالة" value={data.totals.permits.active} />
-              <Stat label="موقوفة / مسحوبة" value={`${data.totals.permits.suspended} / ${data.totals.permits.withdrawn}`} />
-              <Stat label="بانتظار التجديد" value={data.totals.permits.pendingRenewal} />
-            </div>
-
-            {data.charts && <AssociationChartsSection charts={data.charts} period={data.period} />}
+            {data.charts && <AssociationChartsSection charts={data.charts} totals={data.totals} period={data.period} />}
 
             <section className="space-y-2">
               <h2 className="font-display text-lg font-bold">الجوامع</h2>
@@ -135,18 +125,26 @@ export default function AssociationDashboardPage() {
   );
 }
 
-/** رسوم اتجاه الجمعية (مواصفة 003) — أوراد كل الجوامع يومياً ومقارنتها ضمن الفترة */
+/*
+  رسوم لوحة الجمعية (مواصفة 003) — الأوراد بعرض كامل أولاً ثم مقارنتا
+  الجوامع وحالتا التصاريح والاختبارات جانباً إلى جانب، كلها من أرقام
+  التقرير نفسها بلا أي طلب إضافي.
+*/
 function AssociationChartsSection({
   charts,
+  totals,
   period,
 }: {
   charts: AssociationCharts;
+  totals: AssociationTotals;
   period: { from: string; to: string };
 }) {
   const wardsTotal = charts.wardsDaily.reduce((sum, p) => sum + p.value, 0);
+  const permitsTotal = totals.permits.active + totals.permits.suspended + totals.permits.withdrawn + totals.permits.pendingRenewal;
+  const examFailed = Math.max(totals.examResults - totals.examPassed, 0);
 
   return (
-    <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+    <div className="space-y-3 sm:space-y-4">
       <Panel title="أوراد الجوامع يومياً (خلال الفترة)">
         <AreaChart
           points={charts.wardsDaily}
@@ -154,28 +152,56 @@ function AssociationChartsSection({
         />
       </Panel>
 
-      <Panel title="مقارنة الجوامع: الطلاب الفعّالون">
-        <HBarChart
-          ariaLabel={`الطلاب الفعّالون بكل جامع: ${charts.mosqueComparison.activeStudents.map((m) => `${m.label} ${m.value}`).join("، ")}`}
-          bars={charts.mosqueComparison.activeStudents.map((m) => ({
-            label: m.label,
-            value: m.value,
-            tone: TONES.accent100,
-          }))}
-        />
-      </Panel>
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <Panel title="مقارنة الجوامع: الطلاب الفعّالون">
+          <HBarChart
+            ariaLabel={`الطلاب الفعّالون بكل جامع: ${charts.mosqueComparison.activeStudents.map((m) => `${m.label} ${m.value}`).join("، ")}`}
+            bars={charts.mosqueComparison.activeStudents.map((m) => ({
+              label: m.label,
+              value: m.value,
+              tone: TONES.accent100,
+            }))}
+          />
+        </Panel>
 
-      <Panel title="مقارنة الجوامع: نسبة الحضور (خلال الفترة)">
-        <HBarChart
-          ariaLabel={`نسبة الحضور بكل جامع خلال الفترة: ${charts.mosqueComparison.attendanceRate.map((m) => `${m.label} ${m.value}٪`).join("، ")}`}
-          bars={charts.mosqueComparison.attendanceRate.map((m) => ({
-            label: m.label,
-            value: m.value,
-            tone: m.value >= 75 ? TONES.success : TONES.accent70,
-            pct: true,
-          }))}
-        />
-      </Panel>
+        <Panel title="مقارنة الجوامع: نسبة الحضور (خلال الفترة)">
+          <HBarChart
+            ariaLabel={`نسبة الحضور بكل جامع خلال الفترة: ${charts.mosqueComparison.attendanceRate.map((m) => `${m.label} ${m.value}٪`).join("، ")}`}
+            bars={charts.mosqueComparison.attendanceRate.map((m) => ({
+              label: m.label,
+              value: m.value,
+              tone: m.value >= 75 ? TONES.success : TONES.accent70,
+              pct: true,
+            }))}
+          />
+        </Panel>
+
+        <Panel title="حالات التصاريح (عام كل جامع الدراسي)">
+          <Donut
+            total={permitsTotal}
+            centerLabel="تصريح"
+            ariaLabel={`حالات التصاريح: فعّال ${totals.permits.active}، موقوف ${totals.permits.suspended}، بانتظار التجديد ${totals.permits.pendingRenewal}، مسحوب ${totals.permits.withdrawn}`}
+            slices={[
+              { label: "فعّال", value: totals.permits.active, pct: safePct(totals.permits.active, permitsTotal), tone: TONES.success },
+              { label: "موقوف", value: totals.permits.suspended, pct: safePct(totals.permits.suspended, permitsTotal), tone: TONES.destructive },
+              { label: "بانتظار التجديد", value: totals.permits.pendingRenewal, pct: safePct(totals.permits.pendingRenewal, permitsTotal), tone: TONES.accent100 },
+              { label: "مسحوب", value: totals.permits.withdrawn, pct: safePct(totals.permits.withdrawn, permitsTotal), tone: TONES.accent25 },
+            ]}
+          />
+        </Panel>
+
+        <Panel title="نتائج الاختبارات (خلال الفترة)">
+          <Donut
+            total={totals.examResults}
+            centerLabel="نتيجة"
+            ariaLabel={`نتائج الاختبارات خلال الفترة: ناجح ${totals.examPassed}، غير ناجح ${examFailed}`}
+            slices={[
+              { label: "ناجح", value: totals.examPassed, pct: safePct(totals.examPassed, totals.examResults), tone: TONES.success },
+              { label: "غير ناجح", value: examFailed, pct: safePct(examFailed, totals.examResults), tone: TONES.accent45 },
+            ]}
+          />
+        </Panel>
+      </div>
     </div>
   );
 }
