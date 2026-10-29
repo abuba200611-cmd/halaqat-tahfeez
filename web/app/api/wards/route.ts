@@ -9,6 +9,7 @@ import {
   deleteWardLog,
   listSameDayWardStubs,
   listWardLogs,
+  reopenApprovedWard,
   setWardLogStatus,
   updateWardLog,
   type NewReviewSegment,
@@ -21,6 +22,7 @@ import { profileFor } from "@/lib/halaqah-stage";
 import { formatWardByUnit } from "@/lib/ward-units";
 import { findSameDayDuplicate } from "@/lib/ward-policy";
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "@/lib/ward-ayah";
+import { parseHifzBody } from "@/lib/ward-log-body";
 import { parseReviewTracks } from "@/lib/review-tracks";
 import { notifyWardDecision } from "@/lib/ward-notify";
 import { logServerError } from "@/lib/dev-error-log";
@@ -42,17 +44,10 @@ function readRangeInput(raw: unknown): AyahRangeInput {
   return { from: readPos(r.from), to: readPos(r.to) };
 }
 
-/** يقرأ نطاق سورة/آية اختياري (الحفظ) من الجسم ويحوّله لنطاق صفحات — يرمي برسالة دقيقة لو غير صحيح */
-function parseRange(input: unknown, label: string) {
-  if (input === null || input === undefined) return null;
-  if (typeof input !== "object") throw new Error(`أكمل اختيار السورة والآية بقسم ${label}`);
-  return parseAyahRange(readRangeInput(input), label);
-}
-
 /**
  * يقرأ قائمة مقاطع المراجعة من الجسم (STEP 52: مصفوفة من ١ إلى ١٠
  * مقاطع، كل مقطع {from, to}) ويتحقّق منها عبر parseReviewSegments —
- * نفس مصدر الحقيقة الذي تستخدمه الواجهة للتحقّق الفوري.
+ * نفس مصدر الحقيقة التي تستخدمها الواجهة للتحقّق الفوري.
  */
 function parseReviewBody(input: unknown): ReturnType<typeof parseReviewSegments> {
   if (input === null || input === undefined) return null;
@@ -114,7 +109,8 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as Record<string, unknown>;
-    const hifz = parseRange(body.hifz, "الحفظ");
+    // 001 T033: الحفظ آيات كما اليوم أو صفحات (ثانوي/جامعي) — لا الاثنين معاً
+    const hifz = parseHifzBody(body);
     const review = parseReviewBody(body.review);
     const reviewTracks = parseReviewTracks(body.reviewTracks, review?.segments.length ?? 0);
     if (!review && reviewTracks) throw new Error("تصنيف المراجعة بلا مقاطع مراجعة");
@@ -217,7 +213,8 @@ export async function PUT(request: Request) {
     const date = String(body.date ?? "").trim();
     if (!isValidDate(date)) throw new Error("تاريخ غير صحيح");
 
-    const hifz = parseRange(body.hifz, "الحفظ");
+    // 001 T033: التعديل يقبل الحفظ بالصفحات كذلك — نفس تحقّق الإرسال
+    const hifz = parseHifzBody(body);
     const review = parseReviewBody(body.review);
     const reviewTracks = parseReviewTracks(body.reviewTracks, review?.segments.length ?? 0);
     if (!review && reviewTracks) throw new Error("تصنيف المراجعة بلا مقاطع مراجعة");
@@ -285,16 +282,19 @@ export async function DELETE(request: Request) {
   return Response.json({ ok: true });
 }
 
-/** وارد المعلّم: قائمة الأوراد وعدد الجديد منها، مع إعدادات تصنيف المراجعة بحلقته */
+/** وارد المعلّم: قائمة الأوراد وعدد الجديد منها، مع إعدادات تصنيف المراجعة وفئة حلقتها (001 T035: unit لواجهة العرض) */
 export async function GET(request: Request) {
   const teacher = await currentTeacher();
   if (!teacher) return unauthorized();
 
   const onlyNew = new URL(request.url).searchParams.get("new") === "1";
+  const stage = await getHalaqahStage(teacher.halaqahId);
   return Response.json({
     wards: await listWardLogs(teacher.halaqahId, onlyNew),
     newCount: await countNewWards(teacher.halaqahId),
     reviewTrackConfig: await reviewTrackConfigForHalaqah(teacher.halaqahId),
+    stage,
+    unit: profileFor(stage).unit,
   });
 }
 
@@ -328,6 +328,13 @@ export async function PATCH(request: Request) {
   let result: Awaited<ReturnType<typeof setWardLogStatus>>;
   try {
     result = await setWardLogStatus(teacher.halaqahId, id, status, teacher.id, note);
+    // 001 T037 (FR-009، قرار المالك Q1 ب): طلب الإعادة على ورد معتمد —
+    // setWardLogStatus يرفض المعتمد كما هو منذ STEP 52، فيمرّ هنا فقط
+    // بعد فشله: إعادة فتح كل ورد معتمد أيّاً كان مسجِّله، بملاحظة إلزامية
+    // (فُحصت أعلاه) وإخطار الطالب وولي الأمر أدناه كأي قرار إعادة.
+    if (!result && status === "needs_revision") {
+      result = await reopenApprovedWard(teacher.halaqahId, id, teacher.id, note ?? "");
+    }
     if (!result) {
       return Response.json({ error: "الورد غير موجود أو لا يمكن تعديله" }, { status: 404 });
     }

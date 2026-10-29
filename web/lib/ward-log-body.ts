@@ -5,6 +5,8 @@
   قواعد التحقق ولا ترتيب الأعمدة بمكانين (الدستور VI: مصدر حقيقة واحد).
 */
 import { parseAyahRange, parseReviewSegments, type AyahRangeInput } from "./ward-ayah";
+import { ayahRangeOfPageRange } from "./quran-surahs";
+import { parseHifzPagesInput } from "./ward-units";
 import type { NewReviewSegment, NewWardLog } from "./db";
 import type { ReviewTrack } from "./types";
 
@@ -29,6 +31,29 @@ export function parseRange(input: unknown, label: string) {
   if (input === null || input === undefined) return null;
   if (typeof input !== "object") throw new Error(`أكمل اختيار السورة والآية بقسم ${label}`);
   return parseAyahRange(readRangeInput(input), label);
+}
+
+/**
+ * يقرأ قسم الحفظ من الجسم بوحدة فئة الحلقة (001 T033، FR-006): نطاق
+ * آيات كما اليوم، أو hifzPages {from,to} (ثانوي/جامعي) يُحوَّل إلى نطاق
+ * آيات كامل عبر ayahRangeOfPageRange ثم يمرّ على parseAyahRange نفسها —
+ * فالتحقق والتخزين كما هما تماماً. اجتماعهما معاً خطأ، والقسم الفارغ
+ * كلياً null.
+ */
+export function parseHifzBody(body: Record<string, unknown>): ReturnType<typeof parseAyahRange> {
+  const hasHifz = body.hifz != null;
+  const hasPages = body.hifzPages != null && body.hifzPages !== "";
+  if (hasHifz && hasPages) throw new Error("ادخل الحفظ بالآيات أو بالصفحات، لا الاثنين معاً");
+  if (hasPages) {
+    const pages = parseHifzPagesInput(body.hifzPages);
+    if (!pages) return null;
+    const ayah = ayahRangeOfPageRange(pages.from, pages.to);
+    return parseAyahRange(
+      { from: { surah: ayah.fromSurah, ayah: ayah.fromAyah }, to: { surah: ayah.toSurah, ayah: ayah.toAyah } },
+      "الحفظ",
+    );
+  }
+  return parseRange(body.hifz, "الحفظ");
 }
 
 /**

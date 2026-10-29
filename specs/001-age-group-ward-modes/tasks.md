@@ -100,11 +100,11 @@ description: "Task list — أنماط تسجيل الورد حسب الفئة �
 
 **Independent Test**: نفس الورد في حلقتين مختلفتين: إدخال وعرض مختلفان وصفوف قاعدة بيانات متطابقة.
 
-- [ ] T031 [US3] اختبار `lib/student-ward-display.test.ts` (إضافة): `hifzRangeText`/`reviewRangeText` تقبل `unit` اختيارياً (الافتراضي = السلوك الحالي)، والورد القديم يُعرض بكل الوحدات. ثم تعديل `lib/student-ward-display.ts` ليستعمل `formatWardByUnit`. (FR-006, FR-007)
-- [ ] T032 [US3] `components/ward-input-by-unit.tsx`: يعرض حقول الإدخال حسب `unit` — `surah_ayah`/`ayah_page` = `ayah-range-field` القائم (+ عرض الصفحات المقابلة للمتوسط)، `page_wajh`/`wajh_juz` = حقلا صفحة (من/إلى) وأزرار اختيار جزء. يُخرج دائماً `{hifz}` أو `{hifzPages}`.
-- [ ] T033 [US3] `app/api/wards/route.ts` (POST/PUT): قبول `hifzPages` عبر `parseHifzPagesInput` + `ayahRangeOfPageRange` ثم `parseAyahRange`؛ 400 إن اجتمعا. اختبار في `route.test.ts` (إضافة). (يتسلسل بعد T029 — نفس الملف)
-- [ ] T034 [US3] `app/(student)/student/log/page.tsx` يستعمل `ward-input-by-unit` حسب `stage` من T022؛ ويعرض النتيجة بالوحدة. (SC-002: أقل من ٣٠ ثانية للجامعي)
-- [ ] T035 [P] [US3] عرض القوائم بالوحدة: `components/ward-list.tsx` و`app/(student)/student/wards/page.tsx` و`app/(teacher)/inbox/page.tsx` (يمرّر `unit` من الفئة).
+- [x] T031 [US3] اختبار `lib/student-ward-display.test.ts` (إضافة): `hifzRangeText`/`reviewRangeText` تقبل `unit` اختيارياً (الافتراضي = السلوك الحالي)، والورد القديم يُعرض بكل الوحدات. ثم تعديل `lib/student-ward-display.ts` ليستعمل `formatWardByUnit`. (FR-006, FR-007)
+- [x] T032 [US3] `components/ward-input-by-unit.tsx`: يعرض حقول الإدخال حسب `unit` — `surah_ayah`/`ayah_page` = `ayah-range-field` القائم (+ عرض الصفحات المقابلة للمتوسط)، `page_wajh`/`wajh_juz` = حقلا صفحة (من/إلى) وأزرار اختيار جزء. يُخرج دائماً `{hifz}` أو `{hifzPages}`.
+- [x] T033 [US3] `app/api/wards/route.ts` (POST/PUT): قبول `hifzPages` عبر `parseHifzPagesInput` + `ayahRangeOfPageRange` ثم `parseAyahRange`؛ 400 إن اجتمعا. اختبار في `route.test.ts` (إضافة). (يتسلسل بعد T029 — نفس الملف)
+- [x] T034 [US3] `app/(student)/student/log/page.tsx` يستعمل `ward-input-by-unit` حسب `stage` من T022؛ ويعرض النتيجة بالوحدة. (SC-002: أقل من ٣٠ ثانية للجامعي)
+- [x] T035 [P] [US3] عرض القوائم بالوحدة: `components/ward-list.tsx` و`app/(student)/student/wards/page.tsx` و`app/(teacher)/inbox/page.tsx` (يمرّر `unit` من الفئة).
 
 ---
 
@@ -114,9 +114,9 @@ description: "Task list — أنماط تسجيل الورد حسب الفئة �
 
 **Independent Test**: حلقة متوسط: ورد الطالب `new`؛ حلقة ابتدائي: ورد المعلّم `approved`؛ ثم «طلب إعادة» على ورد المعلّم المعتمد يصل للطالب/الولي.
 
-- [ ] T036 [US4] اختبار ثم تنفيذ `reopenApprovedWard(halaqahId, wardId, teacherId, note)` في `lib/db.ts` (+ `lib/db.test.ts`): ينجح فقط لـ`approved` و`recorded_via ∈ {teacher,queue}`، ملاحظة إلزامية، يرجع null لورد `student` المعتمد. (FR-009) — **يتوقف على جواب Q1**.
-- [ ] T037 [US4] `app/api/wards/route.ts` (PATCH): فرع `needs_revision` على المعتمد يستدعي `reopenApprovedWard` (وفق T036) + اختبار؛ و`app/(teacher)/inbox/page.tsx`: زر «طلب إعادة» لورد معتمد من المعلّم وشارة «سجّله المعلّم/الطابور». (يتسلسل بعد T033 — نفس الملف)
-- [ ] T038 [P] [US4] اختبار تكاملي في `app/api/wards/route.test.ts`/`app/api/teacher/wards/route.test.ts`: مصفوفة الفئة × المسجِّل ⇒ الحالة الابتدائية (primary/teacher→approved؛ intermediate/student→new؛ secondary/student→new؛ university/student→new). (FR-008)
+- [x] T036 [US4] اختبار ثم تنفيذ `reopenApprovedWard(halaqahId, wardId, teacherId, note)` في `lib/db.ts` (+ `lib/db.test.ts`): ينجح فقط لـ`approved` و`recorded_via ∈ {teacher,queue}`، ملاحظة إلزامية، يرجع null لورد `student` المعتمد. (FR-009) — **يتوقف على جواب Q1**.
+- [x] T037 [US4] `app/api/wards/route.ts` (PATCH): فرع `needs_revision` على المعتمد يستدعي `reopenApprovedWard` (وفق T036) + اختبار؛ و`app/(teacher)/inbox/page.tsx`: زر «طلب إعادة» لورد معتمد من المعلّم وشارة «سجّله المعلّم/الطابور». (يتسلسل بعد T033 — نفس الملف)
+- [x] T038 [P] [US4] اختبار تكاملي في `app/api/wards/route.test.ts`/`app/api/teacher/wards/route.test.ts`: مصفوفة الفئة × المسجِّل ⇒ الحالة الابتدائية (primary/teacher→approved؛ intermediate/student→new؛ secondary/student→new؛ university/student→new). (FR-008)
 
 ---
 

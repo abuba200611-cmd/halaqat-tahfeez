@@ -41,6 +41,7 @@ const {
   carryOverReviewTracks,
   createApprovedWardLog,
   createWardLog,
+  reopenApprovedWard,
   updateWardLog,
   setWardReviewTracks,
   listHalaqahMates,
@@ -866,5 +867,42 @@ describe("createApprovedWardLog — ورد معتمد باسم المسجِّل 
       createApprovedWardLog(2, "student-1", { ...sampleLog, buddyStudentId: "ghost" }, { recordedVia: "teacher", recordedByTeacherId: 2 }),
     ).rejects.toThrow("هذا الزميل غير متاح");
     expect(connectMock).not.toHaveBeenCalled();
+  });
+});
+
+/*
+  001 T036 — إعادة فتح ورد معتمد إلى needs_revision (FR-009): قرار المالك
+  Q1 (ب) كل ورد معتمد يقبل إعادة الفتح أيّاً كان مسجِّله (طالب/معلّم/طابور)،
+  بملاحظة إلزامية. شرط «المعتمد فقط» داخل جملة UPDATE نفسها.
+*/
+describe("reopenApprovedWard — إعادة فتح المعتمد (001 T036)", () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+  });
+
+  it("ورد معتمد: يتحوّل لneeds_revision بملاحظته وباسم المعلّم المُعيد للفتح — أيّاً كان مسجِّله (Q1 ب)", async () => {
+    sqlMock.mockResolvedValue([{ student_id: "s1" }]);
+
+    const result = await reopenApprovedWard(2, 17, 5, "راجع الصفحة ٤٥ مرة أخرى");
+
+    expect(result).toEqual({ studentId: "s1" });
+    const sql = sqlTextOfCall(sqlMock.mock.calls[0]);
+    expect(sql).toContain("needs_revision");
+    expect(sql).toContain("status = 'approved'"); // المعتمد فقط — شرط داخل الاستعلام
+    expect(sqlMock.mock.calls[0].slice(1)).toContain("راجع الصفحة ٤٥ مرة أخرى");
+    expect(sqlMock.mock.calls[0].slice(1)).toContain(5); // reviewed_by
+  });
+
+  it("غير المعتمد (أو غير الموجود/حلقة أخرى): null بلا تمييز", async () => {
+    sqlMock.mockResolvedValue([]);
+
+    expect(await reopenApprovedWard(2, 17, 5, "ملاحظة")).toBeNull();
+  });
+
+  it("ملاحظة فارغة: خطأ عربي قبل أي استعلام", async () => {
+    await expect(reopenApprovedWard(2, 17, 5, "   ")).rejects.toThrow(
+      "ملاحظة المراجعة مطلوبة عند طلب الإعادة",
+    );
+    expect(sqlMock).not.toHaveBeenCalled();
   });
 });

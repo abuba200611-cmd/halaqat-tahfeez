@@ -207,7 +207,7 @@ function useMyProgress(): {
 export default function StudentDashboardPage() {
   const router = useRouter();
   const student = useStudentSession();
-  const { logs, loadingLogs, months, loadingMonths, reviewTrackConfig } = useStudentWards();
+  const { logs, loadingLogs, months, loadingMonths, reviewTrackConfig, unit } = useStudentWards();
   const reminderEnabled = useReminderEnabled();
   const attendance = useMyAttendance();
   const monthlyPlan = useMyPlan();
@@ -352,6 +352,7 @@ export default function StudentDashboardPage() {
                   log={log}
                   onEdit={canEditWard(log.status) ? () => router.push(`/student/log?edit=${log.id}`) : undefined}
                   trackConfig={reviewTrackConfig}
+                  unit={unit}
                 />
               ))}
             </ul>

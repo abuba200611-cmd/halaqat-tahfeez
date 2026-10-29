@@ -10,7 +10,12 @@ import type { ErrorCounts, ErrorGradingConfig } from "@/lib/error-grading";
 import { juzLabel, juzesOfRange } from "@/lib/quran";
 import { pageRangeOfAyahRange } from "@/lib/quran-surahs";
 import { formatAyahRange, formatReviewSegments } from "@/lib/ward-ayah";
+import {
+  hifzRangeText,
+  reviewRangeText as unitReviewRangeText,
+} from "@/lib/student-ward-display";
 import { kubraWindow, reviewTextWithTracks, suggestReviewTrackFor } from "@/lib/review-tracks";
+import type { WardUnit } from "@/lib/halaqah-stage";
 import {
   DEFAULT_REVIEW_TRACK_CONFIG,
   parseReviewTrackConfig,
@@ -34,23 +39,37 @@ const BUDDY_STATUS_LABEL: Record<"pending" | "confirmed" | "declined", string> =
   declined: "مرفوض",
 };
 
+/** شارة من سجّل الورد (001 T037) — أوراد الطالب بلا شارة كما كانت */
+const RECORDED_VIA_LABEL: Record<"teacher" | "queue", string> = {
+  teacher: "سجّله المعلّم",
+  queue: "سجّله الطابور",
+};
+
 function statusTone(status: WardStatus): "neutral" | "good" | "warn" {
   if (status === "approved") return "good";
   if (status === "new") return "warn";
   return "neutral";
 }
 
-/** الحفظ يبقى نطاقاً واحداً دائماً. الأوراد الجديدة (STEP 49) تعرض السورة/الآية؛ القديمة (بلا سورة محفوظة) تظل تُعرض بالصفحات كما كانت دائماً */
-function rangeText(range: PageRange | null, ayahRange: AyahRange | null): string | null {
+/**
+ * الحفظ يبقى نطاقاً واحداً دائماً. وحدة الفئة (001 T035) تعيد التشكيل عبر
+ * hifzRangeText المشتركة؛ وبلا فئة يبقى نص الوارد الحالي كما هو حرفياً.
+ */
+function rangeText(range: PageRange | null, ayahRange: AyahRange | null, unit: WardUnit | null): string | null {
+  if (unit) return hifzRangeText(range, ayahRange, unit);
   if (ayahRange) return formatAyahRange(ayahRange);
   if (!range) return null;
   return `صفحة ${range.from}–${range.to} · ${juzLabel(juzesOfRange(range.from, range.to))}`;
 }
 
-/** المراجعة: تفضّل مقاطع STEP 52 (مهما كان عددها)، ثم نطاق STEP 49 القديم بمقطع واحد، ثم الصفحات المجرّدة لأقدم الأوراد */
-function reviewRangeText(ward: WardLog): string | null {
+/**
+ * المراجعة: تفضّل مقاطع STEP 52 (مهما كان عددها)، ثم نطاق STEP 49 القديم بمقطع واحد، ثم الصفحات المجرّدة لأقدم الأوراد.
+ * بوحدة الفئة يعاد تشكيل النطاق الواحد والصفحات عبر الدالة المشتركة.
+ */
+function reviewRangeText(ward: WardLog, unit: WardUnit | null): string | null {
   if (ward.reviewSegments && ward.reviewSegments.length > 0) return formatReviewSegments(ward.reviewSegments);
-  return rangeText(ward.review, ward.reviewAyah);
+  if (unit) return unitReviewRangeText(ward, unit);
+  return rangeText(ward.review, ward.reviewAyah, null);
 }
 
 const REVISION_NOTE_MAX = 500;
@@ -62,6 +81,9 @@ export default function InboxPage() {
 
   // B3: إعدادات تصنيف المراجعة من جامع الحلقة — التفعيل والصفحات والتسمية
   const [reviewTrackConfig, setReviewTrackConfig] = useState<ReviewTrackConfig>(DEFAULT_REVIEW_TRACK_CONFIG);
+
+  // 001 T035: وحدة عرض فئة الحلقة — null للحلقة بلا فئة (النص الحالي كما هو)
+  const [unit, setUnit] = useState<WardUnit | null>(null);
 
   // حالة نموذج "طلب إعادة" — ورد واحد مفتوح كحد أقصى في كل مرة
   const [revisionOpenId, setRevisionOpenId] = useState<number | null>(null);
@@ -100,12 +122,23 @@ export default function InboxPage() {
   const load = useCallback(() => {
     fetch("/api/wards")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { wards?: WardLog[]; reviewTrackConfig?: ReviewTrackConfig } | null) => {
-        if (data) {
-          setWards(data.wards ?? []);
-          if (data.reviewTrackConfig) setReviewTrackConfig(parseReviewTrackConfig(data.reviewTrackConfig));
-        }
-      })
+      .then(
+        (
+          data: {
+            wards?: WardLog[];
+            reviewTrackConfig?: ReviewTrackConfig;
+            stage?: string | null;
+            unit?: WardUnit;
+          } | null,
+        ) => {
+          if (data) {
+            setWards(data.wards ?? []);
+            if (data.reviewTrackConfig) setReviewTrackConfig(parseReviewTrackConfig(data.reviewTrackConfig));
+            // بلا فئة (stage=null) لا وحدة عرض — نص الوارد كما هو (SC-005)
+            setUnit(data.stage ? (data.unit ?? null) : null);
+          }
+        },
+      )
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -300,6 +333,10 @@ export default function InboxPage() {
                 </p>
               )}
 
+              {(ward.recordedVia === "teacher" || ward.recordedVia === "queue") && (
+                <p className="mt-1 text-xs text-accent-ink">{RECORDED_VIA_LABEL[ward.recordedVia]}</p>
+              )}
+
               {ward.buddy && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   🤝 مع: {ward.buddy.name} ({BUDDY_STATUS_LABEL[ward.buddy.status]})
@@ -307,9 +344,9 @@ export default function InboxPage() {
               )}
 
               <div className="mt-2 space-y-0.5 text-sm text-muted-foreground">
-                {rangeText(ward.hifz, ward.hifzAyah) && <p>حفظ: {rangeText(ward.hifz, ward.hifzAyah)}</p>}
-                {reviewTextWithTracks(ward, reviewRangeText(ward), reviewTrackConfig) && (
-                  <p>مراجعة: {reviewTextWithTracks(ward, reviewRangeText(ward), reviewTrackConfig)}</p>
+                {rangeText(ward.hifz, ward.hifzAyah, unit) && <p>حفظ: {rangeText(ward.hifz, ward.hifzAyah, unit)}</p>}
+                {reviewTextWithTracks(ward, reviewRangeText(ward, unit), reviewTrackConfig) && (
+                  <p>مراجعة: {reviewTextWithTracks(ward, reviewRangeText(ward, unit), reviewTrackConfig)}</p>
                 )}
                 {ward.note && <p className="text-foreground">«{ward.note}»</p>}
                 {ward.status === "needs_revision" && ward.reviewNote && (
@@ -406,50 +443,66 @@ export default function InboxPage() {
                       </div>
                     </div>
                   )}
-
-                  {revisionOpenId === ward.id && (
-                    <div className="space-y-1 rounded-md border border-border bg-surface p-3">
-                      <label className="block text-xs text-muted-foreground">
-                        سبب طلب الإعادة (إلزامي)
-                        <textarea
-                          value={revisionNote}
-                          onChange={(e) => setRevisionNote(e.target.value.slice(0, REVISION_NOTE_MAX))}
-                          maxLength={REVISION_NOTE_MAX}
-                          rows={2}
-                          placeholder="مثال: راجع صفحة ٤٥ مرة أخرى، فيها تعثّر واضح"
-                          className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                        />
-                      </label>
-                      <div className="flex items-center justify-between">
-                        <span className="tabular text-xs text-muted-foreground">
-                          {revisionNote.length}/{REVISION_NOTE_MAX}
-                        </span>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            onClick={closeRevisionForm}
-                            className="text-xs"
-                            disabled={revisionBusy}
-                          >
-                            إلغاء
-                          </Button>
-                          <Button
-                            onClick={() => submitRevision(ward.id)}
-                            className="text-xs"
-                            disabled={revisionBusy || !revisionNote.trim()}
-                          >
-                            {revisionBusy ? "يُرسل…" : "إرسال طلب الإعادة"}
-                          </Button>
-                        </div>
-                      </div>
-                      {revisionError && <p className="text-xs text-destructive">{revisionError}</p>}
-                    </div>
-                  )}
                 </div>
               )}
-            </Card>
-          ))}
-        </ul>
+
+              {/* 001 T037: كل ورد معتمد يبقى قابلاً لـ«طلب إعادة» بملاحظة
+                  (FR-009، قرار المالك Q1 ب) — أيّاً كان مسجِّله */}
+              {ward.status === "approved" && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() =>
+                      revisionOpenId === ward.id ? closeRevisionForm() : openRevisionForm(ward.id)
+                    }
+                    className="text-xs"
+                  >
+                    طلب إعادة
+                  </Button>
+                </div>
+              )}
+
+              {revisionOpenId === ward.id && (
+                <div className="space-y-1 rounded-md border border-border bg-surface p-3">
+                  <label className="block text-xs text-muted-foreground">
+                    سبب طلب الإعادة (إلزامي)
+                    <textarea
+                      value={revisionNote}
+                      onChange={(e) => setRevisionNote(e.target.value.slice(0, REVISION_NOTE_MAX))}
+                      maxLength={REVISION_NOTE_MAX}
+                      rows={2}
+                      placeholder="مثال: راجع صفحة ٤٥ مرة أخرى، فيها تعثّر واضح"
+                      className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    />
+                  </label>
+                  <div className="flex items-center justify-between">
+                    <span className="tabular text-xs text-muted-foreground">
+                      {revisionNote.length}/{REVISION_NOTE_MAX}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={closeRevisionForm}
+                        className="text-xs"
+                        disabled={revisionBusy}
+                      >
+                        إلغاء
+                      </Button>
+                      <Button
+                        onClick={() => submitRevision(ward.id)}
+                        className="text-xs"
+                        disabled={revisionBusy || !revisionNote.trim()}
+                      >
+                        {revisionBusy ? "يُرسل…" : "إرسال طلب الإعادة"}
+                      </Button>
+                    </div>
+                  </div>
+                  {revisionError && <p className="text-xs text-destructive">{revisionError}</p>}
+                </div>
+              )}
+                </Card>
+              ))}
+            </ul>
       )}
     </div>
   );
