@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   isDevConsoleRequest: vi.fn(),
   currentImpersonation: vi.fn(),
   devOverview: vi.fn(),
+  devCharts: vi.fn(),
   searchDevUsers: vi.fn(),
   devHealth: vi.fn(),
   listRecentServerErrors: vi.fn(),
@@ -35,6 +36,7 @@ vi.mock("@/lib/dev-db", () => ({
   searchDevUsers: mocks.searchDevUsers,
   devHealth: mocks.devHealth,
 }));
+vi.mock("@/lib/dashboard-charts-db", () => ({ devCharts: mocks.devCharts }));
 vi.mock("@/lib/dev-error-log", () => ({ listRecentServerErrors: mocks.listRecentServerErrors }));
 vi.mock("@/lib/dev-audit", () => ({ listDevAudit: mocks.listDevAudit }));
 
@@ -111,11 +113,20 @@ describe("حماية مسارات اللوحة", () => {
       dbSize: "10 MB",
       deploy: { commitSha: null, commitMessage: null },
     });
+    // رسوم الاتجاه (مواصفة 003) — تُضمَّن إضافياً فوق عدّادات النظرة العامة
+    mocks.devCharts.mockResolvedValue({
+      wardsDaily: [],
+      newStudentsWeekly: [],
+      topMosques: [],
+      registrations: [],
+    });
     mocks.searchDevUsers.mockResolvedValue([]);
 
     const overview = await overviewGET();
     expect(overview.status).toBe(200);
-    expect(((await overview.json()) as { counts: { mosques: number } }).counts.mosques).toBe(1);
+    const body = (await overview.json()) as { counts: { mosques: number }; charts: { registrations: unknown[] } };
+    expect(body.counts.mosques).toBe(1);
+    expect(body.charts).toEqual({ wardsDaily: [], newStudentsWeekly: [], topMosques: [], registrations: [] });
 
     const users = await usersGET(new Request("http://localhost/api/dev/users?q=ab"));
     expect(users.status).toBe(200);

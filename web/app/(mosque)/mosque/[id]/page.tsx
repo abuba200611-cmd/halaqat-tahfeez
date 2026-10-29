@@ -10,6 +10,8 @@ import { AgentChatPanel } from "@/components/mosque/agent-chat";
 import { BookIcon, LinkIcon, ShieldIcon, TrendUpIcon, UsersIcon } from "@/components/mosque/icons";
 
 import { BackButton } from "@/components/back-button";
+import { MosqueChartsSection } from "@/components/mosque/mosque-charts";
+import type { MosqueCharts } from "@/lib/dashboard-charts-db";
 type Mosque = { id: number; name: string; city: string };
 type Halaqah = { id: number; halaqahName: string; teacherName: string; inviteCode: string };
 type Pending = {
@@ -563,6 +565,7 @@ type Stats = {
     teacherName: string;
     stats: { activeStudents: number; totalPages: number; avgPages: number; avgMastery: number } | null;
   }[];
+  charts?: MosqueCharts;
 };
 
 /** يفتح نموذج «إضافة يدوية» للحلقات وينزل إليه — زر الخطوة التالية بحالة الفراغ */
@@ -631,6 +634,8 @@ function MosqueStatsSection({ mosqueId }: { mosqueId: number }) {
           تعذّر جلب إحصائيات {stats.unreachableCount} حلقة مؤقتاً — الإجمالي أعلاه يستثنيها.
         </p>
       )}
+
+      {stats.charts && <MosqueChartsSection charts={stats.charts} />}
 
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[32rem] text-right text-sm">

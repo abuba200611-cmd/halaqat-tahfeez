@@ -18,6 +18,8 @@ import { juzLabel, juzToPages } from "@/lib/quran";
 import { avgMastery, computeStudentStats, masteredCount } from "@/lib/students-stats";
 import { StudentsPanels } from "@/components/students-dashboard/panels";
 import { Chip, softCardClass } from "@/components/students-dashboard/panel";
+import { AreaChart, Panel } from "@/components/charts";
+import type { DailyPoint } from "@/lib/chart-series";
 import { useStudents } from "@/lib/store";
 import type { AttendanceSummary } from "@/lib/attendance";
 import { STATUS_LABELS, type FeeStatus } from "@/lib/fees";
@@ -48,6 +50,8 @@ export default function StudentsPage() {
   const [canUnlinkParents, setCanUnlinkParents] = useState(false);
   const [parentsFor, setParentsFor] = useState<Student | null>(null);
   const [attendance, setAttendance] = useState<Record<string, AttendanceSummary>>({});
+  // أوراد الحلقة اليومية (مواصفة 003) — سلسلة الرسم المساحي أعلى اللوحات
+  const [wardsDaily, setWardsDaily] = useState<DailyPoint[]>([]);
   // حالة رسوم آخر فترة (قراءة فقط) — تظهر الخانة فقط إن فُعّلت الميزة لجامع الحلقة
   const [importEnabled, setImportEnabled] = useState(false);
   const [fees, setFees] = useState<Record<string, { status: FeeStatus; periodLabel: string }> | null>(null);
@@ -82,9 +86,17 @@ export default function StudentsPage() {
     let cancelled = false;
     fetch("/api/attendance/summary")
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { summaries?: Record<string, AttendanceSummary> } | null) => {
-        if (!cancelled && data?.summaries) setAttendance(data.summaries);
-      })
+      .then(
+        (
+          data:
+            | { summaries?: Record<string, AttendanceSummary>; wardsDaily?: DailyPoint[] }
+            | null,
+        ) => {
+          if (cancelled) return;
+          if (data?.summaries) setAttendance(data.summaries);
+          if (data?.wardsDaily) setWardsDaily(data.wardsDaily);
+        },
+      )
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -173,6 +185,7 @@ export default function StudentsPage() {
     () => Object.values(attendance).reduce((sum, s) => sum + s.absent, 0),
     [attendance],
   );
+  const wardsTotal = useMemo(() => wardsDaily.reduce((sum, p) => sum + p.value, 0), [wardsDaily]);
 
   if (loading) {
     return <Empty title="جارٍ تحميل الطلاب…" />;
@@ -232,6 +245,13 @@ export default function StudentsPage() {
           <StatCard icon={<ClipboardIcon size={20} />} label="رسوم مستحقة" value={stats.feesOutstanding} />
         )}
       </div>
+
+      <Panel title="أوراد الحلقة اليومية (٣٠ يوماً)">
+        <AreaChart
+          points={wardsDaily}
+          ariaLabel={`أوراد الحلقة يومياً خلال آخر ٣٠ يوماً، الإجمالي ${wardsTotal} ورداً`}
+        />
+      </Panel>
 
       <StudentsPanels students={students} attendance={attendance} fees={fees} avgAttendance={stats.avgAttendance} />
 
