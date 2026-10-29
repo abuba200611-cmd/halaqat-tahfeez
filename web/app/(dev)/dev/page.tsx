@@ -56,6 +56,9 @@ export default function DevOverviewPage() {
         <p className="text-sm text-muted-foreground">أرقام المنصة الآن — قاعدة البيانات {data.dbName}</p>
       </div>
 
+      {/* الرسوم أولاً ثم الأرقام — طلب المالك: الأرقام تنزل تحت كل الرسوم */}
+      {data.charts && <DevChartsSection charts={data.charts} />}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(([label, value]) => (
           <Card key={label} className="px-4 py-3">
@@ -64,8 +67,6 @@ export default function DevOverviewPage() {
           </Card>
         ))}
       </div>
-
-      {data.charts && <DevChartsSection charts={data.charts} />}
 
       <Card className="p-4">
         <h2 className="mb-2 text-sm font-semibold">آخر نشر</h2>

@@ -17,9 +17,13 @@ import {
   StarIcon,
   UsersIcon,
 } from "@/components/icons";
+import { AreaChart, BarChart, Chip, Donut, Panel, PanelEmpty, TONES, type Tone } from "@/components/charts";
+import type { DailyPoint } from "@/lib/chart-series";
+import { attendanceTotals, masteryDistribution, type MasteryBucketKey } from "@/lib/students-stats";
 import { useStudents } from "@/lib/store";
 import type { SavedScheduleInfo, SavedScheduleRecord } from "@/lib/schedule";
-import type { WardLog } from "@/lib/types";
+import type { AttendanceSummary } from "@/lib/attendance";
+import type { Student, WardLog } from "@/lib/types";
 
 /* ————— لوحة ألوان الصفحة — كل القيم من رموز الهوية في globals.css ما عدا
    الهيرو الأسود: سطح أسود دائم بنص أبيض في الوضعين (كالقوائم الجانبية) ————— */
@@ -116,28 +120,34 @@ function useCountUp(target: number, durationMs = 600): number {
 
 type Teacher = { teacherName: string; halaqahName: string };
 
-/** يجمع بيانات لوحة المعلّم من ثلاثة مسارات قائمة أصلاً (me/wards/schedules) — بلا أي endpoint جديد */
+/** يجمع بيانات لوحة المعلّم من أربعة مسارات قائمة أصلاً (me/wards/schedules/attendance-summary) — بلا أي endpoint جديد */
 function useDashboardData() {
   const [teacher, setTeacher] = useState<Teacher | null>(null);
   const [wards, setWards] = useState<WardLog[] | null>(null);
   const [newCount, setNewCount] = useState(0);
   const [scheduleDays, setScheduleDays] = useState<SavedScheduleRecord["schedule"]["days"] | null>(null);
+  // ملخصات الحضور والأوراد اليومية (مواصفة 003) — سلاسل رسوم اللوحة
+  const [attendance, setAttendance] = useState<Record<string, AttendanceSummary>>({});
+  const [wardsDaily, setWardsDaily] = useState<DailyPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      const [meRes, wardsRes, schedulesRes] = await Promise.all([
+      const [meRes, wardsRes, schedulesRes, summaryRes] = await Promise.all([
         fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch("/api/wards").then((r) => (r.ok ? r.json() : null)).catch(() => null),
         fetch("/api/schedules").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        fetch("/api/attendance/summary").then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]);
       if (cancelled) return;
 
       if (meRes?.teacher) setTeacher(meRes.teacher);
       setWards((wardsRes?.wards as WardLog[]) ?? []);
       setNewCount((wardsRes?.newCount as number) ?? 0);
+      setAttendance((summaryRes?.summaries as Record<string, AttendanceSummary>) ?? {});
+      setWardsDaily((summaryRes?.wardsDaily as DailyPoint[]) ?? []);
 
       // الجدول المحفوظ لشهرنا الحالي فقط — إن وُجد، نجلب محتواه الكامل (نداء ثانٍ لنفس /api/schedules)
       const now = todayUTC();
@@ -161,12 +171,12 @@ function useDashboardData() {
     };
   }, []);
 
-  return { teacher, wards, newCount, scheduleDays, loading };
+  return { teacher, wards, newCount, scheduleDays, attendance, wardsDaily, loading };
 }
 
 export default function DashboardPage() {
   const { students, loading: studentsLoading, clear } = useStudents();
-  const { teacher, wards, newCount, scheduleDays, loading: dataLoading } = useDashboardData();
+  const { teacher, wards, newCount, scheduleDays, attendance, wardsDaily, loading: dataLoading } = useDashboardData();
   const active = students.filter((s) => s.active);
   const hasStudents = students.length > 0;
 
@@ -190,10 +200,6 @@ export default function DashboardPage() {
 
     const activeDates = new Set(list.map((w) => w.date));
     const streak = computeStreak(activeDates);
-
-    const participatingThisWeek = new Set(list.filter((w) => thisWeek.has(w.date)).map((w) => w.studentId));
-    const participationPct =
-      active.length > 0 ? Math.round((participatingThisWeek.size / active.length) * 100) : null;
 
     const sessionsInWeek = (dates: Set<string>) =>
       scheduleDays ? scheduleDays.filter((d) => dates.has(d.date)).length : null;
@@ -226,14 +232,13 @@ export default function DashboardPage() {
       pagesThisWeek,
       pagesDelta: wards ? pagesThisWeek - pagesLastWeek : null,
       streak,
-      participationPct,
       sessionsThisWeek,
       sessionsDelta: sessionsThisWeek !== null && sessionsLastWeek !== null ? sessionsThisWeek - sessionsLastWeek : null,
       starsOfWeek,
       todaySession,
       nextSession,
     };
-  }, [wards, scheduleDays, active.length]);
+  }, [wards, scheduleDays]);
 
   if (loading) return <DashboardSkeleton />;
 
@@ -246,13 +251,10 @@ export default function DashboardPage() {
         <OnboardingBanner />
       )}
 
-      <Hero
-        teacherName={teacher?.teacherName}
-        studentCount={active.length}
-        pagesThisWeek={stats.pagesThisWeek}
-        sessionsThisWeek={stats.sessionsThisWeek}
-        participationPct={stats.participationPct}
-      />
+      <Hero teacherName={teacher?.teacherName} />
+
+      {/* رسوم اللوحة (مواصفة 003) — قبل بطاقات الأرقام مباشرةً تحت الهيرو */}
+      <DashboardCharts students={students} attendance={attendance} wardsDaily={wardsDaily} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
@@ -367,21 +369,9 @@ export function OnboardingBanner() {
   );
 }
 
-/* ————— بطاقة الترحيب (Hero) ————— */
+/* ————— بطاقة الترحيب (Hero) — الترحيب والتواريخ والآية فقط؛ الأرقام صارت بالبطاقات والرسوم أدناه ————— */
 
-export function Hero({
-  teacherName,
-  studentCount,
-  pagesThisWeek,
-  sessionsThisWeek,
-  participationPct,
-}: {
-  teacherName?: string;
-  studentCount: number;
-  pagesThisWeek: number;
-  sessionsThisWeek: number | null;
-  participationPct: number | null;
-}) {
+export function Hero({ teacherName }: { teacherName?: string }) {
   const gregorian = new Intl.DateTimeFormat("ar", { day: "numeric", month: "long", year: "numeric", weekday: "long" }).format(
     new Date(),
   );
@@ -390,17 +380,6 @@ export function Hero({
     month: "long",
     year: "numeric",
   }).format(new Date());
-
-  const chips: { label: string; value: string; icon: React.ReactNode }[] = [
-    { label: "الطلاب", value: studentCount.toLocaleString("en"), icon: <UsersIcon size={16} /> },
-    { label: "صفحات الأسبوع", value: pagesThisWeek.toLocaleString("en"), icon: <BookIcon size={16} /> },
-    {
-      label: "الحلقات هذا الأسبوع",
-      value: sessionsThisWeek === null ? "—" : sessionsThisWeek.toLocaleString("en"),
-      icon: <CalendarIcon size={16} />,
-    },
-    { label: "نشاط الأسبوع", value: participationPct === null ? "—" : `${participationPct}٪`, icon: <ChartIcon size={16} /> },
-  ];
 
   return (
     <div
@@ -417,16 +396,92 @@ export function Hero({
         </div>
         <p className="mt-1 text-sm text-white/85">{hijri}</p>
         <p className="mt-3 font-naskh text-sm italic text-white/80">«خيركم من تعلّم القرآن وعلّمه»</p>
+      </div>
+    </div>
+  );
+}
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {chips.map((chip) => (
-            <div key={chip.label} className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
-              <div className="flex items-center gap-1.5 text-white/70">{chip.icon}</div>
-              <div className="tabular mt-1 text-xl font-bold">{chip.value}</div>
-              <div className="mt-0.5 text-xs text-white/75">{chip.label}</div>
-            </div>
-          ))}
-        </div>
+/* ————— رسوم اللوحة (مواصفة 003) — نفس مكوّنات صفحة الطلاب المشتركة ومسارها الجاهز ————— */
+
+/** ألوان شرائح الإتقان — نفس خريطة لوحة الطلاب في students-dashboard/panels */
+const MASTERY_TONES: Record<MasteryBucketKey, Tone> = {
+  excellent: TONES.success,
+  veryGood: TONES.accent100,
+  good: TONES.accent70,
+  needsFollowUp: TONES.destructive,
+};
+
+/** المساحي بعرض كامل ثم الإتقان والحضور جنباً إلى جنب من lg، عموديان على الجوّال */
+export function DashboardCharts({
+  students,
+  attendance,
+  wardsDaily,
+}: {
+  students: Student[];
+  attendance: Record<string, AttendanceSummary>;
+  wardsDaily: DailyPoint[];
+}) {
+  const wardsTotal = wardsDaily.reduce((sum, p) => sum + p.value, 0);
+  const mastery = masteryDistribution(students);
+  const totals = attendanceTotals(attendance);
+  const totalMarks = totals.present + totals.late + totals.excused + totals.absent;
+  // متوسط الحضور كما في صفحة الطلاب: متوسط presentPct لمن له ملخص (٣٠ يوماً)
+  const pcts = Object.values(attendance)
+    .map((s) => s.presentPct)
+    .filter((p): p is number => p != null);
+  const avgAttendance = pcts.length > 0 ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null;
+
+  return (
+    <div className="space-y-4">
+      <Panel title="أوراد الحلقة اليومية (٣٠ يوماً)">
+        <AreaChart
+          points={wardsDaily}
+          ariaLabel={`أوراد الحلقة يومياً خلال آخر ٣٠ يوماً، الإجمالي ${wardsTotal} ورداً`}
+        />
+      </Panel>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title="توزيع الإتقان">
+          <Donut
+            total={mastery.total}
+            centerLabel="طالب"
+            ariaLabel={`توزيع الإتقان: ${mastery.buckets.map((b) => `${b.label} ${b.count}`).join("، ")}`}
+            slices={mastery.buckets.map((b) => ({
+              label: b.label,
+              value: b.count,
+              pct: b.pct,
+              tone: MASTERY_TONES[b.key],
+            }))}
+          />
+        </Panel>
+
+        <Panel title="الحضور (٣٠ يوماً)">
+          {totalMarks === 0 ? (
+            <PanelEmpty />
+          ) : (
+            <>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="tabular text-2xl font-semibold text-foreground">
+                  {avgAttendance === null ? "—" : `${avgAttendance}٪`}
+                </span>
+                {avgAttendance !== null && (
+                  <Chip tone={avgAttendance >= 75 ? "success" : "neutral"} arrow={avgAttendance >= 75 ? "up" : undefined}>
+                    متوسط الحضور
+                  </Chip>
+                )}
+              </div>
+              <BarChart
+                ariaLabel={`الحضور خلال ٣٠ يوماً: حاضر ${totals.present}، متأخر ${totals.late}، مستأذن ${totals.excused}، غائب ${totals.absent}`}
+                bars={[
+                  { label: "حاضر", value: totals.present, tone: TONES.success },
+                  { label: "متأخر", value: totals.late, tone: TONES.accent100 },
+                  { label: "مستأذن", value: totals.excused, tone: TONES.accent45 },
+                  { label: "غائب", value: totals.absent, tone: TONES.destructive },
+                ]}
+              />
+            </>
+          )}
+        </Panel>
       </div>
     </div>
   );
@@ -699,9 +754,15 @@ function SkeletonBlock({ className = "" }: { className?: string }) {
 }
 
 function DashboardSkeleton() {
+  // يطابق ترتيب اللوحة: الهيرو، الرسم المساحي، لوحتا الإتقان والحضور، البطاقات، الإجراءات
   return (
     <div className="space-y-6">
-      <SkeletonBlock className="h-48" />
+      <SkeletonBlock className="h-36" />
+      <SkeletonBlock className="h-64" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SkeletonBlock className="h-48" />
+        <SkeletonBlock className="h-48" />
+      </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <SkeletonBlock key={i} className="h-28" />
